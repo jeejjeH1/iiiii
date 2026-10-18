@@ -238,16 +238,6 @@ const fireflies = (() => {
 })();
 scene.add(fireflies);
 
-// sparks kicked up behind a belly slide
-const SPARKS = 48;
-const sparkGeo = new THREE.BufferGeometry();
-sparkGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SPARKS * 3), 3));
-const sparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ color: new THREE.Color(C.trust).multiplyScalar(2.4), size: 0.12, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
-sparks.frustumCulled = false;
-const sparkData = Array.from({ length: SPARKS }, () => ({ t: -9, x: 0, s: 0, vx: 0, vy: 0 }));
-let sparkNext = 0;
-scene.add(sparks);
-
 // ---------------------------------------------------------------- canvas textures
 function canvasTex(w, h, draw) {
   const c = document.createElement('canvas'); c.width = w; c.height = h;
@@ -521,18 +511,10 @@ function move(dir) {
 function jump() {
   if (G.y <= 0.001 && G.vy === 0) { G.vy = 10.6; G.slide = 0; sound.sfx('jump'); }
 }
-const SLIDE = 0.72;
 function slide() {
   if (G.y > 0.05) G.vy = -18; // fast fall, slide on landing
-  if (G.slide < SLIDE - 0.15) G.slide = SLIDE;
+  G.slide = 0.62;
   sound.sfx('slide');
-}
-// 0..1: how far into the belly slide the cat is (dives in 0.12 s, gets up over the last 0.14 s)
-function slideTilt() {
-  if (G.slide <= 0 || G.y > 0.6) return 0;
-  const t = SLIDE - G.slide;
-  const k = Math.min(t / 0.12, G.slide / 0.14, 1);
-  return k * k * (3 - 2 * k);
 }
 window.addEventListener('keydown', (e) => {
   const k = e.code;
@@ -777,7 +759,7 @@ function step(dt) {
         continue;
       }
       if (dx > 0.95) continue; // forgiving while switching lanes
-      const clear = e.kind === 'low' ? G.y > 0.95 : e.kind === 'high' ? slideTilt() > 0.5 : false;
+      const clear = e.kind === 'low' ? G.y > 0.95 : e.kind === 'high' ? G.slide > 0 && G.y < 0.6 : false;
       if (!clear) { e.done = true; hit(e); if (G.mode !== 'run') break; }
     }
     // retire passed entities
@@ -802,10 +784,8 @@ function animateCat(dt) {
   let pose = P.rest;
   if (G.mode === 'menu' || G.mode === 'loading') pose = cat.mixPose(P.rest, P.hero, 1);
   if (G.y > 0.05) pose = cat.mixPose(pose, P.cheer, 0.45);
-  const tilt = slideTilt();
-  if (tilt > 0) pose = cat.mixPose(pose, P.cheer, tilt * 0.9); // arms reach ahead while diving
   cat.applyPose(pose);
-  const amp = (running ? 1 : G.mode === 'dying' ? 0.2 : 0) * (1 - tilt);
+  const amp = running ? 1 : G.mode === 'dying' ? 0.2 : 0;
   G.phase += dt * (G.speed * 0.42 + (running ? 0 : 2.4));
   const sw = Math.sin(G.phase) * amp;
   const air = G.y > 0.05 ? 1 : 0;
@@ -814,34 +794,32 @@ function animateCat(dt) {
   addRot(J.arms.L.sh, -sw * 0.7, 0, 0);
   if (G.mode !== 'menu') addRot(J.arms.R.sh, sw * 0.7, 0, 0);
   J.hips.position.y += Math.abs(Math.cos(G.phase)) * 0.09 * amp * (1 - air);
-  // belly slide: legs stretch back and kick a little, head lifts to look down the track
-  addRot(J.legs.L, -0.35 * tilt + 0.12 * tilt * Math.sin(G.time * 18), 0, 0.12 * tilt);
-  addRot(J.legs.R, -0.35 * tilt - 0.12 * tilt * Math.sin(G.time * 18), 0, -0.12 * tilt);
-  addRot(J.torso, 0.13 * amp, -sw * 0.06, G.roll * 0.12);
-  addRot(J.neck, -0.12 * amp - 0.42 * tilt + (G.mode === 'menu' ? 0.04 * Math.sin(G.time * 1.3) : 0), 0, G.mode === 'menu' ? 0.06 * Math.sin(G.time * 0.9) : 0);
+  const sl = G.slide > 0 && G.y < 0.6 ? 1 : 0;
+  addRot(J.torso, 0.13 * amp + 0.45 * sl, -sw * 0.06, G.roll * 0.12);
+  addRot(J.neck, -0.12 * amp - 0.3 * sl + (G.mode === 'menu' ? 0.04 * Math.sin(G.time * 1.3) : 0), 0, G.mode === 'menu' ? 0.06 * Math.sin(G.time * 0.9) : 0);
   const tw = Math.max(0, Math.sin(G.time * 7)) * (Math.sin(G.time * 0.6) > 0.92 ? 1 : 0);
   addRot(J.ears.L, -0.25 * tw, 0, 0.15 * tw); addRot(J.ears.R, -0.25 * tw, 0, -0.15 * tw);
   cat.tail((p, u) => {
     const w = u * u;
     p.x += Math.sin(G.time * (running ? 9 : 2) + u * 4) * 0.18 * w;
-    p.y += Math.sin(G.time * (running ? 7 : 1.6) + u * 3) * 0.1 * w + (running ? 0.25 * w : 0) + tilt * 0.5 * w;
+    p.y += Math.sin(G.time * (running ? 7 : 1.6) + u * 3) * 0.1 * w + (running ? 0.25 * w : 0);
     p.z -= running ? 0.35 * w : 0;
     return p;
   });
   // root: lane position, jump height, slide squash, lean into lane changes, hit blink
   let tumble = 0;
   if (G.mode === 'dying') tumble = Math.min(1, G.dieT / 0.6);
-  const lift = 0.36 * tilt; // keeps the visor off the floor while lying on the belly
-  cat.root.position.set(G.x, G.y + lift + (G.mode === 'dying' ? Math.sin(Math.min(1, G.dieT / 0.6) * Math.PI) * 0.6 : 0), -G.dist);
-  cat.root.rotation.set(-tumble * 1.25 - tilt * 1.32, Math.PI + G.roll * -0.3, G.roll * 0.18 * (1 - tilt) - 0.42 * tilt);
-  cat.root.scale.setScalar(1);
+  cat.root.position.set(G.x, G.y + (G.mode === 'dying' ? Math.sin(Math.min(1, G.dieT / 0.6) * Math.PI) * 0.6 : 0), -G.dist);
+  cat.root.rotation.set(-tumble * 1.25, Math.PI + G.roll * -0.3, G.roll * 0.18);
+  const sq = sl ? 0.36 : 0;
+  cat.root.scale.set(1 + sq * 0.4, 1 - sq, 1 + sq * 0.3);
   cat.root.visible = !(G.invuln > 0 && G.mode === 'run' && Math.floor(G.time * 14) % 2 === 0);
   // visor
   const blink = (() => { const p = (G.time + 0.7) % 3.1; return p < 0.15 ? Math.sin((p / 0.15) * Math.PI) : 0; })();
   let st = { expr: 'angry', blink };
   if (G.mode === 'dying' || G.mode === 'over') st = { expr: 'sad', blink: 0 };
   else if (G.mood && G.time < G.moodUntil) st = { expr: G.mood, blink: 0, mouthOpen: G.mood === 'happy' ? 0.4 : 0 };
-  else if (G.y > 0.6 || tilt > 0.3) st = { expr: 'wide', blink: 0 };
+  else if (G.y > 0.6) st = { expr: 'wide', blink: 0 };
   setFace(st);
 }
 
@@ -850,22 +828,6 @@ function updateWorld() {
   const refS = s0 - 60; // field window: 60 m behind the runner (the menu looks back) to 160 m ahead
   grassU.uTime.value = G.time; grassU.uRefS.value = refS;
   flyU.uTime.value = G.time; flyU.uRefS.value = refS; flyU.uScale.value = renderer.domElement.height * 0.5;
-  // sparks: emit while sliding, then drift back and fade
-  const tilt = slideTilt();
-  if (tilt > 0.6 && G.mode === 'run' && G.time >= sparkNext) {
-    for (let k = 0; k < 3; k++) {
-      const d = sparkData.find((p) => G.time - p.t > 0.5) || sparkData[0];
-      Object.assign(d, { t: G.time, x: G.x + (Math.random() - 0.5) * 0.9, s: s0 - 0.6, vx: (Math.random() - 0.5) * 2, vy: 1 + Math.random() * 2.2 });
-    }
-    sparkNext = G.time + 0.03;
-  }
-  const sp = sparkGeo.attributes.position.array;
-  sparkData.forEach((p, i) => {
-    const u = G.time - p.t;
-    if (u > 0.5) { sp[i * 3 + 1] = -50; return; }
-    sp[i * 3] = p.x + p.vx * u; sp[i * 3 + 1] = 0.1 + p.vy * u - 6 * u * u; sp[i * 3 + 2] = -(p.s - 3 * u);
-  });
-  sparkGeo.attributes.position.needsUpdate = true;
   // shards spin; fakes glitch
   for (const e of ents) {
     if (e.kind !== 'shard') continue;
@@ -892,10 +854,6 @@ function updateCamera(dt) {
   // portrait screens sit higher and further back so the track ahead stays visible over the cat
   const chaseP = wide ? V(G.x * 0.55, 4.0 + G.y * 0.35, -G.dist + 8.4) : V(G.x * 0.45, 5.8 + G.y * 0.3, -G.dist + 11.5);
   const chaseL = wide ? V(G.x * 0.75, 1.9 + G.y * 0.3, -G.dist - 9) : V(G.x * 0.6, 1.0 + G.y * 0.25, -G.dist - 12);
-  // during a belly slide the camera dips and swings a little so the dive reads in profile
-  const st = slideTilt();
-  G.camSlide = (G.camSlide || 0) + (st - (G.camSlide || 0)) * Math.min(1, dt * 7);
-  chaseP.x += 2.4 * G.camSlide; chaseP.y -= 1.5 * G.camSlide; chaseP.z -= 1.2 * G.camSlide; chaseL.y -= 0.7 * G.camSlide;
   const frontP = wide ? V(G.x - 0.2, 2.35, -G.dist - 9.2) : V(G.x, 2.6, -G.dist - 11.5);
   const frontL = wide ? V(G.x + 2.4, 2.0, -G.dist) : V(G.x, 0.9, -G.dist);
   const p = frontP.lerp(chaseP, u), l = frontL.lerp(chaseL, u);
@@ -1066,7 +1024,7 @@ async function boot() {
       }
     };
     window.__tr = {
-      G, ents, startRun, move, jump, slide, hitLog, claimLog, spawn, slideTilt,
+      G, ents, startRun, move, jump, slide, hitLog, claimLog, spawn,
       tick(seconds, fps = 30, skill = -1) { for (let i = 0; i < seconds * fps; i++) { const dt = 1 / fps; if (skill >= 0) pilot(skill); if (G.mode !== 'paused') step(dt); animateCat(dt); updateWorld(); updateCamera(dt); } updateHUD(); render(); },
       shot() { return canvas.toDataURL('image/jpeg', 0.85); },
     };
