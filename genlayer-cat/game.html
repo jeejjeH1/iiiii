@@ -136,6 +136,11 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
 .board .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .board .pts { font-family: var(--font-mono); font-weight: 600; }
 .board .note { color: var(--muted); font-size: 13px; margin: 0; }
+.credit { font-family: var(--font-mono); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: center; }
+.credit b { color: var(--fg); font-weight: 600; }
+.credit a { color: var(--pink); text-decoration: none; }
+.credit a:hover { text-decoration: underline; }
+.credit .who { user-select: text; -webkit-user-select: text; }
 .big-score { font-family: var(--font-display); font-weight: 900; font-size: clamp(48px, 9vw, 84px); line-height: 1; font-variant-numeric: tabular-nums; }
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; }
@@ -203,6 +208,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
       <span class="controls"><span><kbd>←</kbd><kbd>→</kbd> lanes</span><span><kbd>↑</kbd> jump</span><span><kbd>↓</kbd> slide</span><span>swipe on touch</span></span>
     </div>
     <div class="board" id="boardStart"></div>
+    <p class="credit"><span>Made by <b>0xMASTER82</b></span><span>X <a href="https://x.com/0xMASTER82" target="_blank" rel="noopener">@0xMASTER82</a></span><span>Discord <span class="who">yapmster</span></span></p>
   </div>
 </section>
 
@@ -235,6 +241,7 @@ kbd { font-family: var(--font-mono); font-size: 11px; border: 1px solid var(--li
     </div>
     <div class="share" id="shareBox" hidden><textarea id="shareText" rows="3" readonly aria-label="Score text"></textarea></div>
     <div class="board" id="boardOver"></div>
+    <p class="credit"><span>Made by <b>0xMASTER82</b></span><span>X <a href="https://x.com/0xMASTER82" target="_blank" rel="noopener">@0xMASTER82</a></span><span>Discord <span class="who">yapmster</span></span></p>
   </div>
 </section>
 
