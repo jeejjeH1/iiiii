@@ -1,0 +1,190 @@
+<title>Seismic Guardian</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a cinema stage first, transport controls under it, then the act list. One dark look, taken from the Seismic kit. */
+  :root {
+    --bg: #161616;          /* Black */
+    --surface: #1f1e1e;
+    --line: #282826;        /* Grey 800 */
+    --fg: #fcfcfc;          /* Grey 50 */
+    --muted: #a4a3a1;       /* Grey 400 */
+    --mauve: #825a6d;
+    --purple: #523542;
+    --glow: #d9a2bd;
+    --font-body: "Geist", "Helvetica Neue", Arial, sans-serif;
+    --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: dark;
+  }
+  html, body { background: var(--bg); color: var(--fg); }
+  body {
+    font-family: var(--font-body);
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 24px 40px;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; display: grid; gap: 18px; }
+  header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 8px 24px; }
+  h1 { font-weight: 400; font-size: clamp(26px, 4vw, 40px); letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+  header p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; max-width: 52ch; }
+
+  .stage { position: relative; width: 100%; aspect-ratio: 16 / 9; max-width: 100%; background: #000; container-type: inline-size; overflow: hidden; border-radius: 4px; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #caption {
+    position: absolute; left: 3.2cqw; bottom: 2.8cqw; font-family: var(--font-mono); font-size: 1.05cqw;
+    letter-spacing: 0.08em; text-transform: uppercase; color: #e8e8e8; opacity: 0;
+  }
+  #endcard { position: absolute; left: 7.2cqw; bottom: 9cqw; opacity: 0; display: grid; gap: 0.6cqw; }
+  #endcard .word { font-size: 6.2cqw; font-weight: 400; letter-spacing: -0.035em; line-height: 0.95; }
+  #endcard .tag { font-size: 1.45cqw; color: #d4d4d4; font-weight: 300; }
+  #endcard .url { font-family: var(--font-mono); font-size: 0.95cqw; letter-spacing: 0.08em; color: var(--glow); margin-top: 0.6cqw; }
+  .vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0,0,0,0.42) 100%); }
+  .hint { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; }
+
+  .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+  button {
+    font: 500 13px var(--font-body); color: var(--fg); background: var(--surface); border: 1px solid var(--line);
+    padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  }
+  button:hover { border-color: var(--mauve); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--glow); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--purple); border-color: var(--mauve); }
+  .seg { display: inline-flex; gap: 4px; }
+  .scrub { flex: 1 1 260px; min-width: 0; display: grid; gap: 6px; }
+  input[type=range] { width: 100%; accent-color: var(--mauve); }
+  .time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 9ch; }
+
+  .acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+  .act { background: var(--bg); padding: 14px 16px; text-align: left; border: 0; border-radius: 0; display: grid; gap: 6px; }
+  .act:hover { background: var(--surface); }
+  .act .t { font-family: var(--font-mono); font-size: 11px; color: var(--glow); letter-spacing: 0.06em; }
+  .act .n { font-size: 14px; font-weight: 500; }
+  .act .d { font-size: 13px; color: var(--muted); font-weight: 400; line-height: 1.45; }
+  .act.on { background: var(--surface); box-shadow: inset 0 2px 0 var(--mauve); }
+
+  body.render { padding: 0; background: #000; }
+  body.render .wrap { max-width: none; display: block; }
+  body.render header, body.render .controls, body.render .acts { display: none; }
+  body.render .stage { width: 1920px; height: 1080px; aspect-ratio: auto; border-radius: 0; }
+  @media (prefers-reduced-motion: reduce) { #endcard { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Seismic Guardian</h1>
+    <p>A 30-second 3D spot. The stone guardian takes in readable data, seals it in its chest and releases it as encrypted crystals that join the chain.</p>
+  </header>
+
+  <div class="stage" id="stage">
+    <canvas id="stage-canvas" width="1920" height="1080"></canvas>
+    <div class="vignette"></div>
+    <div id="caption"></div>
+    <div id="endcard">
+      <div class="word">Seismic</div>
+      <div class="tag">Your data stays yours. Guarded on-chain.</div>
+      <div class="url">seismic.systems</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="play" type="button" aria-pressed="false">Pause</button>
+    <div class="scrub">
+      <input id="scrub" type="range" min="0" max="30" step="0.01" value="0" aria-label="Timeline">
+    </div>
+    <span class="time" id="time">00.00 / 30.00</span>
+    <div class="seg" role="group" aria-label="Character colors">
+      <button id="pal-original" type="button" aria-pressed="true">Original colors</button>
+      <button id="pal-brand" type="button" aria-pressed="false">Brand colors</button>
+    </div>
+    <button id="sound" type="button" aria-pressed="false">Sound off</button>
+  </div>
+
+  <div class="acts" id="acts"></div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="timeline.js"></script>
+<script type="module">
+  import { renderAt, setPalette, DURATION } from './guardian.js';
+  const isRender = location.search.includes('render');
+  window.renderAt = renderAt;
+  window.setPalette = setPalette;
+  window.DURATION = DURATION;
+
+  if (isRender) {
+    document.body.classList.add('render');
+    renderAt(0);
+    window.guardianReady = true;
+  } else {
+    const NOTES = {
+      dormant: ['Dormant', 'Dust, fog, a silhouette. The eyes ignite and the guardian straightens up.'],
+      input: ['Plain data arrives', 'Balances, bids, votes and payroll float in, fully readable.'],
+      open: ['The guardian opens', 'The chest doors swing apart and the core pulls every input inside.'],
+      seal: ['Sealed', 'The doors slam shut and light runs up every facet edge.'],
+      state: ['Encrypted state', 'Crystals in the shape of the mark rise into the chain. Their labels never resolve.'],
+      guard: ['Standing guard', 'One stomp. A seismic ring rolls out and the chain answers.'],
+      end: ['End card', 'Hero pose from below, logo crystal, wordmark.'],
+    };
+    const actsEl = document.getElementById('acts');
+    const actBtns = TL.ACTS.map((a) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'act';
+      b.innerHTML = `<span class="t">${a.at.toFixed(1).padStart(4, '0')}s</span><span class="n">${NOTES[a.id][0]}</span><span class="d">${NOTES[a.id][1]}</span>`;
+      b.addEventListener('click', () => seek(a.at + 0.01));
+      actsEl.appendChild(b);
+      return b;
+    });
+
+    const audio = new Audio('soundtrack.mp3');
+    audio.preload = 'auto';
+    let soundOn = false, playing = true, t = 0, last = performance.now();
+    const playBtn = document.getElementById('play');
+    const scrub = document.getElementById('scrub');
+    const timeEl = document.getElementById('time');
+    const soundBtn = document.getElementById('sound');
+
+    function seek(v) { t = v; if (soundOn) { audio.currentTime = t; } }
+    scrub.addEventListener('input', () => seek(Number(scrub.value)));
+    playBtn.addEventListener('click', () => {
+      playing = !playing;
+      playBtn.textContent = playing ? 'Pause' : 'Play';
+      playBtn.setAttribute('aria-pressed', String(!playing));
+      if (soundOn) { if (playing) { audio.currentTime = t; audio.play().catch(() => {}); } else audio.pause(); }
+    });
+    soundBtn.addEventListener('click', () => {
+      soundOn = !soundOn;
+      soundBtn.textContent = soundOn ? 'Sound on' : 'Sound off';
+      soundBtn.setAttribute('aria-pressed', String(soundOn));
+      if (soundOn && playing) { audio.currentTime = t; audio.play().catch(() => {}); } else audio.pause();
+    });
+    for (const name of ['original', 'brand']) {
+      document.getElementById('pal-' + name).addEventListener('click', () => {
+        setPalette(name);
+        for (const n of ['original', 'brand']) document.getElementById('pal-' + n).setAttribute('aria-pressed', String(n === name));
+        if (!playing) renderAt(t);
+      });
+    }
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { playing = false; t = 26.5; playBtn.textContent = 'Play'; }
+
+    (function loop(now) {
+      const dt = Math.min(0.1, (now - last) / 1000); last = now;
+      if (playing) {
+        if (soundOn && !audio.paused) t = audio.currentTime; else t += dt;
+        if (t >= DURATION) { t = 0; if (soundOn) { audio.currentTime = 0; audio.play().catch(() => {}); } }
+      }
+      renderAt(t);
+      scrub.value = t;
+      timeEl.textContent = `${t.toFixed(2).padStart(5, '0')} / ${DURATION.toFixed(2)}`;
+      let cur = 0; TL.ACTS.forEach((a, i) => { if (t >= a.at) cur = i; });
+      actBtns.forEach((b, i) => b.classList.toggle('on', i === cur));
+      requestAnimationFrame(loop);
+    })(performance.now());
+  }
+</script>
