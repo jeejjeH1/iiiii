@@ -29,46 +29,66 @@ const InkShader = {
       float z = d * 2.0 - 1.0;
       return 2.0 * cameraNear * cameraFar / (cameraFar + cameraNear - z * (cameraFar - cameraNear));
     }
+    // 8 samples on the outer ring + 4 diagonals at half radius
+    const vec2 OFF[12] = vec2[12](
+      vec2(1.0, 0.0), vec2(0.7071, 0.7071), vec2(0.0, 1.0), vec2(-0.7071, 0.7071),
+      vec2(-1.0, 0.0), vec2(-0.7071, -0.7071), vec2(0.0, -1.0), vec2(0.7071, -0.7071),
+      vec2(0.3536, 0.3536), vec2(-0.3536, 0.3536), vec2(-0.3536, -0.3536), vec2(0.3536, -0.3536));
     void main(){
       vec4 base = texture2D(tDiffuse, vUv);
       vec4 c = texture2D(tId, vUv);
       float idc = floor(c.a * 255.0 + 0.5);
-      float flagC = c.b > 0.999 ? 1.0 : 0.0; // reserved
       vec3 nc = c.rgb * 2.0 - 1.0;
-      float dc = lin(vUv);
+      float dc = idc > 0.5 ? lin(vUv) : 0.0;
       float acc = 0.0;
-      const int N = 16;
-      for (int ring = 0; ring < 2; ring++) {
-        float rad = width * (ring == 0 ? 1.0 : 0.55);
-        for (int i = 0; i < N; i++) {
-          float a = 6.2831853 * (float(i) + 0.5 * float(ring)) / float(N);
-          vec2 uv = vUv + vec2(cos(a), sin(a)) * rad / res;
-          vec4 s = texture2D(tId, uv);
-          float ids = floor(s.a * 255.0 + 0.5);
-          float e = 0.0;
-          if (ids != idc) {
-            e = 1.0;
-          } else if (idc > 0.5) {
-            vec3 ns = s.rgb * 2.0 - 1.0;
-            if (dot(ns, nc) < creaseCos) e = 1.0;
-            float ds = lin(uv);
-            if (abs(ds - dc) > depthRel * min(ds, dc)) e = 1.0;
-          }
-          acc += e;
-        }
+      for (int i = 0; i < 12; i++) {
+        vec2 uv = vUv + OFF[i] * width / res;
+        vec4 s = texture2D(tId, uv);
+        float ids = floor(s.a * 255.0 + 0.5);
+        if (ids != idc) { acc += 1.0; continue; }
+        if (idc < 0.5) continue;
+        if (dot(s.rgb * 2.0 - 1.0, nc) < creaseCos) { acc += 1.0; continue; }
+        float ds = lin(uv);
+        if (abs(ds - dc) > depthRel * min(ds, dc)) acc += 1.0;
       }
-      float edge = smoothstep(0.0, 0.3, acc / float(2 * N));
+      float edge = smoothstep(0.0, 0.3, acc / 12.0);
       gl_FragColor = vec4(mix(base.rgb, lineColor, edge * strength), base.a);
     }`,
 };
 
+// final look (replaces OutputPass): neutral tone mapping + sRGB, then chromatic aberration,
+// vignette, film grain and fade, all in one full-screen pass
+const GradeShader = {
+  defines: { NEUTRAL_TONE_MAPPING: '', SRGB_TRANSFER: '' },
+  uniforms: { tDiffuse: { value: null }, toneMappingExposure: { value: 1 }, time: { value: 0 }, ca: { value: 0.0018 }, vignette: { value: 0.32 }, grain: { value: 0.035 }, fade: { value: 0 }, res: { value: new THREE.Vector2() } },
+  vertexShader: InkShader.vertexShader,
+  fragmentShader: /* glsl */`
+    // ShaderMaterial already prepends the tone-mapping / colour-space chunks
+    uniform sampler2D tDiffuse; uniform float time, ca, vignette, grain, fade; uniform vec2 res;
+    varying vec2 vUv;
+    float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+    void main(){
+      vec2 d = vUv - 0.5;
+      float r2 = dot(d, d);
+      vec2 o = d * ca * (1.0 + 8.0 * r2);
+      vec3 c = vec3(texture2D(tDiffuse, vUv + o).r, texture2D(tDiffuse, vUv).g, texture2D(tDiffuse, vUv - o).b);
+      c = NeutralToneMapping(c);
+      c = sRGBTransferOETF(vec4(c, 1.0)).rgb;
+      c *= 1.0 - vignette * smoothstep(0.08, 0.62, r2 * 1.6);
+      float n = h(vUv * res + fract(time * 7.13) * 91.7) - 0.5;
+      c += n * grain;
+      c *= 1.0 - fade;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+};
+
 export class ToonPipeline {
-  constructor(renderer, scene, camera, { width, height, lineWidth = 1.6, bloom = { strength: 0.55, radius: 0.35, threshold: 1.3 } } = {}) {
+  constructor(renderer, scene, camera, { width, height, lineWidth = 1.6, bloom = { strength: 0.55, radius: 0.35, threshold: 1.3 }, grade = false, smaa = true, samples = 4 } = {}) {
     this.renderer = renderer; this.scene = scene; this.camera = camera;
     this.idRT = new THREE.WebGLRenderTarget(width, height, { type: THREE.UnsignedByteType, depthBuffer: true });
     this.idRT.depthTexture = new THREE.DepthTexture(width, height);
     this.idRT.depthTexture.type = THREE.UnsignedIntType;
-    const rt = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples: 4 });
+    const rt = new THREE.WebGLRenderTarget(width, height, { type: THREE.HalfFloatType, samples });
     this.composer = new EffectComposer(renderer, rt);
     this.composer.setSize(width, height);
     this.renderPass = new RenderPass(scene, camera);
@@ -81,9 +101,14 @@ export class ToonPipeline {
     this.composer.addPass(this.ink);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(width, height), bloom.strength, bloom.radius, bloom.threshold);
     this.composer.addPass(this.bloom);
-    this.composer.addPass(new OutputPass());
-    this.smaa = new SMAAPass(width, height);
-    this.composer.addPass(this.smaa);
+    if (grade) {
+      this.grade = new ShaderPass(GradeShader);
+      this.grade.uniforms.res.value.set(width, height);
+      this.composer.addPass(this.grade);
+    } else {
+      this.composer.addPass(new OutputPass());
+      if (smaa) this.composer.addPass(new SMAAPass(width, height));
+    }
     this.idMats = new Map();
     this.clear = new THREE.Color(0, 0, 0);
   }
@@ -126,6 +151,7 @@ export class ToonPipeline {
     hidden.forEach((o) => (o.visible = true));
     const u = this.ink.uniforms;
     u.cameraNear.value = camera.near; u.cameraFar.value = camera.far; u.isOrtho.value = camera.isOrthographicCamera ? 1 : 0;
+    if (this.grade) this.grade.uniforms.toneMappingExposure.value = renderer.toneMappingExposure;
     this.composer.render();
   }
 }

@@ -135,8 +135,8 @@ function mats(env) {
 export const FACE_W = 1024, FACE_H = 832;
 const FACE_T = [1.28, 0, 0, 1.28, -248 * 1.28, -240 * 1.28];
 
-const LOGO_L = [[-0.049, 0], [-0.049, 0.343], [-0.219, 0.733], [-0.066, 0.818], [-0.506, 1]];
-const LOGO_DIAMOND = [[0, 0.483], [0.094, 0.689], [0, 0.739], [-0.094, 0.689]];
+export const LOGO_L = [[-0.049, 0], [-0.049, 0.343], [-0.219, 0.733], [-0.066, 0.818], [-0.506, 1]];
+export const LOGO_DIAMOND = [[0, 0.483], [0.094, 0.689], [0, 0.739], [-0.094, 0.689]];
 export function logoPath(ctx, cx, top, w, h) {
   const P = ([u, v], s = 1) => [cx + u * w * s, top + v * h];
   ctx.beginPath();
@@ -297,12 +297,12 @@ function joint(parentRest, at, name) {
 // Geometry is cached per detail level, so extra cats (validators) only cost materials + a face.
 const GEO = new Map();
 
-export function createCharacter({ led = COLORS.led, detail = 1 } = {}) {
+export function createCharacter({ led = COLORS.led, detail = 1, idBase = 0 } = {}) {
   const M = mats();
   M.cyan = M.cyan.clone(); M.cyan.color.set(led); M.cyan.emissive.set(led);
   const seg = (n) => Math.max(8, Math.round(n * detail));
   const geo = (key, fn) => { const k = key + '@' + detail; if (!GEO.has(k)) GEO.set(k, fn()); return GEO.get(k); };
-  let nextId = 1;
+  let nextId = idBase + 1;
   const ids = {};
   const mesh = (g, mat, parent, idName, opts = {}) => {
     const m = new THREE.Mesh(g, mat);

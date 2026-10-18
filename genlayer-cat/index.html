@@ -1,0 +1,56 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>GenLayer Cat — The Dispute</title>
+<style>
+  html, body { margin: 0; background: #000; height: 100%; overflow: hidden; color: #b9a6c9; font: 12px monospace; }
+  canvas { display: block; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; margin: auto; }
+  body.render canvas { width: 1920px; height: 1080px; }
+  #hud { position: fixed; left: 12px; bottom: 10px; }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; height: 6px; background: #1a0826; cursor: pointer; }
+  #bar i { display: block; height: 100%; width: 0; background: #dc00ff; }
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js", "three/addons/": "./vendor/addons/" } }</script>
+<script src="timeline.js"></script>
+</head>
+<body>
+<div id="hud">loading…</div>
+<div id="bar"><i></i></div>
+<script type="module">
+// Render mode (?render): render.js drives renderFrame(t). Preview mode: click to play with audio, click the bar to seek.
+import { render, ready, out, DURATION } from './film.js';
+const isRender = location.search.includes('render');
+document.body.prepend(out);
+if (isRender) document.body.classList.add('render');
+await ready();
+window.DURATION = DURATION;
+window.renderFrame = (t, q = 0.93) => { render(t); return out.toDataURL('image/jpeg', q); };
+window.renderOnly = (t) => render(t);
+window.motionReady = true;
+if (!isRender) {
+  const hud = document.getElementById('hud'), bar = document.querySelector('#bar i');
+  const audio = new Audio('build/audio.wav');
+  let start = null, offset = 0;
+  render(6.8);
+  hud.textContent = 'click to play (rendering live is slow; the MP4 is the real thing)';
+  document.querySelector('canvas').addEventListener('click', () => {
+    if (start === null) { start = performance.now(); audio.currentTime = offset; audio.play().catch(() => {}); }
+    else { offset = cur(); start = null; audio.pause(); }
+  });
+  document.getElementById('bar').addEventListener('click', (e) => {
+    offset = (e.clientX / innerWidth) * DURATION; audio.currentTime = offset;
+    if (start !== null) start = performance.now(); else render(offset);
+  });
+  const cur = () => (start === null ? offset : offset + (performance.now() - start) / 1000);
+  (function loop() {
+    const t = cur();
+    if (start !== null && t < DURATION) render(t);
+    hud.textContent = t.toFixed(2) + 's';
+    bar.style.width = (100 * t / DURATION) + '%';
+    requestAnimationFrame(loop);
+  })();
+}
+</script>
+</body>
+</html>
