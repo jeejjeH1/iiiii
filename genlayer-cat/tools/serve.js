@@ -12,6 +12,10 @@ function serve(root, port = 0) {
       if (!p.startsWith(root)) { res.writeHead(403); return res.end(); }
       fs.readFile(p, (err, buf) => {
         if (err) { res.writeHead(404); return res.end(); }
+        // pages written for the Artifact viewer (no doctype) get the same skeleton the viewer adds
+        if (p.endsWith('.html') && !/^\s*<!doctype/i.test(buf.toString('utf8', 0, 64))) {
+          buf = Buffer.concat([Buffer.from('<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}body{margin:0;font:14px system-ui}img{max-width:100%}[hidden]{display:none!important}</style></head><body>'), buf, Buffer.from('</body></html>')]);
+        }
         res.writeHead(200, { 'Content-Type': TYPES[path.extname(p)] || 'application/octet-stream' });
         res.end(buf);
       });

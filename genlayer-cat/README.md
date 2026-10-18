@@ -38,3 +38,15 @@ Preview in a browser: serve the folder (`node tools/serve.js . 8080`), open `ind
 7. **Outro** (34–44.5 s): validators beam out, the GenLayer logo slams in piece by piece, `genlayer.com`.
 
 The contract code on screen is illustrative pseudo-code, not the GenLayer SDK API.
+
+## Truth Runner (browser game)
+
+`game.html` + `game.js` + `game-audio.js`: an endless runner on the same 3D cat. Collect trusted
+evidence (cyan shards), dodge fake data (red) and obstacles, and at each gate pick the answer the
+evidence backs. Right answers reach consensus and raise the multiplier; wrong ones cost a life.
+Keyboard (← → ↑ ↓, space, P) or swipes. Music and SFX are synthesized live with WebAudio.
+
+Play locally: `node tools/serve.js . 8080`, then open `http://127.0.0.1:8080/game.html`.
+When published as a claude.ai Artifact it keeps a shared top-10 board (`db` + `user` capabilities);
+anywhere else it keeps your best score on the device.
+`node tools/gametest.js` drives it headless with a test autopilot and saves screenshots.

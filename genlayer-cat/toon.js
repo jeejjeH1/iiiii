@@ -113,6 +113,13 @@ export class ToonPipeline {
     this.clear = new THREE.Color(0, 0, 0);
   }
   setCamera(cam) { this.camera = cam; this.renderPass.camera = cam; }
+  dispose() {
+    this.composer.dispose();
+    this.idRT.dispose();
+    this.idRT.depthTexture.dispose();
+    this.bloom.dispose();
+    this.idMats.forEach((m) => m.dispose());
+  }
   idMaterial(mesh) {
     const key = mesh.userData.lineId + (mesh.material.side === THREE.DoubleSide ? 1000 : 0) + (mesh.userData.noCrease ? 2000 : 0);
     let m = this.idMats.get(key);
