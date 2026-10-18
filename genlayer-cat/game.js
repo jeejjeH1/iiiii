@@ -3,7 +3,7 @@
 // evidence supports. Track distance `s` grows forward; world z = -s.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createCharacter, logoPath } from './character.js';
+import { createCharacter } from './character.js';
 import { ToonPipeline } from './toon.js';
 import { Sound } from './game-audio.js';
 
@@ -78,10 +78,16 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(300, 32, 16), new THREE.Shad
   vertexShader: `varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: `varying vec3 vD;
     void main(){
-      float h = vD.y;
+      float h = vD.y, a = atan(vD.x, -vD.z);
       vec3 c = mix(vec3(0.042, 0.007, 0.065), vec3(0.004, 0.0015, 0.012), smoothstep(0.0, 0.5, h));
       c += vec3(0.86, 0.0, 1.0) * 0.05 * exp(-abs(h) * 22.0);
-      c += vec3(0.2, 0.75, 0.85) * 0.02 * exp(-pow((atan(vD.x, -vD.z)) * 1.2, 2.0)) * exp(-abs(h - 0.08) * 12.0);
+      c += vec3(0.2, 0.75, 0.85) * 0.02 * exp(-pow(a * 1.2, 2.0)) * exp(-abs(h - 0.08) * 12.0);
+      // two ranges of rolling purple hills
+      float far = 0.05 + 0.03 * sin(a * 3.0 + 1.3) + 0.016 * sin(a * 7.0 + 0.4) + 0.008 * sin(a * 17.0);
+      float near = 0.03 + 0.022 * sin(a * 5.0 + 2.1) + 0.01 * sin(a * 11.0 + 1.0);
+      if (h < far) c = mix(vec3(0.05, 0.01, 0.085), vec3(0.11, 0.025, 0.16), smoothstep(far - 0.03, far, h));
+      if (h < near) c = mix(vec3(0.02, 0.004, 0.035), vec3(0.06, 0.012, 0.09), smoothstep(near - 0.025, near, h));
+      c += vec3(0.9, 0.3, 1.0) * 0.08 * exp(-abs(h - far) * 260.0) * step(near, h);
       gl_FragColor = vec4(c, 1.0);
       ${toneChunk}
     }`,
@@ -96,20 +102,18 @@ const floor = new THREE.Mesh(new THREE.PlaneGeometry(220, 420), new THREE.Shader
   fragmentShader: `uniform float uTime, uPulse; uniform vec3 uCat, cA, cB, cT; varying vec3 vW; varying float vDist;
     void main(){
       vec2 p = vW.xz; float ax = abs(p.x);
-      vec2 q = p * 0.5;
-      vec2 g = abs(fract(q - 0.5) - 0.5) / fwidth(q);
-      float grid = 1.0 - min(min(g.x, g.y), 1.0);
       float track = 1.0 - smoothstep(3.6, 3.75, ax);
-      vec3 col = vec3(0.004, 0.001, 0.009) + vec3(0.016, 0.005, 0.03) * track;
+      float patchy = 0.5 + 0.25 * sin(p.x * 0.37 + p.y * 0.21) + 0.25 * sin(p.x * 0.11 - p.y * 0.43);
+      vec3 ground = mix(vec3(0.012, 0.002, 0.022), vec3(0.04, 0.008, 0.065), patchy);
+      vec3 col = mix(ground, vec3(0.02, 0.006, 0.039), track);
       float dl = abs(ax - 1.2);
       float dash = step(0.45, fract(p.y * 0.2));
       col += cT * (1.0 - smoothstep(0.015, 0.05, dl)) * dash * 0.22 * track;
       float edge = 1.0 - smoothstep(0.02, 0.1, abs(ax - 3.68));
       col += mix(cA, cB, 0.5 + 0.5 * sin(p.y * 0.05 + uTime)) * edge * (0.7 + 0.5 * uPulse);
-      col += mix(cB, cA, 0.5 + 0.5 * sin(p.y * 0.02)) * grid * (1.0 - track) * exp(-max(0.0, ax - 4.0) * 0.05) * (0.1 + 0.16 * uPulse);
       float sd = length((p - uCat.xy) * vec2(1.0, 0.8)) / uCat.z;
       col *= 1.0 - 0.75 * exp(-sd * sd * 2.2);
-      col = mix(col, vec3(0.03, 0.005, 0.048), smoothstep(70.0, 200.0, vDist));
+      col = mix(col, vec3(0.03, 0.005, 0.048), smoothstep(90.0, 165.0, vDist));
       gl_FragColor = vec4(col, 1.0);
       ${toneChunk}
     }`,
@@ -117,63 +121,132 @@ const floor = new THREE.Mesh(new THREE.PlaneGeometry(220, 420), new THREE.Shader
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
-// city of data towers on both sides (recycled as the runner advances)
-const TOWERS = 150;
-const towerTex = (() => {
-  const c = document.createElement('canvas'); c.width = 64; c.height = 256;
-  const g = c.getContext('2d');
-  g.fillStyle = '#000'; g.fillRect(0, 0, 64, 256);
-  for (let y = 6; y < 256; y += 12) {
-    for (let x = 6; x < 64; x += 14) {
-      const r = Math.random();
-      if (r < 0.32) { g.fillStyle = r < 0.12 ? C.trust : r < 0.22 ? C.pink : C.violet; g.globalAlpha = 0.35 + Math.random() * 0.5; g.fillRect(x, y, 8, 4); }
+// purple meadow: instanced grass tufts on both sides. Each tuft keeps a base track position and the
+// vertex shader wraps it into a window around the camera, so the field repeats with no CPU work.
+const GRASS_LEN = 220;
+const grassU = { uTime: { value: 0 }, uRefS: { value: 0 } };
+const grass = (() => {
+  const BLADES = 5, SEGS = 3;
+  const pos = [], hgt = [], idx = [];
+  const r = mulberry32(99);
+  for (let b = 0; b < BLADES; b++) {
+    const ang = r() * Math.PI * 2, off = Math.sqrt(r()) * 0.32, tall = 0.65 + r() * 0.7, lean = 0.15 + r() * 0.3, w0 = 0.075 + r() * 0.04;
+    const ox = Math.cos(ang) * off, oz = Math.sin(ang) * off, rot = r() * Math.PI;
+    const cr = Math.cos(rot), sr = Math.sin(rot);
+    const base = pos.length / 3;
+    for (let k = 0; k <= SEGS; k++) {
+      const t = k / SEGS, w = k === SEGS ? 0 : w0 * Math.pow(1 - t, 0.7), y = t * tall, bend = lean * t * t;
+      for (const side of k === SEGS ? [0] : [-1, 1]) {
+        const lx = side * w, lz = bend;
+        pos.push(ox + lx * cr - lz * sr, y, oz + lx * sr + lz * cr);
+        hgt.push(t);
+      }
     }
+    for (let k = 0; k < SEGS - 1; k++) { const a0 = base + k * 2; idx.push(a0, a0 + 1, a0 + 2, a0 + 1, a0 + 3, a0 + 2); }
+    const a0 = base + (SEGS - 1) * 2; idx.push(a0, a0 + 1, a0 + 2);
   }
-  g.globalAlpha = 1; g.fillStyle = C.violet; g.fillRect(0, 0, 2, 256); g.fillRect(62, 0, 2, 256);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  const g = new THREE.InstancedBufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('aH', new THREE.Float32BufferAttribute(hgt, 1));
+  g.setIndex(idx);
+  const inst = [], tint = [];
+  const add = (xmin, xmax, perMeter, smin, smax) => {
+    const n = Math.round(perMeter * GRASS_LEN);
+    for (let i = 0; i < n; i++) for (const side of [-1, 1]) {
+      const x = side * (xmin + Math.pow(r(), 1.3) * (xmax - xmin));
+      inst.push(x, r() * GRASS_LEN, r() * Math.PI * 2, smin + r() * (smax - smin));
+      tint.push(r(), r() < 0.045 ? (r() < 0.5 ? 1 : 2) : 0);
+    }
+  };
+  add(3.95, 13, 12, 0.9, 1.6);
+  add(13, 48, 6, 1.6, 2.8);
+  g.setAttribute('aBlade', new THREE.InstancedBufferAttribute(new Float32Array(inst), 4));
+  g.setAttribute('aTint', new THREE.InstancedBufferAttribute(new Float32Array(tint), 2));
+  g.instanceCount = inst.length / 4;
+  const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
+    side: THREE.DoubleSide, uniforms: grassU,
+    vertexShader: `attribute float aH; attribute vec4 aBlade; attribute vec2 aTint;
+      uniform float uTime, uRefS;
+      varying float vH, vDist, vTint, vGlow;
+      void main(){
+        float s = aBlade.y + ${GRASS_LEN.toFixed(1)} * floor((uRefS - aBlade.y) / ${GRASS_LEN.toFixed(1)} + 1.0);
+        float c = cos(aBlade.z), sn = sin(aBlade.z);
+        vec3 p = position;
+        p.xz = mat2(c, -sn, sn, c) * p.xz;
+        p *= aBlade.w;
+        vec3 root = vec3(aBlade.x, 0.0, -s);
+        float w = sin(uTime * 1.7 + root.x * 0.3 + root.z * 0.17) * 0.6 + sin(uTime * 2.9 + root.z * 0.5 + root.x * 0.8) * 0.25;
+        float bend = aH * aH * aBlade.w;
+        p.x += w * bend * 0.32;
+        p.z += w * bend * 0.12;
+        vec4 mv = viewMatrix * vec4(root + p, 1.0);
+        vH = aH; vDist = -mv.z; vTint = aTint.x; vGlow = aTint.y;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `varying float vH, vDist, vTint, vGlow;
+      void main(){
+        vec3 base = vec3(0.016, 0.003, 0.03);
+        vec3 mid = mix(vec3(0.16, 0.03, 0.32), vec3(0.3, 0.05, 0.42), vTint);
+        vec3 tip = mix(vec3(0.55, 0.14, 0.8), vec3(0.8, 0.25, 0.85), vTint);
+        vec3 col = mix(base, mid, smoothstep(0.0, 0.55, vH));
+        col = mix(col, tip, smoothstep(0.55, 1.0, vH));
+        if (vGlow > 0.5) {
+          vec3 g = vGlow > 1.5 ? vec3(0.21, 0.88, 0.96) : vec3(1.0, 0.53, 1.0);
+          col += g * smoothstep(0.75, 1.0, vH) * 1.6;
+        }
+        col = mix(col, vec3(0.03, 0.005, 0.048), smoothstep(80.0, 150.0, vDist));
+        gl_FragColor = vec4(col, 1.0);
+        ${toneChunk}
+      }`,
+  }));
+  m.frustumCulled = false;
+  return m;
 })();
-const towerGeo = new THREE.BoxGeometry(1, 1, 1); towerGeo.translate(0, 0.5, 0);
-const towers = new THREE.InstancedMesh(towerGeo, new THREE.MeshStandardMaterial({ color: '#170a26', roughness: 0.7, emissive: '#ffffff', emissiveMap: towerTex, emissiveIntensity: 0.75 }), TOWERS);
-towers.frustumCulled = false;
-const towerData = [];
-for (let i = 0; i < TOWERS; i++) {
-  const side = i % 2 ? 1 : -1;
-  towerData.push({ x: side * (12 + rnd() * 55), s: -20 + (i / TOWERS) * 360 + rnd() * 3, h: 3 + Math.pow(rnd(), 2) * 40, w: 2 + rnd() * 4 });
-}
-scene.add(towers);
-const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.07, 0.07, 1.6, 8).translate(0, 0.8, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(C.pink).multiplyScalar(2.2) }), 90);
-posts.frustumCulled = false;
-scene.add(posts);
+scene.add(grass);
 
-// slogan billboards
-const SLOGANS = ['GENLAYER', 'INTELLIGENT CONTRACTS', 'OPTIMISTIC DEMOCRACY', 'EQUIVALENCE PRINCIPLE', 'VERIFY, THEN TRUST'];
-const boards = [0, 1, 2, 3].map((i) => {
-  const c = document.createElement('canvas'); c.width = 768; c.height = 288;
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(8, 3), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-  m.material.color.setScalar(1.25);
-  scene.add(m);
-  return { m, c, t, s: 60 + i * 95, text: '' };
-});
-function paintBoard(b, text) {
-  const g = b.c.getContext('2d'), W = b.c.width, H = b.c.height;
-  g.clearRect(0, 0, W, H);
-  g.fillStyle = 'rgba(16,5,30,0.72)'; g.strokeStyle = C.violet; g.lineWidth = 6; g.shadowColor = C.pink; g.shadowBlur = 24;
-  g.beginPath(); g.roundRect(14, 14, W - 28, H - 28, 26); g.fill(); g.stroke(); g.shadowBlur = 0;
-  g.fillStyle = C.pink; logoPath(g, 120, 70, 130, 150); g.fill('nonzero');
-  g.fillStyle = '#fff'; g.textBaseline = 'middle'; g.font = `800 ${text.length > 14 ? 50 : 70}px Unbounded, "Arial Black", sans-serif`;
-  g.fillText(text, 220, H / 2 + 4, W - 250);
-  b.t.needsUpdate = true; b.text = text;
-}
+// fireflies drifting over the meadow (same wrap trick as the grass)
+const flyU = { uTime: { value: 0 }, uRefS: { value: 0 }, uScale: { value: 400 } };
+const fireflies = (() => {
+  const N = 320, r = mulberry32(5);
+  const g = new THREE.BufferGeometry();
+  const p = new Float32Array(N * 3), c = new Float32Array(N * 3), ph = new Float32Array(N);
+  const pal = [C.pink, C.trust, C.violet, '#ffffff'].map((h) => new THREE.Color(h));
+  for (let i = 0; i < N; i++) {
+    p[i * 3] = (r() < 0.5 ? -1 : 1) * (4.6 + Math.pow(r(), 1.5) * 34); p[i * 3 + 1] = 0.4 + r() * 3.6; p[i * 3 + 2] = r() * GRASS_LEN;
+    const col = pal[i % 4]; c[i * 3] = col.r * 2.2; c[i * 3 + 1] = col.g * 2.2; c[i * 3 + 2] = col.b * 2.2;
+    ph[i] = r() * 100;
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  g.setAttribute('aPh', new THREE.BufferAttribute(ph, 1));
+  const pts = new THREE.Points(g, new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, uniforms: flyU,
+    vertexShader: `attribute vec3 color; attribute float aPh; uniform float uTime, uRefS, uScale; varying vec3 vC; varying float vA;
+      void main(){
+        float s = position.z + ${GRASS_LEN.toFixed(1)} * floor((uRefS - position.z) / ${GRASS_LEN.toFixed(1)} + 1.0);
+        vec3 w = vec3(position.x + sin(uTime * 0.7 + aPh) * 0.6, position.y + sin(uTime * 1.1 + aPh * 1.7) * 0.35, -s + cos(uTime * 0.5 + aPh) * 0.6);
+        vec4 mv = viewMatrix * vec4(w, 1.0);
+        vC = color; vA = (0.35 + 0.65 * pow(0.5 + 0.5 * sin(uTime * 2.3 + aPh * 3.1), 3.0)) * (1.0 - smoothstep(70.0, 130.0, -mv.z));
+        gl_PointSize = 0.16 * uScale / -mv.z;
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `varying vec3 vC; varying float vA;
+      void main(){ vec2 d = gl_PointCoord - 0.5; float a = exp(-dot(d, d) * 14.0) * vA; gl_FragColor = vec4(vC * a, a); }`,
+  }));
+  pts.frustumCulled = false;
+  return pts;
+})();
+scene.add(fireflies);
 
-// speed streaks
-const STREAKS = 140;
-const streakGeo = new THREE.BufferGeometry();
-streakGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(STREAKS * 6), 3));
-const streaks = new THREE.LineSegments(streakGeo, new THREE.LineBasicMaterial({ color: new THREE.Color(C.trust).multiplyScalar(1.6), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
-streaks.frustumCulled = false;
-const streakData = Array.from({ length: STREAKS }, () => ({ x: (rnd() < 0.5 ? -1 : 1) * (4.5 + rnd() * 10), y: 0.3 + rnd() * 7, s: rnd() * 120 }));
-scene.add(streaks);
+// sparks kicked up behind a belly slide
+const SPARKS = 48;
+const sparkGeo = new THREE.BufferGeometry();
+sparkGeo.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(SPARKS * 3), 3));
+const sparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ color: new THREE.Color(C.trust).multiplyScalar(2.4), size: 0.12, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+sparks.frustumCulled = false;
+const sparkData = Array.from({ length: SPARKS }, () => ({ t: -9, x: 0, s: 0, vx: 0, vy: 0 }));
+let sparkNext = 0;
+scene.add(sparks);
 
 // ---------------------------------------------------------------- canvas textures
 function canvasTex(w, h, draw) {
@@ -196,7 +269,7 @@ let TEX = null;
 function buildTextures() {
   TEX = {
     low: canvasTex(512, 220, (g, w, h) => hazard(g, w, h, 'FIREWALL', C.fake)),
-    high: canvasTex(512, 360, (g, w, h) => hazard(g, w, h, 'BOT SWARM', '#ff8a3d')),
+    high: canvasTex(512, 268, (g, w, h) => hazard(g, w, h, 'BOT SWARM', '#ff8a3d')),
     block: canvasTex(512, 512, (g, w, h) => {
       g.fillStyle = '#22060f'; g.fillRect(0, 0, w, h);
       for (let i = 0; i < 26; i++) { g.fillStyle = i % 3 ? 'rgba(255,77,109,0.25)' : 'rgba(255,135,255,0.2)'; g.fillRect(0, rnd() * h, w, 4 + rnd() * 18); }
@@ -249,10 +322,10 @@ function buildMaterials() {
 }
 const GEO = {
   low: new THREE.BoxGeometry(2.1, 0.95, 0.35).translate(0, 0.62, 0),
-  high: new THREE.BoxGeometry(2.1, 1.35, 0.3).translate(0, 2.42, 0),
+  high: new THREE.BoxGeometry(2.1, 1.1, 0.3).translate(0, 3.0, 0),
   block: new THREE.BoxGeometry(2.0, 2.4, 1.8).translate(0, 1.2, 0),
   postLow: new THREE.CylinderGeometry(0.07, 0.07, 1.1, 8).translate(0, 0.55, 0),
-  postHigh: new THREE.CylinderGeometry(0.07, 0.07, 3.2, 8).translate(0, 1.6, 0),
+  postHigh: new THREE.CylinderGeometry(0.07, 0.07, 3.7, 8).translate(0, 1.85, 0),
   shard: new THREE.OctahedronGeometry(0.42, 0),
   label: new THREE.PlaneGeometry(1.9, 0.56),
   wall: new THREE.BoxGeometry(2.0, 3.6, 0.6).translate(0, 1.8, 0),
@@ -448,10 +521,18 @@ function move(dir) {
 function jump() {
   if (G.y <= 0.001 && G.vy === 0) { G.vy = 10.6; G.slide = 0; sound.sfx('jump'); }
 }
+const SLIDE = 0.72;
 function slide() {
   if (G.y > 0.05) G.vy = -18; // fast fall, slide on landing
-  G.slide = 0.62;
+  if (G.slide < SLIDE - 0.15) G.slide = SLIDE;
   sound.sfx('slide');
+}
+// 0..1: how far into the belly slide the cat is (dives in 0.12 s, gets up over the last 0.14 s)
+function slideTilt() {
+  if (G.slide <= 0 || G.y > 0.6) return 0;
+  const t = SLIDE - G.slide;
+  const k = Math.min(t / 0.12, G.slide / 0.14, 1);
+  return k * k * (3 - 2 * k);
 }
 window.addEventListener('keydown', (e) => {
   const k = e.code;
@@ -696,7 +777,7 @@ function step(dt) {
         continue;
       }
       if (dx > 0.95) continue; // forgiving while switching lanes
-      const clear = e.kind === 'low' ? G.y > 0.95 : e.kind === 'high' ? G.slide > 0 && G.y < 0.6 : false;
+      const clear = e.kind === 'low' ? G.y > 0.95 : e.kind === 'high' ? slideTilt() > 0.5 : false;
       if (!clear) { e.done = true; hit(e); if (G.mode !== 'run') break; }
     }
     // retire passed entities
@@ -721,8 +802,10 @@ function animateCat(dt) {
   let pose = P.rest;
   if (G.mode === 'menu' || G.mode === 'loading') pose = cat.mixPose(P.rest, P.hero, 1);
   if (G.y > 0.05) pose = cat.mixPose(pose, P.cheer, 0.45);
+  const tilt = slideTilt();
+  if (tilt > 0) pose = cat.mixPose(pose, P.cheer, tilt * 0.9); // arms reach ahead while diving
   cat.applyPose(pose);
-  const amp = running ? 1 : G.mode === 'dying' ? 0.2 : 0;
+  const amp = (running ? 1 : G.mode === 'dying' ? 0.2 : 0) * (1 - tilt);
   G.phase += dt * (G.speed * 0.42 + (running ? 0 : 2.4));
   const sw = Math.sin(G.phase) * amp;
   const air = G.y > 0.05 ? 1 : 0;
@@ -731,72 +814,58 @@ function animateCat(dt) {
   addRot(J.arms.L.sh, -sw * 0.7, 0, 0);
   if (G.mode !== 'menu') addRot(J.arms.R.sh, sw * 0.7, 0, 0);
   J.hips.position.y += Math.abs(Math.cos(G.phase)) * 0.09 * amp * (1 - air);
-  const sl = G.slide > 0 && G.y < 0.6 ? 1 : 0;
-  addRot(J.torso, 0.13 * amp + 0.45 * sl, -sw * 0.06, G.roll * 0.12);
-  addRot(J.neck, -0.12 * amp - 0.3 * sl + (G.mode === 'menu' ? 0.04 * Math.sin(G.time * 1.3) : 0), 0, G.mode === 'menu' ? 0.06 * Math.sin(G.time * 0.9) : 0);
+  // belly slide: legs stretch back and kick a little, head lifts to look down the track
+  addRot(J.legs.L, -0.35 * tilt + 0.12 * tilt * Math.sin(G.time * 18), 0, 0.12 * tilt);
+  addRot(J.legs.R, -0.35 * tilt - 0.12 * tilt * Math.sin(G.time * 18), 0, -0.12 * tilt);
+  addRot(J.torso, 0.13 * amp, -sw * 0.06, G.roll * 0.12);
+  addRot(J.neck, -0.12 * amp - 0.42 * tilt + (G.mode === 'menu' ? 0.04 * Math.sin(G.time * 1.3) : 0), 0, G.mode === 'menu' ? 0.06 * Math.sin(G.time * 0.9) : 0);
   const tw = Math.max(0, Math.sin(G.time * 7)) * (Math.sin(G.time * 0.6) > 0.92 ? 1 : 0);
   addRot(J.ears.L, -0.25 * tw, 0, 0.15 * tw); addRot(J.ears.R, -0.25 * tw, 0, -0.15 * tw);
   cat.tail((p, u) => {
     const w = u * u;
     p.x += Math.sin(G.time * (running ? 9 : 2) + u * 4) * 0.18 * w;
-    p.y += Math.sin(G.time * (running ? 7 : 1.6) + u * 3) * 0.1 * w + (running ? 0.25 * w : 0);
+    p.y += Math.sin(G.time * (running ? 7 : 1.6) + u * 3) * 0.1 * w + (running ? 0.25 * w : 0) + tilt * 0.5 * w;
     p.z -= running ? 0.35 * w : 0;
     return p;
   });
   // root: lane position, jump height, slide squash, lean into lane changes, hit blink
   let tumble = 0;
   if (G.mode === 'dying') tumble = Math.min(1, G.dieT / 0.6);
-  cat.root.position.set(G.x, G.y + (G.mode === 'dying' ? Math.sin(Math.min(1, G.dieT / 0.6) * Math.PI) * 0.6 : 0), -G.dist);
-  cat.root.rotation.set(-tumble * 1.25, Math.PI + G.roll * -0.3, G.roll * 0.18);
-  const sq = sl ? 0.36 : 0;
-  cat.root.scale.set(1 + sq * 0.4, 1 - sq, 1 + sq * 0.3);
+  const lift = 0.36 * tilt; // keeps the visor off the floor while lying on the belly
+  cat.root.position.set(G.x, G.y + lift + (G.mode === 'dying' ? Math.sin(Math.min(1, G.dieT / 0.6) * Math.PI) * 0.6 : 0), -G.dist);
+  cat.root.rotation.set(-tumble * 1.25 - tilt * 1.32, Math.PI + G.roll * -0.3, G.roll * 0.18 * (1 - tilt) - 0.42 * tilt);
+  cat.root.scale.setScalar(1);
   cat.root.visible = !(G.invuln > 0 && G.mode === 'run' && Math.floor(G.time * 14) % 2 === 0);
   // visor
   const blink = (() => { const p = (G.time + 0.7) % 3.1; return p < 0.15 ? Math.sin((p / 0.15) * Math.PI) : 0; })();
   let st = { expr: 'angry', blink };
   if (G.mode === 'dying' || G.mode === 'over') st = { expr: 'sad', blink: 0 };
   else if (G.mood && G.time < G.moodUntil) st = { expr: G.mood, blink: 0, mouthOpen: G.mood === 'happy' ? 0.4 : 0 };
-  else if (G.y > 0.6) st = { expr: 'wide', blink: 0 };
+  else if (G.y > 0.6 || tilt > 0.3) st = { expr: 'wide', blink: 0 };
   setFace(st);
 }
 
 function updateWorld() {
   const s0 = G.dist;
-  // towers
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
-  towerData.forEach((t, i) => {
-    if (t.s < s0 - 30) t.s += 360;
-    pos.set(t.x, 0, -t.s); sc.set(t.w, t.h, t.w);
-    m4.compose(pos, q, sc); towers.setMatrixAt(i, m4);
-  });
-  towers.instanceMatrix.needsUpdate = true;
-  // lane posts every 8 m on both sides
-  const base = Math.floor((s0 - 10) / 8) * 8;
-  for (let i = 0; i < 90; i++) {
-    const side = i % 2 ? 1 : -1, s = base + Math.floor(i / 2) * 8;
-    pos.set(side * 3.95, 0, -s); sc.set(1, 1, 1);
-    m4.compose(pos, q, sc); posts.setMatrixAt(i, m4);
+  const refS = s0 - 60; // field window: 60 m behind the runner (the menu looks back) to 160 m ahead
+  grassU.uTime.value = G.time; grassU.uRefS.value = refS;
+  flyU.uTime.value = G.time; flyU.uRefS.value = refS; flyU.uScale.value = renderer.domElement.height * 0.5;
+  // sparks: emit while sliding, then drift back and fade
+  const tilt = slideTilt();
+  if (tilt > 0.6 && G.mode === 'run' && G.time >= sparkNext) {
+    for (let k = 0; k < 3; k++) {
+      const d = sparkData.find((p) => G.time - p.t > 0.5) || sparkData[0];
+      Object.assign(d, { t: G.time, x: G.x + (Math.random() - 0.5) * 0.9, s: s0 - 0.6, vx: (Math.random() - 0.5) * 2, vy: 1 + Math.random() * 2.2 });
+    }
+    sparkNext = G.time + 0.03;
   }
-  posts.instanceMatrix.needsUpdate = true;
-  // billboards
-  boards.forEach((b, i) => {
-    if (b.s < s0 - 20) b.s += 380;
-    const want = SLOGANS[Math.floor(b.s / 95) % SLOGANS.length];
-    if (b.text !== want) paintBoard(b, want);
-    const side = Math.floor(b.s / 95) % 2 ? 1 : -1;
-    b.m.position.set(side * 9.5, 5.2, -b.s);
-    b.m.rotation.set(0, side * -0.45, 0);
+  const sp = sparkGeo.attributes.position.array;
+  sparkData.forEach((p, i) => {
+    const u = G.time - p.t;
+    if (u > 0.5) { sp[i * 3 + 1] = -50; return; }
+    sp[i * 3] = p.x + p.vx * u; sp[i * 3 + 1] = 0.1 + p.vy * u - 6 * u * u; sp[i * 3 + 2] = -(p.s - 3 * u);
   });
-  // streaks
-  const arr = streakGeo.attributes.position.array, len = 0.6 + G.speed * 0.12;
-  streakData.forEach((p, i) => {
-    let s = p.s;
-    if (s < s0 - 12) p.s += 130;
-    s = p.s;
-    arr.set([p.x, p.y, -s, p.x, p.y, -s - len], i * 6);
-  });
-  streakGeo.attributes.position.needsUpdate = true;
-  streaks.material.opacity = clamp((G.speed - 10) / 18, 0, 0.6);
+  sparkGeo.attributes.position.needsUpdate = true;
   // shards spin; fakes glitch
   for (const e of ents) {
     if (e.kind !== 'shard') continue;
@@ -823,11 +892,16 @@ function updateCamera(dt) {
   // portrait screens sit higher and further back so the track ahead stays visible over the cat
   const chaseP = wide ? V(G.x * 0.55, 4.0 + G.y * 0.35, -G.dist + 8.4) : V(G.x * 0.45, 5.8 + G.y * 0.3, -G.dist + 11.5);
   const chaseL = wide ? V(G.x * 0.75, 1.9 + G.y * 0.3, -G.dist - 9) : V(G.x * 0.6, 1.0 + G.y * 0.25, -G.dist - 12);
+  // during a belly slide the camera dips and swings a little so the dive reads in profile
+  const st = slideTilt();
+  G.camSlide = (G.camSlide || 0) + (st - (G.camSlide || 0)) * Math.min(1, dt * 7);
+  chaseP.x += 2.4 * G.camSlide; chaseP.y -= 1.5 * G.camSlide; chaseP.z -= 1.2 * G.camSlide; chaseL.y -= 0.7 * G.camSlide;
   const frontP = wide ? V(G.x - 0.2, 2.35, -G.dist - 9.2) : V(G.x, 2.6, -G.dist - 11.5);
   const frontL = wide ? V(G.x + 2.4, 2.0, -G.dist) : V(G.x, 0.9, -G.dist);
   const p = frontP.lerp(chaseP, u), l = frontL.lerp(chaseL, u);
   const sh = G.shake;
   p.x += (Math.random() - 0.5) * sh; p.y += (Math.random() - 0.5) * sh;
+  if (TEST && window.__sideCam) { p.set(G.x + 9, 1.8, -G.dist - 1.2); l.set(G.x, 1.4, -G.dist - 1.2); }
   camera.position.copy(p);
   camera.lookAt(l);
   const fov = (wide ? 34 : 46) + u * ((wide ? 58 : 66) - (wide ? 34 : 46) + clamp((G.speed - 13) / 16, 0, 1) * 9);
@@ -992,7 +1066,7 @@ async function boot() {
       }
     };
     window.__tr = {
-      G, ents, startRun, move, jump, slide, hitLog, claimLog,
+      G, ents, startRun, move, jump, slide, hitLog, claimLog, spawn, slideTilt,
       tick(seconds, fps = 30, skill = -1) { for (let i = 0; i < seconds * fps; i++) { const dt = 1 / fps; if (skill >= 0) pilot(skill); if (G.mode !== 'paused') step(dt); animateCat(dt); updateWorld(); updateCamera(dt); } updateHUD(); render(); },
       shot() { return canvas.toDataURL('image/jpeg', 0.85); },
     };
