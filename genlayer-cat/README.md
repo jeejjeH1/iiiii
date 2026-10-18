@@ -21,7 +21,7 @@ footage, models or audio.
 ## Rebuild
 
 ```bash
-./build.sh                       # ~45 min on 4 CPU cores (software WebGL)
+./build.sh                       # ~50 min on 4 CPU cores (software WebGL); resumes if interrupted
 node render.js stills 7.2,18.8   # single frames -> build/stills/
 ```
 
