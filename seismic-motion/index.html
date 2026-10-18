@@ -1,0 +1,53 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Seismic Motion</title>
+<style>
+  @font-face { font-family: 'Inter Tight'; src: url(fonts/InterTight.woff2) format('woff2'); font-weight: 100 900; }
+  @font-face { font-family: 'Source Serif 4'; src: url(fonts/SourceSerif4.woff2) format('woff2'); font-weight: 200 900; }
+  @font-face { font-family: 'JetBrains Mono'; src: url(fonts/JetBrainsMono.woff2) format('woff2'); font-weight: 100 800; }
+  html, body { margin: 0; background: #000; height: 100%; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 56.25vw; max-height: 100vh; max-width: 177.78vh; margin: auto; }
+  body.render canvas { width: 1920px; height: 1080px; }
+  #hud { position: fixed; left: 12px; bottom: 10px; color: #888; font: 12px monospace; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<script src="timeline.js"></script>
+<script src="core.js"></script>
+<script src="city.js"></script>
+<script src="scenes.js"></script>
+<script src="post.js"></script>
+<script>
+  // Preview mode (open in a browser): click to play with audio. Render mode: ?render
+  const isRender = location.search.includes('render');
+  if (isRender) document.body.classList.add('render');
+  Promise.all([
+    '400 40px "Inter Tight"', '500 40px "Inter Tight"', '400 40px "Source Serif 4"', '500 40px "Source Serif 4"',
+    '400 40px "JetBrains Mono"', '500 40px "JetBrains Mono"',
+  ].map((f) => document.fonts.load(f))).then(() => {
+    window.motionReady = true;
+    if (isRender) return;
+    const audio = new Audio('build/audio.wav');
+    let start = null;
+    renderOnly(0.0);
+    document.body.addEventListener('click', () => {
+      audio.currentTime = 0; audio.play().catch(() => {});
+      start = performance.now();
+    });
+    const hud = document.getElementById('hud');
+    hud.textContent = 'click to play';
+    (function loop() {
+      if (start !== null) {
+        const t = audio.currentTime > 0 ? audio.currentTime : (performance.now() - start) / 1000;
+        if (t < DURATION) { renderOnly(t); hud.textContent = t.toFixed(2) + 's'; }
+      }
+      requestAnimationFrame(loop);
+    })();
+  });
+</script>
+</body>
+</html>
