@@ -50,3 +50,10 @@ Play locally: `node tools/serve.js . 8080`, then open `http://127.0.0.1:8080/gam
 When published as a claude.ai Artifact it keeps a shared top-10 board (`db` + `user` capabilities);
 anywhere else it keeps your best score on the device.
 `node tools/gametest.js` drives it headless with a test autopilot and saves screenshots.
+
+### Trailer
+
+`truth_runner_trailer.mp4` (1920×1080, 30 fps, ~32 s): a motion-graphics intro to the game for the
+GenLayer community, captured from the real game with an overlay for titles, captions and wipes.
+Rebuild: `node tools/trailer-audio.js` (soundtrack → `build/trailer_audio.wav`), then
+`node tools/trailer.js` (frames → `build/trailer_noaudio.mp4`, ~40 min), then mux with ffmpeg.
