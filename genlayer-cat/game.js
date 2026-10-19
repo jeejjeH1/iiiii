@@ -124,7 +124,7 @@ scene.add(floor);
 // purple meadow: instanced grass tufts on both sides. Each tuft keeps a base track position and the
 // vertex shader wraps it into a window around the camera, so the field repeats with no CPU work.
 const GRASS_LEN = 220;
-const grassU = { uTime: { value: 0 }, uRefS: { value: 0 } };
+const grassU = { uTime: { value: 0 }, uRefS: { value: 0 }, uCat: { value: new THREE.Vector2(0, 1e5) } };
 const grass = (() => {
   const BLADES = 5, SEGS = 3;
   const pos = [], hgt = [], idx = [];
@@ -166,7 +166,7 @@ const grass = (() => {
   const m = new THREE.Mesh(g, new THREE.ShaderMaterial({
     side: THREE.DoubleSide, uniforms: grassU,
     vertexShader: `attribute float aH; attribute vec4 aBlade; attribute vec2 aTint;
-      uniform float uTime, uRefS;
+      uniform float uTime, uRefS; uniform vec2 uCat;
       varying float vH, vDist, vTint, vGlow;
       void main(){
         float s = aBlade.y + ${GRASS_LEN.toFixed(1)} * floor((uRefS - aBlade.y) / ${GRASS_LEN.toFixed(1)} + 1.0);
@@ -179,6 +179,11 @@ const grass = (() => {
         float bend = aH * aH * aBlade.w;
         p.x += w * bend * 0.32;
         p.z += w * bend * 0.12;
+        // blades lean away from the cat as it walks through
+        vec2 away = root.xz - uCat; float d = length(away);
+        float push = 1.0 - smoothstep(0.6, 2.2, d);
+        p.xz += (away / max(d, 0.001)) * bend * push * 0.9;
+        p.y *= 1.0 - 0.35 * push;
         vec4 mv = viewMatrix * vec4(root + p, 1.0);
         vH = aH; vDist = -mv.z; vTint = aTint.x; vGlow = aTint.y;
         gl_Position = projectionMatrix * mv;
@@ -516,8 +521,18 @@ function slide() {
   G.slide = 0.62;
   sound.sfx('slide');
 }
+window.addEventListener('keyup', (e) => roamKeys.delete(e.code));
+window.addEventListener('blur', () => roamKeys.clear());
 window.addEventListener('keydown', (e) => {
   const k = e.code;
+  if (G.mode === 'roam') {
+    if (k === 'Escape') endRoam();
+    else if (k === 'Space') { if (G.y <= 0.001 && G.vy === 0) { G.vy = 10.6; sound.sfx('jump'); } }
+    else if (!['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ShiftLeft', 'ShiftRight'].includes(k)) return;
+    roamKeys.add(k);
+    e.preventDefault();
+    return;
+  }
   if (G.mode === 'run') {
     if (k === 'ArrowLeft' || k === 'KeyA') move(-1);
     else if (k === 'ArrowRight' || k === 'KeyD') move(1);
@@ -530,15 +545,26 @@ window.addEventListener('keydown', (e) => {
   else if ((G.mode === 'menu' || G.mode === 'over') && k === 'Enter') { startRun(); e.preventDefault(); }
 });
 let touch = null;
-canvas.addEventListener('pointerdown', (e) => { touch = { x: e.clientX, y: e.clientY, used: false }; canvas.focus({ preventScroll: true }); });
+canvas.addEventListener('pointerdown', (e) => {
+  touch = { x: e.clientX, y: e.clientY, used: false };
+  if (G.mode === 'roam') roamStick = { x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 };
+  canvas.focus({ preventScroll: true });
+});
 canvas.addEventListener('pointermove', (e) => {
+  if (roamStick) { roamStick.dx = e.clientX - roamStick.x0; roamStick.dy = e.clientY - roamStick.y0; return; }
   if (!touch || touch.used || G.mode !== 'run') return;
   const dx = e.clientX - touch.x, dy = e.clientY - touch.y;
   if (Math.max(Math.abs(dx), Math.abs(dy)) < 28) return;
   touch.used = true;
   if (Math.abs(dx) > Math.abs(dy)) move(dx > 0 ? 1 : -1); else if (dy < 0) jump(); else slide();
 });
-canvas.addEventListener('pointerup', () => { if (touch && !touch.used && G.mode === 'run') jump(); touch = null; });
+canvas.addEventListener('pointerup', () => {
+  if (roamStick && Math.hypot(roamStick.dx, roamStick.dy) < 10 && G.y <= 0.001 && G.vy === 0) { G.vy = 10.6; sound.sfx('jump'); }
+  roamStick = null;
+  if (touch && !touch.used && G.mode === 'run') jump();
+  touch = null;
+});
+canvas.addEventListener('pointercancel', () => { roamStick = null; touch = null; });
 document.addEventListener('visibilitychange', () => { if (document.hidden && G.mode === 'run') pause(); });
 
 // ---------------------------------------------------------------- HUD
@@ -598,6 +624,8 @@ $('pauseBtn').addEventListener('click', () => pause());
 $('resumeBtn').addEventListener('click', () => resume());
 $('quitBtn').addEventListener('click', () => { $('pauseMenu').hidden = true; G.mode = 'run'; die(); });
 $('playBtn').addEventListener('click', () => startRun());
+$('roamBtn').addEventListener('click', () => startRoam());
+$('roamBack').addEventListener('click', () => endRoam());
 $('againBtn').addEventListener('click', () => startRun());
 $('copyBtn').addEventListener('click', () => {
   const text = $('shareText').value;
@@ -611,6 +639,49 @@ function mood(m, dur) { G.mood = m; G.moodUntil = G.time + dur; }
 
 // ---------------------------------------------------------------- flow
 function show(id) { for (const m of ['startMenu', 'pauseMenu', 'overMenu']) $(m).hidden = m !== id; }
+
+// ---------------------------------------------------------------- free roam: walk the meadow, no track
+const roamKeys = new Set();
+let roamStick = null; // touch joystick {x0, y0, dx, dy}
+function startRoam() {
+  sound.unlock();
+  sound.energy = 0;
+  sound.startMusic();
+  resetRun();
+  for (const e of ents) release(e);
+  ents.length = 0;
+  G.mode = 'roam';
+  G.heading = Math.PI; G.speed = 0; G.dist = 0; G.x = 0;
+  G.roamCam = null;
+  show(null);
+  $('hud').hidden = true;
+  $('roamHud').hidden = false;
+  canvas.focus({ preventScroll: true });
+}
+function endRoam() {
+  G.mode = 'menu';
+  sound.stopMusic();
+  roamKeys.clear(); roamStick = null;
+  $('roamHud').hidden = true;
+  G.heading = Math.PI; G.speed = 0; G.y = 0; G.vy = 0;
+  G.camBlend = 0; G.roamCam = null;
+  show('startMenu');
+  $('roamBtn').focus();
+}
+function roamStep(dt) {
+  const k = (...c) => c.some((x) => roamKeys.has(x));
+  let fwd = (k('KeyW', 'ArrowUp') ? 1 : 0) - (k('KeyS', 'ArrowDown') ? 1 : 0);
+  let turn = (k('KeyA', 'ArrowLeft') ? 1 : 0) - (k('KeyD', 'ArrowRight') ? 1 : 0);
+  if (roamStick) { fwd = clamp(-roamStick.dy / 70, -1, 1); turn = clamp(-roamStick.dx / 70, -1, 1); }
+  const top = k('ShiftLeft', 'ShiftRight') || (roamStick && Math.hypot(roamStick.dx, roamStick.dy) > 90) ? 11 : 6;
+  G.heading += turn * dt * 2.4 * (fwd < 0 ? -1 : 1);
+  G.speed += (fwd * top - G.speed) * Math.min(1, dt * 6);
+  const vx = Math.sin(G.heading) * G.speed, vz = Math.cos(G.heading) * G.speed;
+  G.x = clamp(G.x + vx * dt, -44, 44);
+  G.dist -= vz * dt; // track coordinate s = -z
+  G.roll += (turn * Math.min(1, Math.abs(G.speed) / 6) * 0.6 - G.roll) * Math.min(1, dt * 6);
+  if (G.y > 0 || G.vy !== 0) { G.vy -= 30 * dt; G.y += G.vy * dt; if (G.y <= 0) { G.y = 0; G.vy = 0; } }
+}
 function startRun() {
   sound.unlock();
   sound.sfx('start');
@@ -768,6 +839,8 @@ function step(dt) {
       // gone once behind the cat, so nothing sits between the chase camera and the runner
       if (e.s < G.dist - (e.kind === 'gate' ? 2.5 : 1.6) || (e.kind === 'shard' && e.taken && G.time - e.taken > 0.25)) { release(e); ents.splice(i, 1); }
     }
+  } else if (G.mode === 'roam') {
+    roamStep(dt);
   } else if (G.mode === 'dying') {
     G.dieT += dt;
     G.speed *= Math.exp(-dt * 3);
@@ -780,13 +853,14 @@ function step(dt) {
 // ---------------------------------------------------------------- per-frame visuals
 const P = cat.poses;
 function animateCat(dt) {
-  const running = G.mode === 'run' || (G.mode === 'dying' && G.dieT < 0.3);
+  const roam = G.mode === 'roam';
+  const running = G.mode === 'run' || (G.mode === 'dying' && G.dieT < 0.3) || (roam && Math.abs(G.speed) > 0.4);
   let pose = P.rest;
   if (G.mode === 'menu' || G.mode === 'loading') pose = cat.mixPose(P.rest, P.hero, 1);
   if (G.y > 0.05) pose = cat.mixPose(pose, P.cheer, 0.45);
   cat.applyPose(pose);
-  const amp = running ? 1 : G.mode === 'dying' ? 0.2 : 0;
-  G.phase += dt * (G.speed * 0.42 + (running ? 0 : 2.4));
+  const amp = roam ? Math.min(1, Math.abs(G.speed) / 6) : running ? 1 : G.mode === 'dying' ? 0.2 : 0;
+  G.phase += dt * (Math.abs(G.speed) * (roam ? 0.75 : 0.42) + (running ? 0 : 2.4));
   const sw = Math.sin(G.phase) * amp;
   const air = G.y > 0.05 ? 1 : 0;
   addRot(J.legs.L, sw * 0.85 * (1 - air) - 0.55 * air, 0, 0);
@@ -810,7 +884,7 @@ function animateCat(dt) {
   let tumble = 0;
   if (G.mode === 'dying') tumble = Math.min(1, G.dieT / 0.6);
   cat.root.position.set(G.x, G.y + (G.mode === 'dying' ? Math.sin(Math.min(1, G.dieT / 0.6) * Math.PI) * 0.6 : 0), -G.dist);
-  cat.root.rotation.set(-tumble * 1.25, Math.PI + G.roll * -0.3, G.roll * 0.18);
+  cat.root.rotation.set(-tumble * 1.25, (roam ? G.heading : Math.PI) + G.roll * -0.3, G.roll * 0.18);
   const sq = sl ? 0.36 : 0;
   cat.root.scale.set(1 + sq * 0.4, 1 - sq, 1 + sq * 0.3);
   cat.root.visible = !(G.invuln > 0 && G.mode === 'run' && Math.floor(G.time * 14) % 2 === 0);
@@ -825,7 +899,9 @@ function animateCat(dt) {
 
 function updateWorld() {
   const s0 = G.dist;
-  const refS = s0 - 60; // field window: 60 m behind the runner (the menu looks back) to 160 m ahead
+  // field window: 60 m behind the runner (the menu looks back) to 160 m ahead; centred while roaming
+  const refS = s0 - (G.mode === 'roam' ? 110 : 60);
+  grassU.uCat.value.set(G.x, -G.dist);
   grassU.uTime.value = G.time; grassU.uRefS.value = refS;
   flyU.uTime.value = G.time; flyU.uRefS.value = refS; flyU.uScale.value = renderer.domElement.height * 0.5;
   // shards spin; fakes glitch
@@ -847,6 +923,18 @@ function updateWorld() {
 }
 
 function updateCamera(dt) {
+  if (G.mode === 'roam') {
+    const fx = Math.sin(G.heading), fz = Math.cos(G.heading);
+    const tp = V(G.x - fx * 9.5, 4.2 + G.y * 0.4, -G.dist - fz * 9.5), tl = V(G.x + fx * 4, 1.8 + G.y * 0.4, -G.dist + fz * 4);
+    if (!G.roamCam) G.roamCam = { p: camera.position.clone(), l: tl.clone() };
+    const k = Math.min(1, dt * 3.2);
+    G.roamCam.p.lerp(tp, k); G.roamCam.l.lerp(tl, Math.min(1, dt * 6));
+    camera.position.copy(G.roamCam.p); camera.lookAt(G.roamCam.l);
+    const fov = camera.aspect > 1.05 ? 52 : 64;
+    if (Math.abs(camera.fov - fov) > 0.01) { camera.fov += (fov - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
+    sky.position.copy(camera.position);
+    return;
+  }
   const want = G.mode === 'run' || G.mode === 'paused' ? 1 : G.mode === 'dying' ? 0.6 : 0;
   G.camBlend += (want - G.camBlend) * Math.min(1, dt * (want > G.camBlend ? 2.2 : 0.9));
   const u = G.camBlend * G.camBlend * (3 - 2 * G.camBlend);
@@ -1024,7 +1112,7 @@ async function boot() {
       }
     };
     window.__tr = {
-      G, ents, startRun, move, jump, slide, hitLog, claimLog, spawn,
+      G, ents, startRun, move, jump, slide, hitLog, claimLog, spawn, startRoam, endRoam, roamKeys,
       tick(seconds, fps = 30, skill = -1) { for (let i = 0; i < seconds * fps; i++) { const dt = 1 / fps; if (skill >= 0) pilot(skill); if (G.mode !== 'paused') step(dt); animateCat(dt); updateWorld(); updateCamera(dt); } updateHUD(); render(); },
       shot() { return canvas.toDataURL('image/jpeg', 0.85); },
     };
