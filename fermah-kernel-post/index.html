@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Fermah Kernel Post</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg0: #030a14;
+    --bg1: #061424;
+    --ink: #eef4f8;
+    --mute: #8a9bb0;
+    --dim: #4b5d72;
+    --teal: #19e3c7;
+    --cyan: #22d3ee;
+    --violet: #a78bfa;
+    --line: rgba(25, 227, 199, .16);
+    --card: rgba(8, 24, 40, .72);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1600px; height: 900px; overflow: hidden; background: var(--bg0); }
+  body { font-family: 'Sora', sans-serif; color: var(--ink); }
+
+  .stage { position: relative; width: 1600px; height: 900px; overflow: hidden;
+    background:
+      radial-gradient(900px 600px at 78% 46%, rgba(25,227,199,.16), transparent 60%),
+      radial-gradient(700px 500px at 100% 100%, rgba(167,139,250,.14), transparent 60%),
+      radial-gradient(800px 500px at 0% 0%, rgba(34,211,238,.10), transparent 60%),
+      linear-gradient(160deg, #061628 0%, #040c18 55%, #030812 100%);
+  }
+  .grid { position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(120,200,220,.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(120,200,220,.06) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(1100px 760px at 60% 45%, #000 30%, transparent 85%);
+  }
+  .grid.fine { background-size: 14px 14px; opacity: .35;
+    mask-image: radial-gradient(520px 420px at 76% 48%, #000 10%, transparent 70%); }
+  .scan { position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px); }
+  .noise { position: absolute; inset: 0; opacity: .09; mix-blend-mode: overlay; }
+  .vignette { position: absolute; inset: 0; background: radial-gradient(1200px 800px at 50% 50%, transparent 55%, rgba(0,0,0,.55)); }
+
+  /* ---------- top bar ---------- */
+  .top { position: absolute; left: 64px; right: 64px; top: 44px; height: 56px; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 16px; }
+  .brand svg { filter: drop-shadow(0 0 14px rgba(25,227,199,.55)); }
+  .wordmark { font-weight: 800; font-size: 30px; letter-spacing: .06em; line-height: 1; }
+  .brand .sep { width: 1px; height: 30px; background: rgba(255,255,255,.18); margin: 0 4px; }
+  .brand .sub { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: .38em; color: var(--teal); line-height: 1.5; }
+  .brand .sub span { color: var(--dim); display: block; }
+  .status { display: flex; gap: 12px; }
+  .pill { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; letter-spacing: .24em; color: #b8c7d6;
+    border: 1px solid rgba(25,227,199,.28); background: rgba(6,22,36,.6); padding: 10px 18px; border-radius: 999px;
+    display: flex; align-items: center; gap: 10px; backdrop-filter: blur(6px); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 0 4px rgba(25,227,199,.15), 0 0 14px var(--teal); }
+  .dot.v { background: var(--violet); box-shadow: 0 0 0 4px rgba(167,139,250,.15), 0 0 14px var(--violet); }
+
+  /* ---------- left column ---------- */
+  .left { position: absolute; left: 64px; top: 142px; width: 720px; }
+  .chip { display: inline-flex; align-items: center; gap: 12px; padding: 10px 20px; border-radius: 999px;
+    border: 1px solid rgba(25,227,199,.45); color: var(--teal); font-size: 16px; font-weight: 600;
+    background: linear-gradient(90deg, rgba(25,227,199,.12), rgba(25,227,199,.02)); box-shadow: inset 0 0 24px rgba(25,227,199,.08); }
+  h1 { margin-top: 26px; font-size: 78px; line-height: 1.02; font-weight: 800; letter-spacing: -.035em; }
+  h1 .g { background: linear-gradient(92deg, #19e3c7 0%, #22d3ee 38%, #8fa8ff 70%, #b794f6 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 0 28px rgba(34,211,238,.28)); }
+  h1 .cursor { display: inline-block; width: 16px; height: 64px; background: var(--teal); margin-left: 10px; vertical-align: -4px;
+    box-shadow: 0 0 18px var(--teal); }
+  .lede { margin-top: 24px; font-size: 21px; line-height: 1.55; color: #9fb0c3; font-weight: 300; max-width: 640px; }
+  .lede b { color: var(--ink); font-weight: 600; }
+
+  /* evolution track */
+  .track { position: absolute; left: 64px; top: 600px; width: 760px; }
+  .track .label { font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: .4em; color: var(--dim); margin-bottom: 16px; display: flex; justify-content: space-between; }
+  .track .label i { font-style: normal; color: var(--teal); }
+  .steps { display: grid; grid-template-columns: 1fr 1fr 1.12fr; gap: 14px; position: relative; }
+  .step { position: relative; padding: 18px 18px 18px; border-radius: 18px; border: 1px solid rgba(140,170,200,.14);
+    background: linear-gradient(180deg, rgba(14,32,52,.7), rgba(6,16,30,.7)); min-height: 150px; }
+  .step .n { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--dim); letter-spacing: .2em; display: flex; justify-content: space-between; }
+  .step .t { margin-top: 12px; font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+  .step .d { margin-top: 8px; font-size: 13.5px; line-height: 1.5; color: var(--mute); }
+  .step .bar { position: absolute; left: 18px; right: 18px; bottom: 14px; height: 4px; border-radius: 4px; background: rgba(255,255,255,.06); overflow: hidden; }
+  .step .bar span { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #3b5a78, #6b8fb0); }
+  .step.hot { border-color: rgba(25,227,199,.6);
+    background: linear-gradient(160deg, rgba(25,227,199,.18), rgba(8,30,44,.85) 55%, rgba(167,139,250,.12));
+    box-shadow: 0 0 0 1px rgba(25,227,199,.15), 0 20px 60px -20px rgba(25,227,199,.55), inset 0 0 40px rgba(25,227,199,.08); }
+  .step.hot .n { color: var(--teal); }
+  .step.hot .bar span { background: linear-gradient(90deg, var(--teal), var(--cyan), var(--violet)); box-shadow: 0 0 12px var(--teal); }
+  .step.hot .t { color: #fff; }
+  .arrow { position: absolute; top: 50%; width: 14px; height: 14px; margin-top: -7px; z-index: 2; color: var(--teal); }
+
+  /* ---------- right visual ---------- */
+  .viz { position: absolute; left: 790px; top: 112px; width: 760px; height: 660px; }
+  .viz > svg { position: absolute; inset: 0; overflow: visible; }
+  .node { position: absolute; transform: translate(-50%, -50%); padding: 11px 16px 11px 14px; border-radius: 14px;
+    background: rgba(6,20,34,.86); border: 1px solid rgba(25,227,199,.35); backdrop-filter: blur(8px);
+    display: flex; align-items: center; gap: 12px; white-space: nowrap;
+    box-shadow: 0 14px 40px -18px rgba(0,0,0,.9), 0 0 24px -6px rgba(25,227,199,.35); }
+  .node .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(140deg, rgba(25,227,199,.25), rgba(34,211,238,.06)); border: 1px solid rgba(25,227,199,.35); }
+  .node .k { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; letter-spacing: .28em; color: var(--teal); }
+  .node .v { font-size: 15px; font-weight: 600; margin-top: 2px; }
+  .node .ok { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #0b2a24; background: var(--teal); padding: 3px 7px; border-radius: 6px; margin-left: 4px; font-weight: 700; letter-spacing: .08em; }
+  .node.vio { border-color: rgba(167,139,250,.45); box-shadow: 0 14px 40px -18px rgba(0,0,0,.9), 0 0 24px -6px rgba(167,139,250,.45); }
+  .node.vio .ic { background: linear-gradient(140deg, rgba(167,139,250,.3), rgba(167,139,250,.05)); border-color: rgba(167,139,250,.45); }
+  .node.vio .k { color: var(--violet); }
+  .node.vio .ok { background: var(--violet); color: #1d1238; }
+
+  .core-label { position: absolute; left: 380px; top: 330px; transform: translate(-50%, -50%); text-align: center; }
+  .core-label .k { font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: .5em; color: var(--teal); padding-left: .5em; }
+  .core-label .v { font-size: 34px; font-weight: 800; letter-spacing: -.02em; margin-top: 4px; text-shadow: 0 0 24px rgba(25,227,199,.6); }
+  .core-label .s { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: #7fa5b8; letter-spacing: .18em; margin-top: 6px; }
+
+  /* terminal */
+  .term { position: absolute; right: 64px; bottom: 96px; width: 420px; border-radius: 16px; overflow: hidden;
+    border: 1px solid rgba(25,227,199,.3); background: rgba(3,12,22,.9);
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,.95), 0 0 40px -10px rgba(25,227,199,.3); }
+  .term .hd { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid rgba(255,255,255,.06);
+    background: linear-gradient(90deg, rgba(25,227,199,.1), transparent); font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--mute); letter-spacing: .12em; }
+  .term .hd b { width: 9px; height: 9px; border-radius: 50%; background: #2a3a4c; }
+  .term .hd b:first-child { background: #ff5f57; } .term .hd b:nth-child(2) { background: #febc2e; } .term .hd b:nth-child(3) { background: #28c840; }
+  .term .hd span { margin-left: 8px; } .term .hd em { margin-left: auto; font-style: normal; color: var(--teal); }
+  .term pre { padding: 14px 16px 16px; font-family: 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 1.78; color: #b8c7d6; }
+  .c-d { color: #3f5870; } .c-t { color: var(--teal); } .c-v { color: var(--violet); } .c-w { color: #fff; font-weight: 700; } .c-m { color: #6f8499; }
+
+  /* bottom ticker */
+  .ticker { position: absolute; left: 0; right: 0; bottom: 0; height: 74px; border-top: 1px solid rgba(25,227,199,.18);
+    background: linear-gradient(180deg, rgba(4,14,26,.4), rgba(3,10,20,.95)); display: flex; align-items: center; padding: 0 64px; gap: 44px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: .3em; color: #8fa4b8; }
+  .ticker .it { display: flex; align-items: center; gap: 12px; }
+  .ticker .q { margin-left: auto; font-family: 'Sora', sans-serif; letter-spacing: 0; font-size: 18px; color: var(--ink); font-weight: 600; display: flex; gap: 14px; align-items: center; }
+  .ticker .q s { text-decoration: none; color: var(--dim); font-weight: 400; position: relative; }
+  .ticker .q s::after { content: ''; position: absolute; left: -2px; right: -2px; top: 52%; height: 2px; background: rgba(255,95,87,.7); }
+  .ticker .q .gq { background: linear-gradient(90deg, var(--teal), var(--violet)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+
+  .corner { position: absolute; width: 22px; height: 22px; border-color: rgba(25,227,199,.6); border-style: solid; }
+  .corner.tl { left: 24px; top: 24px; border-width: 2px 0 0 2px; } .corner.tr { right: 24px; top: 24px; border-width: 2px 2px 0 0; }
+  .corner.bl { left: 24px; bottom: 90px; border-width: 0 0 2px 2px; } .corner.br { right: 24px; bottom: 90px; border-width: 0 2px 2px 0; }
+  .coords { position: absolute; font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: .3em; color: #2f4a60; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="grid"></div>
+  <div class="grid fine"></div>
+  <svg class="noise" width="1600" height="900"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="3" stitchTiles="stitch"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>
+
+  <!-- ===== right visual (behind text) ===== -->
+  <div class="viz" id="viz">
+    <svg id="vsvg" width="760" height="660" viewBox="0 0 760 660"></svg>
+    <div class="core-label">
+      <div class="k">FERMAH</div>
+      <div class="v">Kernel</div>
+      <div class="s">ORCHESTRATION LAYER</div>
+    </div>
+  </div>
+
+  <div class="scan"></div>
+  <div class="vignette"></div>
+
+  <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+  <div class="coords" style="left:56px; top:118px">[ 00 / DEFI.EVOLUTION ]</div>
+  <div class="coords" style="right:64px; top:118px">LAT 44ms · SYNC 99.9% · NODE 07</div>
+
+  <!-- ===== top bar ===== -->
+  <div class="top">
+    <div class="brand">
+      <svg width="46" height="40" viewBox="0 0 46 40">
+        <defs><linearGradient id="lg" x1="0" x2="1"><stop offset="0" stop-color="#19e3c7"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+        <rect x="0" y="0" width="46" height="8" fill="url(#lg)"/>
+        <rect x="8" y="8" width="8" height="24" fill="url(#lg)"/>
+        <rect x="30" y="8" width="8" height="24" fill="url(#lg)"/>
+        <rect x="0" y="32" width="10" height="8" fill="url(#lg)"/>
+        <rect x="36" y="32" width="10" height="8" fill="url(#lg)"/>
+        <rect x="19" y="14" width="8" height="8" fill="#19e3c7" opacity=".55"/>
+      </svg>
+      <div class="wordmark">FERMAH</div>
+      <div class="sep"></div>
+      <div class="sub">KERNEL<span>AUTONOMY INFRA</span></div>
+    </div>
+    <div class="status">
+      <div class="pill"><span class="dot"></span>KERNEL: OPERATIONAL</div>
+      <div class="pill"><span class="dot v"></span>STREAMING</div>
+    </div>
+  </div>
+
+  <!-- ===== left copy ===== -->
+  <div class="left">
+    <div class="chip"><span class="dot"></span>From Decentralized → Autonomous</div>
+    <h1>Will DeFi move<br>toward <span class="g">full</span><br><span class="g">automation?</span><span class="cursor"></span></h1>
+    <p class="lede">Smart contracts made finance <b>programmable</b>. Bots and external services still pull the strings. <b>Kernel</b> coordinates and executes the whole workflow&nbsp;— end to end.</p>
+  </div>
+
+  <!-- ===== evolution track ===== -->
+  <div class="track">
+    <div class="label"><span>// EVOLUTION OF DEFI EXECUTION</span><i>HUMAN INPUT ↓</i></div>
+    <div class="steps">
+      <div class="step">
+        <div class="n"><span>01</span><span>GEN 1</span></div>
+        <div class="t">Smart Contracts</div>
+        <div class="d">Programmable money. Still waits for someone to press the button.</div>
+        <div class="bar"><span style="width:32%"></span></div>
+      </div>
+      <div class="step">
+        <div class="n"><span>02</span><span>GEN 2</span></div>
+        <div class="t">Yearn &amp; Bots</div>
+        <div class="d">Automated vaults — but leaning on keepers &amp; off-chain services.</div>
+        <div class="bar"><span style="width:62%"></span></div>
+      </div>
+      <div class="step hot">
+        <div class="n"><span>03</span><span>NEXT ●</span></div>
+        <div class="t">Fermah Kernel</div>
+        <div class="d">Complex workflows, coordinated &amp; executed autonomously.</div>
+        <div class="bar"><span style="width:100%"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== terminal ===== -->
+  <div class="term">
+    <div class="hd"><b></b><b></b><b></b><span>kernel.run(workflow)</span><em>● LIVE</em></div>
+<pre><span class="c-d">00.004</span> <span class="c-t">▸ trigger</span>   market signal detected    <span class="c-t">✓</span>
+<span class="c-d">00.019</span> <span class="c-t">▸ plan</span>      compose 4-step sequence   <span class="c-t">✓</span>
+<span class="c-d">00.031</span> <span class="c-v">▸ prove</span>     verify off-chain compute  <span class="c-v">✓</span>
+<span class="c-d">00.044</span> <span class="c-t">▸ execute</span>   route · swap · rebalance  <span class="c-t">✓</span>
+<span class="c-d">00.057</span> <span class="c-t">▸ settle</span>    finalized on-chain        <span class="c-t">✓</span>
+<span class="c-m">─────────────────────────────────────────</span>
+<span class="c-m">manual interventions:</span> <span class="c-w">0</span>   <span class="c-m">status:</span> <span class="c-t">AUTONOMOUS</span></pre>
+  </div>
+
+  <!-- ===== bottom ticker ===== -->
+  <div class="ticker">
+    <div class="it"><span class="dot"></span>COMPOSABLE</div>
+    <div class="it"><span class="dot"></span>VERIFIABLE</div>
+    <div class="it"><span class="dot v"></span>AUTONOMOUS</div>
+    <div class="q"><span>Not just decentralized</span><span style="color:var(--dim)">—</span><span class="gq">Autonomous?</span></div>
+  </div>
+</div>
+
+<script>
+// Build the Kernel orbit diagram
+const NS = 'http://www.w3.org/2000/svg';
+const svg = document.getElementById('vsvg');
+const viz = document.getElementById('viz');
+const CX = 380, CY = 330;
+const el = (t, a, p = svg) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p.appendChild(e); return e; };
+
+const defs = el('defs', {});
+defs.innerHTML = `
+  <radialGradient id="coreG" cx="50%" cy="50%" r="50%">
+    <stop offset="0" stop-color="#19e3c7" stop-opacity=".55"/>
+    <stop offset=".45" stop-color="#0e8f8a" stop-opacity=".22"/>
+    <stop offset="1" stop-color="#061424" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="coreIn" cx="40%" cy="35%" r="70%">
+    <stop offset="0" stop-color="#123a4a"/>
+    <stop offset="1" stop-color="#05121f"/>
+  </radialGradient>
+  <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#19e3c7"/><stop offset=".5" stop-color="#22d3ee"/><stop offset="1" stop-color="#a78bfa"/>
+  </linearGradient>
+  <linearGradient id="flow" x1="0" x2="1">
+    <stop offset="0" stop-color="#19e3c7" stop-opacity="0"/><stop offset=".5" stop-color="#19e3c7"/><stop offset="1" stop-color="#a78bfa" stop-opacity=".1"/>
+  </linearGradient>
+  <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  <filter id="bigglow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="14"/></filter>
+`;
+
+// outer halo
+el('circle', { cx: CX, cy: CY, r: 260, fill: 'url(#coreG)' });
+
+// orbit rings (ellipses for depth)
+const rings = [
+  { rx: 300, ry: 300, op: .10, dash: '2 8' },
+  { rx: 250, ry: 250, op: .22, dash: '1 0' },
+  { rx: 196, ry: 196, op: .14, dash: '4 6' },
+  { rx: 150, ry: 150, op: .35, dash: '1 0' },
+];
+rings.forEach(r => el('ellipse', { cx: CX, cy: CY, rx: r.rx, ry: r.ry, fill: 'none', stroke: 'url(#ring)', 'stroke-opacity': r.op, 'stroke-width': 1.2, 'stroke-dasharray': r.dash }));
+
+// tick marks on ring 250
+for (let i = 0; i < 120; i++) {
+  const a = i / 120 * Math.PI * 2, long = i % 10 === 0;
+  const r1 = 250, r2 = 250 + (long ? 14 : 6);
+  el('line', { x1: CX + Math.cos(a) * r1, y1: CY + Math.sin(a) * r1, x2: CX + Math.cos(a) * r2, y2: CY + Math.sin(a) * r2,
+    stroke: long ? '#19e3c7' : '#2a5868', 'stroke-width': long ? 1.6 : 1, 'stroke-opacity': long ? .8 : .6 });
+}
+
+// arc segments (progress arcs)
+const arc = (r, a0, a1, color, w, op = 1) => {
+  const p0 = [CX + Math.cos(a0) * r, CY + Math.sin(a0) * r], p1 = [CX + Math.cos(a1) * r, CY + Math.sin(a1) * r];
+  const large = (a1 - a0) > Math.PI ? 1 : 0;
+  return el('path', { d: `M${p0} A${r} ${r} 0 ${large} 1 ${p1}`, fill: 'none', stroke: color, 'stroke-width': w, 'stroke-linecap': 'round', 'stroke-opacity': op, filter: 'url(#glow)' });
+};
+arc(150, -Math.PI * .5, Math.PI * .95, 'url(#ring)', 3.5);
+arc(196, Math.PI * .1, Math.PI * .7, '#a78bfa', 2.2, .9);
+arc(196, Math.PI * 1.05, Math.PI * 1.45, '#19e3c7', 2.2, .9);
+arc(300, Math.PI * 1.2, Math.PI * 1.75, '#22d3ee', 1.6, .55);
+
+// hexagon core
+const hex = (r, rot = 0) => Array.from({ length: 6 }, (_, i) => { const a = rot + i * Math.PI / 3; return [CX + Math.cos(a) * r, CY + Math.sin(a) * r].join(','); }).join(' ');
+el('circle', { cx: CX, cy: CY, r: 110, fill: '#19e3c7', opacity: .25, filter: 'url(#bigglow)' });
+el('polygon', { points: hex(118, Math.PI / 6), fill: 'url(#coreIn)', stroke: 'url(#ring)', 'stroke-width': 2, filter: 'url(#glow)' });
+el('polygon', { points: hex(100, Math.PI / 6), fill: 'none', stroke: '#19e3c7', 'stroke-opacity': .3, 'stroke-width': 1, 'stroke-dasharray': '3 5' });
+// inner circuit lines
+for (let i = 0; i < 6; i++) {
+  const a = Math.PI / 6 + i * Math.PI / 3;
+  el('line', { x1: CX + Math.cos(a) * 100, y1: CY + Math.sin(a) * 100, x2: CX + Math.cos(a) * 118, y2: CY + Math.sin(a) * 118, stroke: '#19e3c7', 'stroke-opacity': .7, 'stroke-width': 1.5 });
+  el('circle', { cx: CX + Math.cos(a) * 118, cy: CY + Math.sin(a) * 118, r: 3.5, fill: '#19e3c7', filter: 'url(#glow)' });
+}
+
+// workflow nodes around the core
+const nodes = [
+  { a: -150, r: 262, k: 'STEP 01', v: 'Trigger', ic: 'bolt' },
+  { a: -94,  r: 264, k: 'STEP 02', v: 'Compose', ic: 'layers' },
+  { a: -36,  r: 262, k: 'STEP 03', v: 'Prove', ic: 'shield', vio: true },
+  { a: 8,    r: 246, k: 'STEP 04', v: 'Execute', ic: 'cpu' },
+  { a: 138,  r: 262, k: 'STEP 05', v: 'Settle', ic: 'check', vio: true },
+  { a: 180,  r: 292, k: 'INPUT', v: 'Human: 0', ic: 'user', off: true },
+];
+const icons = {
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  layers: '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 12 10 5 10-5"/><path d="m2 17 10 5 10-5"/>',
+  shield: '<path d="M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/>',
+  cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/>',
+  check: '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/><path d="M3 3l18 18"/>',
+};
+const pts = nodes.map(n => { const a = n.a * Math.PI / 180; return [CX + Math.cos(a) * n.r, CY + Math.sin(a) * n.r]; });
+
+// connectors from core to nodes + between consecutive nodes
+nodes.forEach((n, i) => {
+  if (n.off) return;
+  const [x, y] = pts[i];
+  const a = Math.atan2(y - CY, x - CX);
+  const sx = CX + Math.cos(a) * 122, sy = CY + Math.sin(a) * 122;
+  const mx = (sx + x) / 2 + Math.cos(a + Math.PI / 2) * 18, my = (sy + y) / 2 + Math.sin(a + Math.PI / 2) * 18;
+  const col = n.vio ? '#a78bfa' : '#19e3c7';
+  el('path', { d: `M${sx},${sy} Q${mx},${my} ${x},${y}`, fill: 'none', stroke: col, 'stroke-opacity': .25, 'stroke-width': 6, filter: 'url(#bigglow)' });
+  el('path', { d: `M${sx},${sy} Q${mx},${my} ${x},${y}`, fill: 'none', stroke: col, 'stroke-opacity': .85, 'stroke-width': 1.6, 'stroke-dasharray': '6 5' });
+  // data packets along the path
+  [0.35, 0.7].forEach(t => {
+    const px = (1 - t) ** 2 * sx + 2 * (1 - t) * t * mx + t * t * x, py = (1 - t) ** 2 * sy + 2 * (1 - t) * t * my + t * t * y;
+    el('circle', { cx: px, cy: py, r: 3.2, fill: '#fff', filter: 'url(#glow)' });
+  });
+});
+// sequence chain arcs between steps
+const seq = [0, 1, 2, 3, 4];
+for (let i = 0; i < seq.length - 1; i++) {
+  const [x1, y1] = pts[seq[i]], [x2, y2] = pts[seq[i + 1]];
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+  const a = Math.atan2(my - CY, mx - CX);
+  const cx = mx + Math.cos(a) * 70, cy = my + Math.sin(a) * 70;
+  el('path', { d: `M${x1},${y1} Q${cx},${cy} ${x2},${y2}`, fill: 'none', stroke: 'url(#ring)', 'stroke-opacity': .45, 'stroke-width': 1.2 });
+}
+// broken human link (dimmed, red cut)
+{
+  const [x, y] = pts[5];
+  el('line', { x1: x + 70, y1: y, x2: CX - 122, y2: CY, stroke: '#ff5f57', 'stroke-opacity': .35, 'stroke-width': 1.4, 'stroke-dasharray': '3 6' });
+  const mx = (x + 70 + CX - 122) / 2, my = (y + CY) / 2;
+  el('path', { d: `M${mx - 7},${my - 7} L${mx + 7},${my + 7} M${mx + 7},${my - 7} L${mx - 7},${my + 7}`, stroke: '#ff5f57', 'stroke-width': 2.2, 'stroke-linecap': 'round', filter: 'url(#glow)' });
+}
+
+// particles / stars
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+for (let i = 0; i < 90; i++) {
+  const a = rnd() * Math.PI * 2, r = 130 + rnd() * 260;
+  el('circle', { cx: CX + Math.cos(a) * r, cy: CY + Math.sin(a) * r, r: rnd() * 1.6 + .3, fill: rnd() > .8 ? '#a78bfa' : '#19e3c7', opacity: rnd() * .7 + .15 });
+}
+
+// HTML node cards
+nodes.forEach((n, i) => {
+  const [x, y] = pts[i];
+  const d = document.createElement('div');
+  d.className = 'node' + (n.vio ? ' vio' : '');
+  if (n.off) { d.style.borderColor = 'rgba(255,95,87,.4)'; d.style.opacity = '.75'; d.style.boxShadow = 'none'; }
+  const col = n.off ? '#ff5f57' : n.vio ? '#a78bfa' : '#19e3c7';
+  d.innerHTML = `<div class="ic" ${n.off ? 'style="border-color:rgba(255,95,87,.45);background:rgba(255,95,87,.1)"' : ''}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${icons[n.ic]}</svg></div>
+    <div><div class="k" ${n.off ? 'style="color:#ff7b74"' : ''}>${n.k}</div><div class="v">${n.v}</div></div>${n.off ? '' : '<span class="ok">OK</span>'}`;
+  d.style.left = x + 'px'; d.style.top = y + 'px';
+  viz.appendChild(d);
+});
+window.ready = true;
+</script>
+</body>
+</html>
