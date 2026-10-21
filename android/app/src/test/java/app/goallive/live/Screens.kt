@@ -7,6 +7,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import app.goallive.live.data.Api
 import app.goallive.live.data.Store
@@ -51,7 +52,7 @@ class Screens {
 
     private fun tap(text: String) {
         val n = rule.onAllNodesWithText(text, substring = true)
-        if (n.fetchSemanticsNodes().isNotEmpty()) n[0].performClick()
+        if (n.fetchSemanticsNodes().isNotEmpty()) runCatching { n[0].performScrollTo() }.also { n[0].performClick() }
     }
 
     @Test
@@ -61,7 +62,7 @@ class Screens {
         Store.init(ctx)
         Store.onboarded = true
         Store.prefs().edit().putBoolean("askedNotify", true).apply()
-        if (Store.myTeam == null) Store.toggleTeam(8634, "Barcelona")
+        Store.pickMyTeam(app.goallive.live.data.MyTeam(8634, "Barcelona", null))
         rule.mainClock.autoAdvance = false
 
         // a finished match from a big league today (fallback: any match) for the match screens
@@ -76,7 +77,9 @@ class Screens {
         if (match != null) {
             NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")
             tap("آمار"); settle(3000); shot("03-match-stats")
+            tap("شوت‌ها"); settle(3000); shot("03b-match-shots")
             tap("ترکیب"); settle(3000); shot("04-match-lineup")
+            tap("بازیکنان"); settle(3000); shot("04b-match-players")
             tap("رودررو"); settle(3000); shot("05-match-h2h")
             tap("جدول"); settle(6000); shot("06-match-table")
         }

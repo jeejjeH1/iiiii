@@ -40,6 +40,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -860,7 +861,7 @@ private fun ShotsTab(m: MatchData) {
                 val h = isH(s)
                 val x = (if (h) 105 - (s.d("x") ?: 0.0) else (s.d("x") ?: 0.0)).toFloat() / 105f
                 val y = (if (h) 68 - (s.d("y") ?: 0.0) else (s.d("y") ?: 0.0)).toFloat() / 68f
-                Box(Modifier.absoluteOffset(w * x - 12.dp, hgt * y - 12.dp).size(24.dp).clip(CircleShape).clickable { sel = s.i("id") })
+                Box(Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * x - 12.dp, hgt * y - 12.dp).size(24.dp).clip(CircleShape).clickable { sel = s.i("id") })
             }
         }
         val s = m.shots.firstOrNull { it.i("id") == sel }
@@ -1036,7 +1037,7 @@ private fun Pitch(H: JSONObject, A: JSONObject, m: MatchData) {
                 val top = if (home) 0.03f + y * 0.46f else 0.97f - y * 0.46f
                 val left = if (home) 0.06f + x * 0.88f else 0.94f - x * 0.88f
                 Column(
-                    Modifier.absoluteOffset(w * left - chipW / 2, h * top - 20.dp).width(chipW).clickable { nav.player(p.i("id") ?: 0) },
+                    Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * left - chipW / 2, h * top - 20.dp).width(chipW).clickable { nav.player(p.i("id") ?: 0) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box {

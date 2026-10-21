@@ -54,6 +54,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
@@ -137,7 +139,7 @@ fun Face(id: Int, size: Dp = 38.dp, ring: Color? = null, ringWidth: Dp = 2.dp) {
 /** Text laid out left-to-right (Latin names, minutes like 45+2'), in the site's broadcast font by default. */
 @Composable
 fun Ltr(
-    text: String, modifier: Modifier = Modifier, style: TextStyle = lat(15.sp), color: Color = Color.Unspecified,
+    text: String, modifier: Modifier = Modifier, style: TextStyle = lat(15.sp), color: Color = C.ink,
     weight: FontWeight? = null, maxLines: Int = 1, align: TextAlign? = null,
 ) {
     Text(text, modifier, color = color, style = style.copy(textDirection = TextDirection.ContentOrLtr), fontWeight = weight,
@@ -186,14 +188,16 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Soft colored halo around an element (the site's box-shadow glows). */
+/** Soft colored halo around an element (the site's box-shadow glows), drawn as a blurred shape behind it. */
 fun Modifier.glow(color: Color, radius: Dp, shape: Shape = RoundedCornerShape(12.dp)): Modifier = drawBehind {
     val r = radius.toPx()
-    for (i in 3 downTo 1) {
-        val g = r * i / 3
-        drawRoundRect(color.copy(alpha = color.alpha * 0.18f), Offset(-g, -g), Size(size.width + 2 * g, size.height + 2 * g),
-            androidx.compose.ui.geometry.CornerRadius(g + 6.dp.toPx()))
+    if (r <= 0f) return@drawBehind
+    val outline = shape.createOutline(size, layoutDirection, this)
+    val paint = androidx.compose.ui.graphics.Paint().apply {
+        this.color = color
+        asFrameworkPaint().maskFilter = android.graphics.BlurMaskFilter(r, android.graphics.BlurMaskFilter.Blur.NORMAL)
     }
+    drawIntoCanvas { c -> c.drawOutline(outline, paint) }
 }
 
 @Composable

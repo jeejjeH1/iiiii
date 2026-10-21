@@ -280,7 +280,7 @@ private fun Featured(picks: List<MatchItem>) {
                         Column(Modifier.width(80.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             if (m.started && !m.cancelled) ScoreText(m.home.score, m.away.score, 30, Color.White, sepColor = Color.White.copy(alpha = 0.5f))
                             else Text(timeOf(m.time), color = Color.White, style = vz(30.sp, FontWeight.Black))
-                            T(if (m.started) statusText(m) else persianDate(m.time, "EEE"), 11, FontWeight.Bold, Color.White.copy(alpha = 0.85f), maxLines = 1)
+                            Ltr(if (m.started) statusText(m) else persianDate(m.time, "EEE"), style = vz(11.sp, FontWeight.Bold), color = Color.White.copy(alpha = 0.85f))
                         }
                         FTeam(m.away.id, m.away.name, Modifier.weight(1f))
                     }
