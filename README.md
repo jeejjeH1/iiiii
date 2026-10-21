@@ -23,6 +23,9 @@ FotMob has no public API; this is unofficial and may break or be restricted by t
 ## Mobile app
 
 - **Install from the browser (PWA):** open the site, then "Install app" (Android/Chrome) or Share → "Add to Home Screen" (iOS).
-- **Android APK:** `mobile/` is a Capacitor shell that loads the live site and adds native notifications and the back button.
-  GitHub Actions (`.github/workflows/android.yml`) builds it on every change under `mobile/` and publishes `goallive.apk`
-  to the `android-latest` release. Locally: `cd mobile && npm ci && npm run build:apk` (needs the Android SDK).
+- **Android app:** `android/` is a native app (Kotlin + Jetpack Compose) that uses the same `/api` functions as the site:
+  matches by day, match page (summary, video, stats, line-up pitch, table, head-to-head), leagues, teams with club themes
+  and history, players, search, following, on-device goal / line-up / kick-off alerts and the "my team" home-screen widget.
+  GitHub Actions (`.github/workflows/android.yml`) builds it on every change under `android/` and publishes `goallive.apk`
+  to the `android-latest` release. Locally: `cd android && ./gradlew assembleRelease` (needs the Android SDK).
+  `node android/tools/gen-data.mjs` regenerates the club and translation tables from `assets/`.
