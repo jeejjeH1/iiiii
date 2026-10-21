@@ -113,7 +113,8 @@ export async function loadHighlights(d, root) {
   const q = fh || fa2 ? `خلاصه بازی ${fh || h.name} ${fa2 || a.name}` : `${h.name} ${a.name} highlights`;
   const must = [fh || h.name, fa2 || a.name].join('|');
   if (!hlCache[id]) {
-    try { hlCache[id] = (await (await fetch(`/api/hl?q=${encodeURIComponent(q)}&must=${encodeURIComponent(must)}`)).json()).videos || []; } catch { hlCache[id] = []; }
+    const after = Date.parse(d.header.status.utcTime) || 0;
+    try { hlCache[id] = (await (await fetch(`/api/hl?q=${encodeURIComponent(q)}&must=${encodeURIComponent(must)}&after=${after}`)).json()).videos || []; } catch { hlCache[id] = []; }
   }
   const vids = hlCache[id];
   const fm = d.content?.matchFacts?.highlights;

@@ -447,6 +447,7 @@ export async function matchView(el, [id, tabArg]) {
     ['h2h', 'رودررو', !!c.h2h?.matches?.length],
   ].filter((t) => t[2]);
   if (d.header.status.started || c.liveticker?.langs) avail.splice(1, 0, ['live', 'گزارش زنده', true]);
+  if (d.header.status.started) avail.splice(1, 0, ['video', '🎬 ویدیو', true]);
   const clubs = d.header.teams.filter((t) => club(t.id));
   if (clubs.length) avail.splice(1, 0, ['story', 'داستان باشگاه', true]);
   const tab = avail.some((t) => t[0] === tabArg) ? tabArg : 'summary';
@@ -463,13 +464,14 @@ export async function matchView(el, [id, tabArg]) {
     else if (tab === 'players') body = playersTab(d);
     else if (tab === 'h2h') body = h2h(d);
     else if (tab === 'live') body = el.querySelector('#tabBody')?.innerHTML || ''; // keep the feed while it refreshes
+    else if (tab === 'video') body = highlightsCard(d);
     else if (tab === 'story') body = clubs.map((t) => storyHtml(t.id, club(t.id), trophyCache[t.id])).join('');
     if (tab === 'summary' && clubs.length) body = `<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-bottom:12px">${clubs.map((t) => storyCard(t.id, t.name)).join('')}</div>` + body;
     el.innerHTML = `${header(d)}
       ${tabs('#/match/' + id, avail, tab)}<div id="tabBody">${body}</div>`;
     if (tab === 'table') tableTab(d, el.querySelector('#tabBody'));
     if (tab === 'live') commentaryTab(d, el.querySelector('#tabBody'));
-    if (tab === 'summary') loadHighlights(d, el);
+    if (tab === 'summary' || tab === 'video') loadHighlights(d, el);
     animateCounts(el);
     // first paint animates; live refreshes after that stay still
     if (!el.classList.contains('settled')) setTimeout(() => el.classList.add('settled'), 2600);
