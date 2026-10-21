@@ -29,7 +29,7 @@ class TestApp : Application()
 
 /**
  * Not a test of behaviour: renders each screen with live data so the look can be compared with the website.
- * Run with: ./gradlew recordRoborazziDebug  → app/build/screens/*.png
+ * Run with: ./gradlew recordRoborazziDebug  (images land in app/build/screens)
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
