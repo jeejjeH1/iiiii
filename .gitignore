@@ -1,2 +1,4 @@
 node_modules/
 .vercel/
+mobile/node_modules/
+mobile/goallive.apk

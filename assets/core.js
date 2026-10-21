@@ -181,7 +181,40 @@ document.addEventListener('click', (e) => {
   }
 });
 export function askNotify() {
-  if (!('Notification' in window) || Notification.permission !== 'default' || store.askedNotify) return;
+  if (!notifySupported() || store.askedNotify) return;
   store.askedNotify = true; save();
-  Notification.requestPermission().then((p) => { if (p === 'granted') { store.notify = true; save(); toast('اعلان گل و ترکیب برای دنبال‌شده‌ها فعال شد'); } });
+  notifyPermission(true).then((ok) => { if (ok) { store.notify = true; save(); toast('اعلان گل و ترکیب برای دنبال‌شده‌ها فعال شد'); } });
+}
+
+/* ---------- notifications: browser, or native when running inside the Android app ---------- */
+const plugins = () => (window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null);
+export const notifySupported = () => !!plugins()?.LocalNotifications || 'Notification' in window;
+export async function notifyPermission(ask) {
+  const LN = plugins()?.LocalNotifications;
+  if (LN) {
+    let p = (await LN.checkPermissions()).display;
+    if (p !== 'granted' && ask) p = (await LN.requestPermissions()).display;
+    return p === 'granted';
+  }
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'default' && ask) return (await Notification.requestPermission()) === 'granted';
+  return Notification.permission === 'granted';
+}
+export async function showNotification(title, body, matchId, tag) {
+  const LN = plugins()?.LocalNotifications;
+  if (LN) {
+    return LN.schedule({ notifications: [{ id: Math.floor(Math.random() * 2e9), title, body, largeBody: body, smallIcon: 'ic_stat_ball', iconColor: '#20d27c', extra: { matchId } }] });
+  }
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  // via the service worker where possible: Android Chrome only allows that route
+  const opts = { body, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png', tag, renotify: true, data: { url: `/#/match/${matchId}` }, dir: 'rtl', lang: 'fa' };
+  const reg = await navigator.serviceWorker?.getRegistration();
+  if (reg) return reg.showNotification(title, opts);
+  const n = new Notification(title, opts);
+  n.onclick = () => { focus(); location.hash = `#/match/${matchId}`; n.close(); };
+}
+if (plugins()) {
+  const { LocalNotifications: LN, App } = plugins();
+  LN?.addListener('localNotificationActionPerformed', (e) => { const id = e.notification?.extra?.matchId; if (id) location.hash = `#/match/${id}`; });
+  App?.addListener('backButton', ({ canGoBack }) => (canGoBack ? history.back() : App.exitApp()));
 }

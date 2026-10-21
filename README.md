@@ -19,3 +19,10 @@ Vercel serves the static files and `api/fm.js` as a serverless function (allowli
 If FotMob ever answers 401/403, set `FOTMOB_XMAS` to the current `x-mas` request header from fotmob.com.
 
 FotMob has no public API; this is unofficial and may break or be restricted by their terms.
+
+## Mobile app
+
+- **Install from the browser (PWA):** open the site, then "Install app" (Android/Chrome) or Share → "Add to Home Screen" (iOS).
+- **Android APK:** `mobile/` is a Capacitor shell that loads the live site and adds native notifications and the back button.
+  GitHub Actions (`.github/workflows/android.yml`) builds it on every change under `mobile/` and publishes `goallive.apk`
+  to the `android-latest` release. Locally: `cd mobile && npm ci && npm run build:apk` (needs the Android SDK).

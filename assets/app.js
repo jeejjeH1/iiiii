@@ -1,6 +1,6 @@
 import {
   esc, fa, num, ymd, parseYmd, dateOf, tz, api, store, save, icon, crest, lgLogo, face, matchRow, isLive, isFav, starBtn,
-  skeleton, empty, errorBox, seg, toast, sheet, isDark,
+  skeleton, empty, errorBox, seg, toast, sheet, isDark, notifySupported, notifyPermission, showNotification,
 } from './core.js';
 import { matchView } from './match.js';
 import { leagueView, teamView, playerView } from './pages.js';
@@ -43,18 +43,10 @@ function beep() {
 }
 const followed = (m, l) => isFav('matches', m.id) || isFav('teams', m.home.id) || isFav('teams', m.away.id) || isFav('leagues', l.primaryId);
 
-// System notification (via the service worker where possible: Android only allows that route) + in-page toast.
 async function alertUser(title, body, matchId, tag) {
   beep();
   if (!document.hidden) toast(`${title} ${body}`);
-  if (!store.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
-  const opts = { body, icon: '/icon.svg', badge: '/icon.svg', tag, renotify: true, data: { url: `/#/match/${matchId}` }, dir: 'rtl', lang: 'fa' };
-  try {
-    const reg = await navigator.serviceWorker?.getRegistration();
-    if (reg) return reg.showNotification(title, opts);
-    const n = new Notification(title, opts);
-    n.onclick = () => { focus(); location.hash = `#/match/${matchId}`; n.close(); };
-  } catch {}
+  if (store.notify) try { await showNotification(title, body, matchId, tag); } catch {}
 }
 
 // Scorer + minute for a fresh goal, from the match details (best effort).
@@ -330,10 +322,25 @@ async function searchView(el, _p, q) {
   run();
 }
 
+/* ---------- install as an app ---------- */
+let installEvt = null;
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone || !!window.Capacitor?.isNativePlatform?.();
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; $('#installBtn')?.classList.remove('hide'); });
+addEventListener('appinstalled', () => { installEvt = null; $('#installBtn')?.classList.add('hide'); toast('گل‌لایو نصب شد'); });
+async function installApp() {
+  if (installEvt) { installEvt.prompt(); await installEvt.userChoice; installEvt = null; return; }
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  sheet(`<div class="card-h" style="font-size:16px">نصب گل‌لایو<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
+    <div style="padding:4px 16px 20px;line-height:2">${standalone ? 'گل‌لایو روی این دستگاه نصب شده است.' : ios
+      ? '۱. این صفحه را در <b>Safari</b> باز کنید.<br>۲. دکمه <b>اشتراک‌گذاری</b> (مربع با فلش رو به بالا) را بزنید.<br>۳. گزینه <b>Add to Home Screen</b> را انتخاب کنید.'
+      : '۱. منوی مرورگر (سه نقطه بالای صفحه) را باز کنید.<br>۲. گزینه <b>Install app</b> یا <b>Add to Home screen</b> را بزنید.<br><span class="mute">بهترین نتیجه با Chrome است.</span>'}</div>`);
+}
+$('#installBtn').onclick = installApp;
+
 /* ---------- settings ---------- */
 function openSettings() {
   const sw = (on) => `<span class="switch ${on ? 'on' : ''}"></span>`;
-  const notifOk = 'Notification' in window;
+  const notifOk = notifySupported();
   const s = sheet(`<div class="card-h" style="font-size:16px">تنظیمات<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
     <div class="settings">
       <div class="kv-h">ظاهر</div>
@@ -343,6 +350,8 @@ function openSettings() {
       <div class="list-row" data-set="notifyGoals">${icon('ball')}<div class="grow"><b>گل‌ها</b><div class="meta">با نام گلزن و دقیقه</div></div>${sw(store.notifyGoals !== false)}</div>
       <div class="list-row" data-set="notifyLineups">${icon('shirt')}<div class="grow"><b>اعلام ترکیب</b><div class="meta">حدود یک ساعت قبل از بازی</div></div>${sw(store.notifyLineups !== false)}</div>
       <div class="list-row" data-set="sound">${icon('live')}<div class="grow"><b>صدای گل</b></div>${sw(store.sound)}</div>
+      <div class="kv-h">اپلیکیشن</div>
+      <div class="list-row" data-set="install">${icon('shirt')}<div class="grow"><b>نصب گل‌لایو روی گوشی</b><div class="meta">${standalone ? 'نصب شده است' : 'مثل یک اپ، با آیکون روی صفحه اصلی و تمام‌صفحه'}</div></div></div>
       <div class="kv-h">داده‌ها</div>
       <div class="list-row" data-set="clear">${icon('x')}<div class="grow"><b>پاک کردن علاقه‌مندی‌ها</b></div></div>
       <div class="list-row" style="cursor:default">${icon('info')}<div class="grow meta">داده‌ها از FotMob گرفته می‌شود (غیررسمی). بازی‌های زنده هر ۲۰ ثانیه به‌روز می‌شوند.</div></div>
@@ -353,13 +362,13 @@ function openSettings() {
     const r = e.target.closest('[data-set]');
     if (!r) return;
     const k = r.dataset.set;
+    if (k === 'install') { s.remove(); installApp(); return; }
     if (k === 'clear') {
       if (confirm('همه علاقه‌مندی‌ها پاک شوند؟')) { store.teams = {}; store.leagues = {}; store.matches = {}; save(); toast('پاک شد'); route(); }
       return;
     }
     if (k === 'notify' && !store.notify && notifOk) {
-      const p = await Notification.requestPermission();
-      if (p !== 'granted') { toast('اجازه اعلان داده نشد'); return; }
+      if (!(await notifyPermission(true))) { toast('اجازه اعلان داده نشد'); return; }
     }
     store[k] = k.startsWith('notify') && k !== 'notify' ? store[k] === false : !store[k]; save();
     r.querySelector('.switch').classList.toggle('on', store[k] !== false && !!store[k]);

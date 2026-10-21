@@ -1,0 +1,16 @@
+{
+  "name": "goallive-mobile",
+  "private": true,
+  "description": "Android shell for گل‌لایو: loads the live site, adds native notifications",
+  "scripts": {
+    "sync": "cap sync android",
+    "build:apk": "cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/cli": "^7.6.9",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/local-notifications": "^7.0.7"
+  }
+}
