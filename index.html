@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>گل‌لایو | نتایج زنده فوتبال</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#f4fbf6; --ink:#0b2a1a; --dim:rgba(11,42,26,.62);
+    --red:#e5304a; --green:#12a150; --yellow:#ffd23d;
+    --brand:linear-gradient(100deg,#0a6b37,#14a050 55%,#3ccf78);
+    --glass:rgba(255,255,255,.9); --line:rgba(10,107,55,.16);
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--bg); }
+  body { margin:0; color:var(--ink); font:15px/1.6 Vazirmatn,Tahoma,system-ui,sans-serif; min-height:100vh; position:relative; overflow-x:hidden; }
+
+  /* mowed-pitch stripes + centre circle */
+  .mesh { position:fixed; inset:0; z-index:-2;
+    background:repeating-linear-gradient(90deg,#ffffff 0 70px,#e8f6ed 70px 140px); }
+  .mesh::after { content:''; position:absolute; left:50%; top:42%; width:520px; height:520px; transform:translate(-50%,-50%); border-radius:50%;
+    border:3px solid rgba(10,107,55,.10); box-shadow:0 0 0 0 transparent; animation:breathe 6s ease-in-out infinite alternate; }
+  .mesh::before { content:''; position:absolute; left:0; right:0; top:42%; border-top:3px solid rgba(10,107,55,.10); }
+  @keyframes breathe { to { transform:translate(-50%,-50%) scale(1.06); } }
+
+  header { background:linear-gradient(135deg,#075a2d,#0f8a47 60%,#16a85a); box-shadow:0 8px 24px rgba(7,90,45,.28); position:relative; overflow:hidden; }
+  header::after { content:''; position:absolute; left:-60px; top:-70px; width:220px; height:220px; border-radius:50%; border:3px solid rgba(255,255,255,.14); }
+  .hd { max-width:820px; margin:0 auto; padding:18px 16px; display:flex; align-items:center; gap:14px; position:relative; z-index:1; }
+  .logo { width:58px; height:58px; flex:none; filter:drop-shadow(0 4px 10px rgba(0,0,0,.28)); }
+  .logo .ball { transform-origin:50px 50px; animation:spin 9s linear infinite; }
+  .logo .ring { transform-origin:50px 50px; animation:spin 4s linear infinite reverse; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .brand h1 { margin:0; font-size:30px; font-weight:900; line-height:1.1; color:#fff; }
+  .brand small { color:rgba(255,255,255,.8); font-size:12px; letter-spacing:.5px; }
+  #upd { margin-inline-start:auto; text-align:left; font-size:12px; color:#eafff2; white-space:nowrap; }
+  #upd i { display:inline-block; width:8px; height:8px; border-radius:50%; background:#7dffb0; margin-inline-end:6px; animation:pulse 1.6s infinite; }
+  #upd.err i { background:var(--red); }
+  @keyframes pulse { 0% { box-shadow:0 0 0 0 rgba(125,255,176,.6);} 100% { box-shadow:0 0 0 10px rgba(125,255,176,0);} }
+
+  main { max-width:820px; margin:0 auto; padding:8px 16px 60px; }
+
+  /* stats */
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 8px; }
+  .stat { background:var(--glass); border:1px solid var(--line); border-radius:18px; padding:12px 12px 10px; backdrop-filter:blur(6px);
+    box-shadow:0 8px 22px rgba(10,107,55,.12); position:relative; overflow:hidden; animation:rise .7s cubic-bezier(.2,.9,.3,1.2) backwards; }
+  .stat:nth-child(2){animation-delay:.08s} .stat:nth-child(3){animation-delay:.16s} .stat:nth-child(4){animation-delay:.24s}
+  @keyframes rise { from { opacity:0; transform:translateY(24px) scale(.94); } }
+  .stat b { display:block; font-size:34px; font-weight:900; line-height:1.15; background:var(--brand); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stat span { font-size:12.5px; color:var(--dim); }
+  .stat svg { position:absolute; left:8px; top:8px; width:26px; height:26px; opacity:.9; }
+  .stat.live b { background:linear-gradient(100deg,#e5304a,#ff6a3d); -webkit-background-clip:text; background-clip:text; }
+  .stat.live .dot { position:absolute; left:12px; top:12px; width:12px; height:12px; border-radius:50%; background:var(--red); animation:pulseR 1.4s infinite; }
+  @keyframes pulseR { 0% { box-shadow:0 0 0 0 rgba(255,46,91,.6);} 100% { box-shadow:0 0 0 14px rgba(255,46,91,0);} }
+  .bar { height:5px; border-radius:5px; background:rgba(10,107,55,.12); margin-top:8px; overflow:hidden; }
+  .bar i { display:block; height:100%; width:0; border-radius:5px; background:var(--brand); transition:width 1s cubic-bezier(.2,.9,.3,1); }
+
+  .tools { display:flex; gap:8px; align-items:center; margin:12px 0; flex-wrap:wrap; }
+  button, input { background:var(--glass); color:var(--ink); border:1px solid var(--line); border-radius:12px; padding:7px 14px; font:inherit; backdrop-filter:blur(10px); }
+  button { cursor:pointer; transition:transform .15s; } button:hover { transform:translateY(-1px); }
+  button.on { background:var(--brand); color:#fff; border-color:transparent; }
+
+  .league { background:var(--glass); border:1px solid var(--line); border-radius:20px; margin:12px 0; overflow:hidden; backdrop-filter:blur(6px);
+    box-shadow:0 8px 22px rgba(10,107,55,.10); }
+  .league h2 { margin:0; padding:10px 16px; font-size:13px; font-weight:700; color:var(--dim); display:flex; gap:8px; align-items:center;
+    border-bottom:1px solid var(--line); background:linear-gradient(90deg,rgba(10,107,55,.10),rgba(60,207,120,.06)); }
+  .league h2 img { width:18px; height:18px; object-fit:contain; }
+  .m { direction:ltr; display:grid; grid-template-columns:1fr 92px 1fr; align-items:center; gap:8px; padding:11px 16px; border-top:1px solid var(--line); position:relative; }
+  .m:first-of-type { border-top:0; }
+  .t { display:flex; align-items:center; gap:10px; font-weight:700; min-width:0; }
+  .t.away { flex-direction:row-reverse; text-align:right; }
+  .t span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .t img { width:28px; height:28px; object-fit:contain; flex:none; }
+  .mid { text-align:center; }
+  .score { font-size:21px; font-weight:900; letter-spacing:1px; background:var(--brand); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .st { font-size:11.5px; color:var(--dim); }
+  .live .st { color:#fff; background:var(--red); border-radius:99px; padding:0 9px; display:inline-block; font-weight:700; animation:blink 1.6s infinite; }
+  @keyframes blink { 50% { opacity:.65; } }
+
+  /* GOAL slam: chromatic split like the motion graphics */
+  .m.goal { animation:flash 3.2s ease-out; }
+  @keyframes flash { 0%,100% { background:transparent; } 10%,60% { background:rgba(255,210,61,.30); } }
+  .m.goal .score { animation:slam .7s cubic-bezier(.2,1.6,.3,1); display:inline-block; }
+  .m.goal .score::after { content:'GOAL!'; position:absolute; left:50%; top:-2px; transform:translateX(-50%); font-size:11px; letter-spacing:3px; font-weight:900;
+    color:#0a6b37; text-shadow:-2px 0 #ffd23d, 2px 0 #06351b; animation:pop 3.2s forwards; -webkit-text-fill-color:initial; }
+  @keyframes slam { 0% { transform:scale(3); opacity:0; } 60% { transform:scale(.9); } 100% { transform:scale(1); opacity:1; } }
+  @keyframes pop { 0%,80% { opacity:1; } 100% { opacity:0; } }
+
+  .msg { text-align:center; color:var(--dim); padding:50px 0; }
+  footer { text-align:center; font-size:12px; color:var(--dim); padding-bottom:30px; }
+
+  @media (max-width:560px) {
+    .stats { grid-template-columns:repeat(2,1fr); }
+    .brand h1 { font-size:25px; } #upd { display:none; }
+    .m { grid-template-columns:1fr 78px 1fr; padding:10px 12px; } .t { font-size:13px; gap:7px; } .t img { width:24px; height:24px; }
+  }
+  @media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none !important; transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="mesh"></div>
+
+<header><div class="hd">
+  <svg class="logo" viewBox="0 0 100 100" aria-label="logo">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#06351b"/><stop offset="1" stop-color="#0a6b37"/></linearGradient>
+      <clipPath id="c"><circle cx="50" cy="50" r="33"/></clipPath>
+    </defs>
+    <circle class="ring" cx="50" cy="50" r="46" fill="none" stroke="#fff" stroke-width="3" stroke-dasharray="14 9" stroke-linecap="round"/>
+    <g class="ball">
+      <circle cx="50" cy="50" r="33" fill="#fff"/>
+      <g clip-path="url(#c)" fill="url(#g)" stroke="url(#g)" stroke-width="1.6" stroke-linejoin="round">
+        <polygon points="50,38 61.4,46.3 57,59.7 43,59.7 38.6,46.3"/>
+        <g fill="none"><path d="M50 38V24M61.4 46.3L74.7 42M57 59.7l8.2 11.3M43 59.7L34.8 71M38.6 46.3L25.3 42"/></g>
+        <polygon points="50,12 60,18 56,27 44,27 40,18"/>
+        <polygon points="82,40 80,52 71,52 68,41 76,35"/>
+        <polygon points="70,80 60,82 56,74 64,66 72,70"/>
+        <polygon points="30,80 28,70 36,66 44,74 40,82"/>
+        <polygon points="18,40 24,35 32,41 29,52 20,52"/>
+      </g>
+      <circle cx="50" cy="50" r="33" fill="none" stroke="#06351b" stroke-width="2.4"/>
+    </g>
+  </svg>
+  <div class="brand"><h1>گل‌لایو</h1><small>GOAL LIVE · نتایج زنده فوتبال</small></div>
+  <div id="upd"><i></i><span>…</span></div></div>
+</header>
+
+<main>
+  <section class="stats">
+    <div class="stat live"><div class="dot"></div><b id="sLive">۰</b><span>بازی زنده</span></div>
+    <div class="stat"><svg viewBox="0 0 24 24" fill="none" stroke="#0a6b37" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8l3.5 2.6-1.3 4.1H9.8L8.5 10.6z"/></svg><b id="sGoals">۰</b><span>گل امروز</span></div>
+    <div class="stat"><b id="sDone">۰</b><span>پایان‌یافته</span><div class="bar"><i id="barDone"></i></div></div>
+    <div class="stat"><b id="sNext">۰</b><span>در پیش</span><div class="bar"><i id="barNext"></i></div></div>
+  </section>
+
+  <div class="tools">
+    <button id="prev">◀</button><input type="date" id="date"><button id="next">▶</button>
+    <button id="liveOnly">فقط زنده</button>
+  </div>
+  <div id="out"><div class="msg">در حال بارگذاری…</div></div>
+</main>
+<footer>داده: FotMob · هر ۲۰ ثانیه به‌روز می‌شود</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const dateEl = $('date'), out = $('out');
+const fa = (n) => Math.round(n).toLocaleString('fa-IR');
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const crest = (id) => `https://images.fotmob.com/image_resources/logo/teamlogo/${id}.png`;
+const REFRESH = 20000;
+
+let leagues = [], liveOnly = false, timer, lastOk = 0;
+const prevScore = new Map();      // match id -> scoreStr, to detect goals
+const goalUntil = new Map();      // match id -> timestamp until which to show GOAL flash
+
+const iso = (d) => d.toLocaleDateString('sv');
+dateEl.value = iso(new Date());
+function shift(n) { const d = new Date(dateEl.value); d.setDate(d.getDate() + n); dateEl.value = iso(d); prevScore.clear(); load(); }
+$('prev').onclick = () => shift(-1);
+$('next').onclick = () => shift(1);
+dateEl.onchange = () => { prevScore.clear(); load(); };
+$('liveOnly').onclick = (e) => { liveOnly = !liveOnly; e.target.classList.toggle('on', liveOnly); render(); };
+
+const isLive = (m) => m.status.started && !m.status.finished && !m.status.cancelled;
+
+function statusOf(s) {
+  if (s.cancelled) return 'لغو';
+  if (s.finished) return s.reason?.short || 'FT';
+  if (s.started) return s.liveTime?.short || 'LIVE';
+  return new Date(s.utcTime).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+}
+
+/* animated count-up, like the motion graphics counters */
+const shown = {};
+function countTo(id, to) {
+  const el = $(id), from = shown[id] ?? 0; shown[id] = to;
+  if (from === to) { el.textContent = fa(to); return; }
+  const t0 = performance.now(), dur = 900;
+  (function step(t) {
+    const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fa(from + (to - from) * e);
+    if (p < 1) requestAnimationFrame(step);
+  })(t0);
+}
+
+function updateStats() {
+  const all = leagues.flatMap((l) => l.matches || []).filter((m) => !m.status.cancelled);
+  const live = all.filter(isLive).length;
+  const done = all.filter((m) => m.status.finished).length;
+  const next = all.filter((m) => !m.status.started).length;
+  const goals = all.filter((m) => m.status.started).reduce((a, m) => a + (m.home.score || 0) + (m.away.score || 0), 0);
+  countTo('sLive', live); countTo('sGoals', goals); countTo('sDone', done); countTo('sNext', next);
+  const tot = all.length || 1;
+  $('barDone').style.width = (done / tot * 100) + '%';
+  $('barNext').style.width = (next / tot * 100) + '%';
+}
+
+function detectGoals() {
+  const now = Date.now();
+  for (const m of leagues.flatMap((l) => l.matches || [])) {
+    const s = m.status.scoreStr;
+    if (!s) continue;
+    if (prevScore.has(m.id) && prevScore.get(m.id) !== s && isLive(m)) goalUntil.set(m.id, now + 3200);
+    prevScore.set(m.id, s);
+  }
+}
+
+function render() {
+  const now = Date.now();
+  const rows = leagues
+    .map((l) => ({ l, ms: (l.matches || []).filter((m) => !liveOnly || isLive(m)) }))
+    .filter((x) => x.ms.length)
+    .sort((a, b) => b.ms.filter(isLive).length - a.ms.filter(isLive).length); // live leagues first
+  out.innerHTML = rows.map(({ l, ms }) => `<section class="league"><h2>
+      <img src="https://images.fotmob.com/image_resources/logo/leaguelogo/${l.primaryId || l.id}.png" alt="" onerror="this.remove()">${esc(l.ccode)} · ${esc(l.name)}</h2>` +
+    ms.map((m) => {
+      const s = m.status, show = s.started || s.finished;
+      const goal = (goalUntil.get(m.id) || 0) > now;
+      return `<div class="m ${isLive(m) ? 'live' : ''} ${goal ? 'goal' : ''}">
+        <div class="t home"><img src="${crest(m.home.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(m.home.name)}</span></div>
+        <div class="mid"><div class="score">${show ? esc(s.scoreStr || `${m.home.score} - ${m.away.score}`) : '–'}</div><div class="st">${esc(statusOf(s))}</div></div>
+        <div class="t away"><img src="${crest(m.away.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(m.away.name)}</span></div></div>`;
+    }).join('') + '</section>').join('') || '<div class="msg">مسابقه‌ای پیدا نشد.</div>';
+}
+
+function tickClock() {
+  const el = $('upd');
+  if (!lastOk) return;
+  const s = Math.round((Date.now() - lastOk) / 1000);
+  el.querySelector('span').textContent = s < 5 ? 'همین الان به‌روز شد' : `${fa(s)} ثانیه پیش`;
+}
+setInterval(tickClock, 1000);
+
+async function load() {
+  clearTimeout(timer);
+  const date = dateEl.value.replaceAll('-', '');
+  try {
+    const r = await fetch(`/api/matches?date=${date}&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    leagues = j.leagues || [];
+    detectGoals(); render(); updateStats();
+    lastOk = Date.now(); $('upd').classList.remove('err'); tickClock();
+    if (goalUntil.size) setTimeout(render, 3300); // drop the GOAL flash after it finishes
+  } catch (e) {
+    $('upd').classList.add('err'); $('upd').querySelector('span').textContent = 'قطع شد، دوباره تلاش می‌کنیم';
+    if (!leagues.length) out.innerHTML = `<div class="msg">خطا در دریافت اطلاعات: ${esc(e.message)}</div>`;
+  }
+  timer = setTimeout(load, REFRESH);
+}
+// don't poll in background tabs; refresh immediately when the user comes back
+document.addEventListener('visibilitychange', () => { if (document.hidden) clearTimeout(timer); else load(); });
+load();
+</script>
+</body>
+</html>
