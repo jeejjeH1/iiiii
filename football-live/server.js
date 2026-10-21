@@ -10,7 +10,7 @@ const path = require('path');
 const PORT = process.env.PORT || 3000;
 const XMAS = process.env.FOTMOB_XMAS || '';
 const MOCK = process.env.MOCK === '1'; // dev-only: serve ./mock.json instead of calling FotMob
-const TTL = 20 * 1000;
+const TTL = 15 * 1000;
 const cache = new Map();
 
 function fetchFotmob(date, tz, cc) {
