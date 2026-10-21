@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>گل‌زن | نتایج زنده فوتبال</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <div class="logo"><span class="ball">⚽</span> گل‌زن</div>
+    <nav class="nav">
+      <button class="navbtn active" data-view="matches">بازی‌ها</button>
+      <button class="navbtn" data-view="table">جدول لیگ‌ها</button>
+    </nav>
+    <input id="search" class="search" type="search" placeholder="جستجوی تیم یا لیگ…">
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="view-matches">
+    <div id="days" class="days"></div>
+    <div class="filters" id="filters">
+      <button class="chip active" data-f="all">همه</button>
+      <button class="chip" data-f="live"><i class="dot"></i> زنده <b id="liveCount">۰</b></button>
+      <button class="chip" data-f="fav">★ مورد علاقه</button>
+      <button class="chip" data-f="ft">پایان‌یافته</button>
+      <button class="chip" data-f="up">بازی‌های آینده</button>
+    </div>
+    <div id="list"></div>
+  </section>
+
+  <section id="view-table" hidden>
+    <div id="leagueTabs" class="filters"></div>
+    <div id="standings"></div>
+  </section>
+  <p class="note">داده‌ها در این نسخه نمایشی و شبیه‌سازی‌شده‌اند؛ هر ۲ ثانیه برابر یک دقیقه بازی است.</p>
+</main>
+
+<div id="modal" class="modal" hidden>
+  <div class="sheet">
+    <button class="close" id="closeModal" aria-label="بستن">✕</button>
+    <div id="detail"></div>
+  </div>
+</div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
