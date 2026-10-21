@@ -1,9 +1,9 @@
-# Builds the Android app (mobile/) and publishes the APK as the "android-latest" release.
+# Builds the native Android app (android/) and publishes the APK as the "android-latest" release.
 name: Android APK
 
 on:
   push:
-    paths: ['mobile/**', '.github/workflows/android.yml']
+    paths: ['android/**', '.github/workflows/android.yml']
   workflow_dispatch:
 
 permissions:
@@ -14,33 +14,33 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: mobile
+        working-directory: android
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 21
-      - run: npm ci
-      - run: npx cap sync android
-      - name: Build debug APK
-        working-directory: mobile/android
-        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
-      - run: cp android/app/build/outputs/apk/debug/app-debug.apk goallive.apk
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      # same signing key from build to build, so a new APK installs over the old one
+      - name: Signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: goallive-signing-key-v1
+      - name: Build APK
+        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon --stacktrace
+      - run: cp app/build/outputs/apk/release/app-release.apk goallive.apk
       - uses: actions/upload-artifact@v4
         with:
           name: goallive-apk
-          path: mobile/goallive.apk
+          path: android/goallive.apk
       - name: Publish release
+        if: github.ref_name == 'ccr-addbae8c-95x58c'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: android-latest
           name: گل‌لایو برای اندروید
-          body: آخرین نسخه اپ اندروید گل‌لایو. فایل goallive.apk را دانلود و نصب کنید.
+          body: آخرین نسخه اپ اندروید گل‌لایو (اپ بومی). فایل goallive.apk را دانلود و نصب کنید.
           prerelease: true
-          files: mobile/goallive.apk
+          files: android/goallive.apk
