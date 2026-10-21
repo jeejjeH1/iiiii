@@ -1,0 +1,353 @@
+import {
+  esc, fa, num, ymd, parseYmd, dateOf, tz, api, store, save, icon, crest, lgLogo, face, matchRow, isLive, isFav, starBtn,
+  skeleton, empty, errorBox, seg, toast, sheet, isDark,
+} from './core.js';
+import { matchView } from './match.js';
+import { leagueView, teamView, playerView } from './pages.js';
+
+const $ = (s, el = document) => el.querySelector(s);
+const view = $('#view');
+const REFRESH = 20000;
+
+/* ---------- theme ---------- */
+function applyTheme() {
+  if (store.theme) document.documentElement.dataset.theme = store.theme;
+  else delete document.documentElement.dataset.theme;
+  $('meta[name="theme-color"]').content = isDark() ? '#0a0b0d' : '#f4f5f7';
+  $('#themeBtn').innerHTML = icon(isDark() ? 'sun' : 'moon');
+}
+$('#themeBtn').onclick = () => { store.theme = isDark() ? 'light' : 'dark'; save(); applyTheme(); };
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+applyTheme();
+
+addEventListener('scroll', () => $('.top').classList.toggle('scrolled', scrollY > 4), { passive: true });
+$('#backBtn').onclick = () => (history.length > 1 ? history.back() : (location.hash = '#/'));
+$('#settingsBtn').onclick = openSettings;
+
+/* ---------- live goal feed (today's matches, used for notifications on every page) ---------- */
+const prevScore = new Map();
+const goalFlash = new Map(); // match id -> until timestamp
+let todayData = null, todayKey = '';
+const feedListeners = new Set();
+
+function beep() {
+  if (!store.sound) return;
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(880, ac.currentTime); o.frequency.setValueAtTime(1320, ac.currentTime + 0.12);
+    g.gain.setValueAtTime(0.0001, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.25, ac.currentTime + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.45);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.5);
+  } catch {}
+}
+const followed = (m, l) => isFav('matches', m.id) || isFav('teams', m.home.id) || isFav('teams', m.away.id) || isFav('leagues', l.primaryId);
+
+function detectGoals(data, notify) {
+  for (const l of data.leagues || []) for (const m of l.matches || []) {
+    const s = m.status.scoreStr;
+    if (!s) continue;
+    const before = prevScore.get(m.id);
+    if (before && before !== s && isLive(m.status)) {
+      goalFlash.set(m.id, Date.now() + 3400);
+      if (notify && followed(m, l)) {
+        beep();
+        const text = `${m.home.name} ${s} ${m.away.name}`;
+        toast('⚽ گل! ' + text);
+        if (store.notify && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
+          try { new Notification('گل! ⚽', { body: text, icon: '/icon.svg', tag: 'goal-' + m.id }); } catch {}
+        }
+      }
+    }
+    prevScore.set(m.id, s);
+  }
+}
+
+let feedTimer;
+async function pollToday(force) {
+  clearTimeout(feedTimer);
+  const key = ymd(new Date());
+  if (key !== todayKey) { todayKey = key; prevScore.clear(); }
+  try {
+    const d = await api('matches', { date: key, timezone: tz, ccode3: 'IRN' }, { maxAge: force ? 0 : 10000 });
+    detectGoals(d, !!todayData);
+    todayData = d;
+    feedListeners.forEach((f) => f(d));
+  } catch (e) {
+    feedListeners.forEach((f) => f(null, e));
+  }
+  if (!document.hidden) feedTimer = setTimeout(pollToday, REFRESH);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollToday(true); else clearTimeout(feedTimer); });
+
+/* ---------- home: matches by day ---------- */
+const homeState = { filter: 'all', sort: 'league' };
+
+async function homeView(el, _p, q) {
+  const today = ymd(new Date());
+  const day = /^\d{8}$/.test(q.get('d') || '') ? q.get('d') : today;
+  const isToday = day === today;
+  let data = isToday ? todayData : null, error = null, lastOk = data ? Date.now() : 0;
+
+  const dates = [];
+  const base = parseYmd(day);
+  for (let i = -3; i <= 3; i++) { const d = new Date(base); d.setDate(d.getDate() + i); dates.push(d); }
+  const label = (d) => {
+    const k = ymd(d), diff = Math.round((parseYmd(k) - parseYmd(today)) / 864e5);
+    const top = diff === 0 ? 'امروز' : diff === -1 ? 'دیروز' : diff === 1 ? 'فردا' : d.toLocaleDateString('fa-IR', { weekday: 'short' });
+    return `<a class="date ${k === day ? 'on' : ''}" href="#/?d=${k}">${top}<b>${d.toLocaleDateString('fa-IR', { day: 'numeric', month: 'short' })}</b></a>`;
+  };
+  el.innerHTML = `
+    <div class="dates">${dates.map(label).join('')}
+      <label class="date date-pick" title="انتخاب تاریخ">${icon('cal')}<input type="date" value="${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6)}"></label></div>
+    <div class="toolbar"><div id="filterSeg"></div>
+      <button class="icon-btn" id="sortBtn" title="مرتب‌سازی">${icon(homeState.sort === 'time' ? 'list' : 'trophy')}</button></div>
+    <div id="list">${skeleton(6)}</div>
+    <div class="status-line" id="upd"></div>`;
+  $('.date.on', el)?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  $('.date-pick input', el).onchange = (e) => { if (e.target.value) location.hash = '#/?d=' + e.target.value.replaceAll('-', ''); };
+  $('#sortBtn', el).onclick = () => { homeState.sort = homeState.sort === 'league' ? 'time' : 'league'; $('#sortBtn', el).innerHTML = icon(homeState.sort === 'time' ? 'list' : 'trophy'); toast(homeState.sort === 'time' ? 'مرتب‌سازی بر اساس زمان' : 'مرتب‌سازی بر اساس لیگ'); render(); };
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('#filterSeg button');
+    if (b) { homeState.filter = b.dataset.v; render(); return; }
+    const h = e.target.closest('[data-toggle]');
+    if (h && !e.target.closest('a,button')) {
+      const id = h.dataset.toggle;
+      store.collapsed[id] = !store.collapsed[id]; save();
+      h.parentElement.classList.toggle('collapsed', !!store.collapsed[id]);
+    }
+  });
+
+  function render() {
+    const list = $('#list', el);
+    if (!list) return;
+    if (!data) { list.innerHTML = error ? errorBox(error) : skeleton(6); return; }
+    const leagues = (data.leagues || []).map((l) => ({ ...l, matches: l.matches || [] }));
+    const all = leagues.flatMap((l) => l.matches);
+    const liveN = all.filter((m) => isLive(m.status)).length;
+    const favN = leagues.reduce((n, l) => n + l.matches.filter((m) => followed(m, l)).length, 0);
+    $('#filterSeg', el).innerHTML = seg('filter', [
+      ['all', `همه <span class="mute">${num(all.length)}</span>`],
+      ['live', `زنده ${liveN ? `<span class="count">${num(liveN)}</span>` : ''}`],
+      ['fav', `${icon('star', 15)} دنبال‌شده‌ها ${favN ? `<span class="mute">${num(favN)}</span>` : ''}`],
+    ], homeState.filter);
+
+    const keep = (m, l) => homeState.filter === 'all' || (homeState.filter === 'live' ? isLive(m.status) : followed(m, l));
+    const now = Date.now();
+    const flash = (html, m) => ((goalFlash.get(m.id) || 0) > now ? html.replace('class="m ', 'class="m goal ') : html);
+
+    if (homeState.sort === 'time') {
+      const rows = leagues.flatMap((l) => l.matches.filter((m) => keep(m, l)).map((m) => ({ m, l })))
+        .sort((a, b) => (isLive(b.m.status) - isLive(a.m.status)) || (new Date(a.m.status.utcTime) - new Date(b.m.status.utcTime)));
+      list.innerHTML = rows.length ? `<div class="card">${rows.map(({ m, l }) =>
+        flash(matchRow(m, { extra: `<span class="agg">${esc(l.name)}</span>` }), m)).join('')}</div>` : emptyFor();
+      return;
+    }
+    const favL = (l) => (isFav('leagues', l.primaryId) ? 2 : 0) + (l.matches.some((m) => followed(m, l)) ? 1 : 0);
+    const blocks = leagues.map((l) => ({ l, ms: l.matches.filter((m) => keep(m, l)) })).filter((x) => x.ms.length)
+      .sort((a, b) => favL(b.l) - favL(a.l));
+    list.innerHTML = blocks.map(({ l, ms }) => {
+      const coll = store.collapsed[l.id] && homeState.filter === 'all';
+      const live = ms.filter((m) => isLive(m.status)).length;
+      return `<section class="card ${coll ? 'collapsed' : ''}" style="margin-top:10px">
+        <div class="lg-h" data-toggle="${l.id}">
+          ${lgLogo(l.primaryId, '')}
+          <a class="grow ellipsis" href="#/league/${l.primaryId}"><span class="name">${esc(l.name)}</span> <span class="cc">${esc(l.ccode === 'INT' ? '' : l.ccode)}</span></a>
+          ${live ? `<span class="pill live"><span class="dot"></span>${num(live)}</span>` : ''}
+          ${starBtn('leagues', l.primaryId, l.name)}
+          <span class="chev">${icon('down', 18)}</span>
+        </div>
+        <div class="lg-body">${ms.map((m) => flash(matchRow(m), m)).join('')}</div></section>`;
+    }).join('') || emptyFor();
+  }
+  const emptyFor = () => homeState.filter === 'live' ? empty('الان بازی زنده‌ای در جریان نیست', 'live')
+    : homeState.filter === 'fav' ? empty('هنوز تیم، لیگ یا بازی‌ای را دنبال نکرده‌اید. روی ستاره‌ها بزنید.', 'star') : empty('برای این روز مسابقه‌ای پیدا نشد');
+
+  const upd = () => {
+    const u = $('#upd', el);
+    if (!u) return;
+    if (error) { u.className = 'status-line bad'; u.innerHTML = `${icon('info', 14)} اتصال قطع شد؛ دوباره تلاش می‌کنیم`; return; }
+    if (!lastOk) return;
+    const s = Math.round((Date.now() - lastOk) / 1000);
+    u.className = 'status-line';
+    u.innerHTML = `<span class="dot pulse" style="color:var(--accent)"></span> ${s < 5 ? 'همین الان به‌روز شد' : `${num(s)} ثانیه پیش به‌روز شد`} · به‌روزرسانی خودکار`;
+  };
+  const clock = setInterval(upd, 1000);
+
+  let timer;
+  if (isToday) {
+    const onFeed = (d, e) => { if (d) { data = d; error = null; lastOk = Date.now(); } else error = e; render(); upd(); };
+    feedListeners.add(onFeed);
+    if (data) render(); else pollToday(true);
+    return () => { feedListeners.delete(onFeed); clearInterval(clock); };
+  }
+  const load = async () => {
+    clearTimeout(timer);
+    try {
+      data = await api('matches', { date: day, timezone: tz, ccode3: 'IRN' }, { maxAge: 0 });
+      detectGoals(data, false); error = null; lastOk = Date.now();
+    } catch (e) { error = e; }
+    render(); upd();
+    // past/future days only need polling while something is still being played
+    const anyLive = (data?.leagues || []).some((l) => l.matches.some((m) => isLive(m.status)));
+    if (anyLive && !document.hidden) timer = setTimeout(load, REFRESH);
+  };
+  load();
+  return () => { clearTimeout(timer); clearInterval(clock); };
+}
+
+/* ---------- leagues directory ---------- */
+async function leaguesView(el) {
+  el.innerHTML = `<div class="search">${icon('search')}<input id="lq" placeholder="جستجوی لیگ یا کشور…" autocomplete="off"></div><div id="ll">${skeleton(8)}</div>`;
+  let d;
+  try { d = await api('allLeagues', { locale: 'en', country: 'IRN' }, { maxAge: 36e5 }); } catch (e) { $('#ll', el).innerHTML = errorBox(e); return; }
+  const row = (l) => `<a class="list-row" href="#/league/${l.id}">${lgLogo(l.id, 'crest')}<span class="grow ellipsis">${esc(l.localizedName || l.name)}</span>${starBtn('leagues', l.id, l.name)}</a>`;
+  const favs = Object.entries(store.leagues);
+  const draw = (q = '') => {
+    q = q.trim().toLowerCase();
+    const match = (l) => !q || (l.localizedName || l.name).toLowerCase().includes(q);
+    if (q) {
+      const hits = [...d.popular, ...d.international.flatMap((c) => c.leagues), ...d.countries.flatMap((c) => c.leagues.map((l) => ({ ...l, cname: c.name })))]
+        .filter((l, i, a) => a.findIndex((x) => x.id === l.id) === i)
+        .filter((l) => match(l) || (l.cname || '').toLowerCase().includes(q));
+      $('#ll', el).innerHTML = hits.length ? `<div class="card">${hits.slice(0, 80).map(row).join('')}</div>` : empty('چیزی پیدا نشد', 'search');
+      return;
+    }
+    $('#ll', el).innerHTML = `
+      ${favs.length ? `<div class="section-title">لیگ‌های دنبال‌شده</div><div class="card">${favs.map(([id, name]) => row({ id, name })).join('')}</div>` : ''}
+      <div class="section-title">محبوب</div><div class="card">${d.popular.map(row).join('')}</div>
+      <div class="section-title">بین‌المللی</div><div class="card">${d.international.flatMap((c) => c.leagues).map(row).join('')}</div>
+      <div class="section-title">کشورها</div><div class="card">${d.countries.map((c) => `
+        <details><summary class="list-row" style="cursor:pointer;list-style:none"><img class="crest" src="${'https://images.fotmob.com/image_resources/logo/teamlogo/' + c.ccode.toLowerCase() + '.png'}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+          <span class="grow">${esc(c.localizedName || c.name)}</span><span class="end">${num(c.leagues.length)} ${icon('down', 16)}</span></summary>
+          ${c.leagues.map(row).join('')}</details>`).join('')}</div>`;
+  };
+  draw();
+  $('#lq', el).oninput = (e) => draw(e.target.value);
+}
+
+/* ---------- favourites ---------- */
+async function favView(el) {
+  const teams = Object.entries(store.teams), leagues = Object.entries(store.leagues), matches = Object.entries(store.matches);
+  if (!teams.length && !leagues.length && !matches.length) {
+    el.innerHTML = `<div class="section-title">دنبال‌شده‌ها</div><div class="card">${empty('هنوز چیزی دنبال نکرده‌اید. روی ⭐ کنار تیم‌ها، لیگ‌ها و بازی‌ها بزنید تا اینجا جمع شوند و گل‌هایشان اعلان شود.', 'star')}</div>`;
+    return;
+  }
+  el.innerHTML = `
+    ${teams.length ? `<div class="section-title">تیم‌ها</div><div id="favTeams">${teams.map(([id, name]) => `
+      <div class="card" data-team="${id}"><a class="list-row" href="#/team/${id}">${crest(id, 'md')}<div class="grow"><b>${esc(name)}</b><div class="meta" data-next>…</div></div>${starBtn('teams', id, name)}</a></div>`).join('')}</div>` : ''}
+    ${leagues.length ? `<div class="section-title">لیگ‌ها</div><div class="card">${leagues.map(([id, name]) => `
+      <a class="list-row" href="#/league/${id}">${lgLogo(id, 'crest md')}<span class="grow"><b>${esc(name)}</b></span>${starBtn('leagues', id, name)}</a>`).join('')}</div>` : ''}
+    ${matches.length ? `<div class="section-title">بازی‌ها</div><div class="card">${matches.map(([id, name]) => `
+      <a class="list-row" href="#/match/${id}">${icon('ball')}<span class="grow">${esc(name)}</span>${starBtn('matches', id, name)}</a>`).join('')}</div>` : ''}`;
+  // show each followed team's next match
+  for (const [id] of teams) {
+    api('teams', { id, ccode3: 'IRN' }, { maxAge: 3e5 }).then((t) => {
+      const n = t.overview?.nextMatch, box = $(`[data-team="${id}"] [data-next]`, el);
+      if (!box) return;
+      if (!n) { box.textContent = ''; return; }
+      box.innerHTML = `بازی بعد: ${esc(n.opponent?.name || '')} · ${dateOf(n.status.utcTime)} ${new Date(n.status.utcTime).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`;
+    }).catch(() => {});
+  }
+}
+
+/* ---------- search ---------- */
+async function searchView(el, _p, q) {
+  el.innerHTML = `<div class="search">${icon('search')}<input id="sq" placeholder="تیم، بازیکن، لیگ…" autocomplete="off" value="${esc(q.get('q') || '')}"></div><div id="sr"></div>`;
+  const input = $('#sq', el), out = $('#sr', el);
+  let t, seq = 0;
+  const run = async () => {
+    const term = input.value.trim();
+    history.replaceState(null, '', '#/search' + (term ? '?q=' + encodeURIComponent(term) : ''));
+    if (term.length < 2) { out.innerHTML = empty('حداقل دو حرف بنویسید (نام‌ها انگلیسی هستند، مثل Perspolis یا Messi)', 'search'); return; }
+    const my = ++seq;
+    out.innerHTML = skeleton(4);
+    try {
+      const d = await api('suggest', { term }, { maxAge: 6e4 });
+      if (my !== seq) return;
+      const all = (d.find((g) => g.title?.key === 'all') || d[0])?.suggestions || [];
+      const groups = { team: [], player: [], league: [], match: [] };
+      for (const s of d.flatMap((g) => g.suggestions)) if (groups[s.type] && !groups[s.type].some((x) => x.id === s.id)) groups[s.type].push(s);
+      if (!all.length && !Object.values(groups).some((g) => g.length)) { out.innerHTML = empty('نتیجه‌ای پیدا نشد', 'search'); return; }
+      const sec = (title, arr, fn) => arr.length ? `<div class="section-title">${title}</div><div class="card">${arr.map(fn).join('')}</div>` : '';
+      out.innerHTML =
+        sec('تیم‌ها', groups.team, (s) => `<a class="list-row" href="#/team/${s.id}">${crest(s.id, 'md')}<div class="grow"><b>${esc(s.name)}</b><div class="meta">${esc(s.leagueName || '')}</div></div>${starBtn('teams', s.id, s.name)}</a>`) +
+        sec('بازیکنان', groups.player, (s) => `<a class="list-row" href="#/${s.isCoach ? 'player' : 'player'}/${s.id}">${face(s.id)}<div class="grow"><b>${esc(s.name)}</b><div class="meta">${esc(s.teamName || '')}${s.isCoach ? ' · مربی' : ''}</div></div></a>`) +
+        sec('لیگ‌ها', groups.league, (s) => `<a class="list-row" href="#/league/${s.id}">${lgLogo(s.id, 'crest md')}<div class="grow"><b>${esc(s.name)}</b><div class="meta">${esc(s.countryCode || '')}</div></div>${starBtn('leagues', s.id, s.name)}</a>`) +
+        sec('بازی‌ها', groups.match, (s) => matchRow({ id: s.id, home: { id: s.homeTeamId, name: s.homeTeamName, score: s.homeScore }, away: { id: s.awayTeamId, name: s.awayTeamName, score: s.awayScore }, status: s.status }, { date: true }));
+    } catch (e) { if (my === seq) out.innerHTML = errorBox(e); }
+  };
+  input.oninput = () => { clearTimeout(t); t = setTimeout(run, 280); };
+  input.focus();
+  run();
+}
+
+/* ---------- settings ---------- */
+function openSettings() {
+  const sw = (on) => `<span class="switch ${on ? 'on' : ''}"></span>`;
+  const notifOk = 'Notification' in window;
+  const s = sheet(`<div class="card-h" style="font-size:16px">تنظیمات<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
+    <div class="settings">
+      <div class="kv-h">ظاهر</div>
+      <div style="padding:0 16px 12px">${seg('theme', [['', 'خودکار'], ['light', 'روشن'], ['dark', 'تیره']], store.theme)}</div>
+      <div class="kv-h">اعلان‌ها</div>
+      <div class="list-row" data-set="notify">${icon('bell')}<div class="grow"><b>اعلان گل</b><div class="meta">${notifOk ? 'برای تیم‌ها، لیگ‌ها و بازی‌های دنبال‌شده (وقتی سایت باز است)' : 'مرورگر شما از اعلان پشتیبانی نمی‌کند'}</div></div>${sw(store.notify)}</div>
+      <div class="list-row" data-set="sound">${icon('live')}<div class="grow"><b>صدای گل</b></div>${sw(store.sound)}</div>
+      <div class="kv-h">داده‌ها</div>
+      <div class="list-row" data-set="clear">${icon('x')}<div class="grow"><b>پاک کردن علاقه‌مندی‌ها</b></div></div>
+      <div class="list-row" style="cursor:default">${icon('info')}<div class="grow meta">داده‌ها از FotMob گرفته می‌شود (غیررسمی). بازی‌های زنده هر ۲۰ ثانیه به‌روز می‌شوند.</div></div>
+    </div>`);
+  s.addEventListener('click', async (e) => {
+    const tb = e.target.closest('[data-seg="theme"] button');
+    if (tb) { store.theme = tb.dataset.v; save(); applyTheme(); s.querySelectorAll('[data-seg="theme"] button').forEach((b) => b.classList.toggle('on', b === tb)); return; }
+    const r = e.target.closest('[data-set]');
+    if (!r) return;
+    const k = r.dataset.set;
+    if (k === 'clear') {
+      if (confirm('همه علاقه‌مندی‌ها پاک شوند؟')) { store.teams = {}; store.leagues = {}; store.matches = {}; save(); toast('پاک شد'); route(); }
+      return;
+    }
+    if (k === 'notify' && !store.notify && notifOk) {
+      const p = await Notification.requestPermission();
+      if (p !== 'granted') { toast('اجازه اعلان داده نشد'); return; }
+    }
+    store[k] = !store[k]; save();
+    r.querySelector('.switch').classList.toggle('on', store[k]);
+  });
+}
+
+/* ---------- router ---------- */
+const routes = [
+  [/^\/?$/, homeView, 'matches'],
+  [/^\/match\/(\d+)(?:\/(\w+))?$/, matchView, 'matches'],
+  [/^\/league\/(\d+)(?:\/(\w+))?$/, leagueView, 'leagues'],
+  [/^\/team\/(\d+)(?:\/(\w+))?$/, teamView, ''],
+  [/^\/player\/(\d+)$/, playerView, ''],
+  [/^\/leagues$/, leaguesView, 'leagues'],
+  [/^\/favorites$/, favView, 'favorites'],
+  [/^\/search$/, searchView, 'search'],
+];
+let cleanup = null, lastPath = '';
+async function route() {
+  const raw = location.hash.slice(1) || '/';
+  const [path, qs] = raw.split('?');
+  const q = new URLSearchParams(qs || '');
+  const hit = routes.find(([re]) => re.test(path)) || routes[0];
+  const params = path.match(hit[0]) || [];
+  if (typeof cleanup === 'function') cleanup();
+  cleanup = null;
+  const samePage = path.split('/').slice(0, 3).join('/') === lastPath.split('/').slice(0, 3).join('/');
+  lastPath = path;
+  document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.nav === hit[2]));
+  document.body.classList.toggle('has-back', hit[1] !== homeView && !['leagues', 'favorites', 'search'].includes(path.slice(1)));
+  const el = document.createElement('div');
+  el.className = samePage ? '' : 'view';
+  view.replaceChildren(el);
+  if (!samePage) scrollTo(0, 0);
+  try { cleanup = await hit[1](el, params.slice(1), q); } catch (e) { el.innerHTML = errorBox(e); console.error(e); }
+}
+addEventListener('hashchange', route);
+route();
+pollToday(true);
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});

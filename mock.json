@@ -1,5 +1,0 @@
-{"leagues":[{"id":47,"name":"Premier League","ccode":"ENG","matches":[
-{"id":1,"home":{"name":"Arsenal","score":2},"away":{"name":"Chelsea","score":1},"status":{"started":true,"finished":false,"cancelled":false,"scoreStr":"2 - 1","liveTime":{"short":"67'"},"utcTime":"2026-10-21T18:00:00Z"}},
-{"id":2,"home":{"name":"Liverpool","score":0},"away":{"name":"Everton","score":0},"status":{"started":false,"finished":false,"cancelled":false,"utcTime":"2026-10-21T20:00:00Z"}}]},
-{"id":87,"name":"LaLiga","ccode":"ESP","matches":[
-{"id":3,"home":{"name":"Real Madrid","score":3},"away":{"name":"Sevilla","score":1},"status":{"started":true,"finished":true,"cancelled":false,"scoreStr":"3 - 1","reason":{"short":"FT"},"utcTime":"2026-10-21T15:00:00Z"}}]}]}
