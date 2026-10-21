@@ -1,0 +1,90 @@
+package app.goallive.live
+
+import android.app.Application
+import android.os.Looper
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
+import app.goallive.live.data.Api
+import app.goallive.live.data.Store
+import app.goallive.live.data.parseMatchList
+import app.goallive.live.ui.NavHook
+import app.goallive.live.ui.Root
+import app.goallive.live.ui.dayKey
+import com.github.takahirom.roborazzi.captureRoboImage
+import kotlinx.coroutines.runBlocking
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/** Plain application: the real one starts WorkManager and alarms, which the screenshot run doesn't need. */
+class TestApp : Application()
+
+/**
+ * Not a test of behaviour: renders each screen with live data so the look can be compared with the website.
+ * Run with: ./gradlew recordRoborazziDebug  → app/build/screens/*.png
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [34], application = TestApp::class, qualifiers = "w400dp-h860dp-xhdpi")
+class Screens {
+    @get:Rule val rule = createComposeRule()
+
+    private fun settle(ms: Long) {
+        var t = 0L
+        while (t < ms) {
+            Thread.sleep(100)
+            shadowOf(Looper.getMainLooper()).idle()
+            rule.mainClock.advanceTimeBy(100)
+            t += 100
+        }
+    }
+
+    private fun shot(name: String) = rule.onRoot().captureRoboImage("build/screens/$name.png")
+
+    private fun tap(text: String) {
+        val n = rule.onAllNodesWithText(text, substring = true)
+        if (n.fetchSemanticsNodes().isNotEmpty()) n[0].performClick()
+    }
+
+    @Test
+    fun screens() {
+        val ctx = ApplicationProvider.getApplicationContext<Application>()
+        Api.init(ctx)
+        Store.init(ctx)
+        Store.onboarded = true
+        Store.prefs().edit().putBoolean("askedNotify", true).apply()
+        if (Store.myTeam == null) Store.toggleTeam(8634, "Barcelona")
+        rule.mainClock.autoAdvance = false
+
+        // a finished match from a big league today (fallback: any match) for the match screens
+        val list = runBlocking { runCatching { parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(System.currentTimeMillis())))) }.getOrDefault(emptyList()) }
+        val big = setOf(42, 47, 87, 55, 54, 53, 73)
+        val match = list.filter { it.primaryId in big }.flatMap { it.matches }.firstOrNull { it.finished }
+            ?: list.flatMap { it.matches }.firstOrNull { it.finished } ?: list.flatMap { it.matches }.firstOrNull()
+
+        rule.setContent { Root(mutableIntStateOf(0)) }
+        settle(2500); shot("00-intro")
+        settle(9000); shot("01-home")
+        if (match != null) {
+            NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")
+            tap("آمار"); settle(3000); shot("03-match-stats")
+            tap("ترکیب"); settle(3000); shot("04-match-lineup")
+            tap("رودررو"); settle(3000); shot("05-match-h2h")
+            tap("جدول"); settle(6000); shot("06-match-table")
+        }
+        NavHook.nav?.team(8634); settle(9000); shot("07-team")
+        tap("تاریخچه"); settle(2000); shot("08-team-story")
+        NavHook.nav?.league(47); settle(9000); shot("09-league")
+        NavHook.nav?.tab("leagues"); settle(7000); shot("10-leagues")
+        NavHook.nav?.tab("settings"); settle(1500); shot("11-settings")
+        NavHook.nav?.tab("following"); settle(4000); shot("12-following")
+    }
+}

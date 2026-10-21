@@ -53,3 +53,38 @@ jobs:
           body: آخرین نسخه اپ اندروید گل‌لایو (اپ بومی). فایل goallive.apk را دانلود و نصب کنید.
           prerelease: true
           files: android/goallive.apk
+
+  # Renders every screen with live data so the app's look can be checked against the website.
+  screens:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Render screens
+        run: |
+          chmod +x gradlew
+          set -o pipefail
+          ./gradlew recordRoborazziDebug --no-daemon 2>&1 | tee test.log | tail -40
+      - name: Show test errors
+        if: failure()
+        run: |
+          grep -E "^e: |Exception|Error|FAILED" -A3 test.log | head -120
+      - name: Publish screenshots
+        if: github.ref_name == 'ccr-addbae8c-95x58c'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-screens
+          name: Android screenshots (build check)
+          body: Automatic screenshots of the Android app from the latest build, used to compare its look with the website.
+          prerelease: true
+          files: android/app/build/screens/*.png

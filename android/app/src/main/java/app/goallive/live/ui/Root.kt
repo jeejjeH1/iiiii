@@ -80,6 +80,7 @@ private val TABS = listOf(
 fun Root(openMatch: MutableIntState) {
     val nc = rememberNavController()
     val nav = remember(nc) { Nav(nc) }
+    NavHook.nav = nav
     val my = Store.myTeam
     val accent = if (my == null) Lime else accentFor(Clubs.get(my.id), my.color)
 

@@ -22,3 +22,6 @@ class Nav(private val c: NavHostController?) {
 }
 
 val LocalNav = staticCompositionLocalOf { Nav(null) }
+
+/** The app's navigator, for code outside composition (the screenshot run drives the app through it). */
+object NavHook { var nav: Nav? = null }
