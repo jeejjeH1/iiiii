@@ -1,31 +1,20 @@
 package app.goallive.live.ui
 
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.goallive.live.data.Api
 import app.goallive.live.data.MatchItem
 import app.goallive.live.data.Side
@@ -56,35 +45,35 @@ fun SearchScreen() {
     var q by rememberSaveable { mutableStateOf("") }
     var res by remember { mutableStateOf<Found?>(null) }
     var busy by remember { mutableStateOf(false) }
-    LaunchedEffect(q) {
+    var failed by remember { mutableStateOf(false) }
+    var retry by remember { mutableIntStateOf(0) }
+    LaunchedEffect(q, retry) {
         val term = q.trim()
-        if (term.length < 2) { res = null; return@LaunchedEffect }
-        delay(300)
+        if (term.length < 2) { res = null; failed = false; return@LaunchedEffect }
+        delay(280)
         busy = true
-        res = runCatching { search(term) }.getOrNull()
+        val r = runCatching { search(term) }
+        res = r.getOrNull(); failed = r.isFailure
         busy = false
     }
-    Column(Modifier.fillMaxSize()) {
-        TopBar("جستجو", { nav.back() })
-        SearchField(q, "تیم، بازیکن یا لیگ…", autoFocus = true) { q = it }
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
+        item { SearchField(q, "تیم، بازیکن یا لیگ…", autoFocus = true) { q = it } }
         val r = res
         when {
-            q.trim().length < 2 -> EmptyView("نام تیم، بازیکن یا لیگ را بنویسید (فارسی یا انگلیسی)", Icons.Rounded.Search)
-            r == null && busy -> Skeleton(5)
-            r == null -> ErrorView({ q = q.trim() + " " })
-            r.teams.isEmpty() && r.players.isEmpty() && r.leagues.isEmpty() && r.matches.isEmpty() -> EmptyView("نتیجه‌ای پیدا نشد", Icons.Rounded.Search)
-            else -> LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            q.trim().length < 2 -> item { EmptyView("نام تیم، بازیکن یا لیگ را بنویسید", Ic.search) }
+            busy && r == null -> item { Skeleton(5) }
+            failed -> item { ErrorView({ retry++ }) }
+            r == null -> {}
+            r.teams.isEmpty() && r.players.isEmpty() && r.leagues.isEmpty() && r.matches.isEmpty() -> item { EmptyView("نتیجه‌ای پیدا نشد", Ic.search) }
+            else -> {
                 if (r.teams.isNotEmpty()) item {
                     SectionTitle("تیم‌ها")
                     Card {
-                        r.teams.forEach { t ->
+                        r.teams.forEachIndexed { i, t ->
                             val id = t.s("id")?.toIntOrNull() ?: 0
-                            Row(Modifier.fillMaxWidth().clickable { nav.team(id) }.padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Crest(id, 30.dp); Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Ltr(t.s("name") ?: "", weight = FontWeight.Bold)
-                                    Ltr(t.s("leagueName") ?: "", color = C.mute, style = MaterialTheme.typography.labelSmall)
-                                }
+                            ListRow(first = i == 0, onClick = { nav.team(id) }) {
+                                Crest(id, 34.dp)
+                                Column(Modifier.weight(1f)) { Ltr(t.s("name") ?: "", style = vz(14.sp, androidx.compose.ui.text.font.FontWeight.Bold)); Ltr(t.s("leagueName") ?: "", style = vz(12.sp), color = C.mute) }
                                 StarButton(Store.isTeam(id), { Store.toggleTeam(id, t.s("name") ?: "") })
                             }
                         }
@@ -93,20 +82,20 @@ fun SearchScreen() {
                 if (r.players.isNotEmpty()) item {
                     SectionTitle("بازیکنان")
                     Card {
-                        r.players.forEach { p ->
+                        r.players.forEachIndexed { i, p ->
                             val id = p.s("id")?.toIntOrNull() ?: 0
-                            PersonRow(id, p.s("name") ?: "", (p.s("teamName") ?: "") + if (p.b("isCoach")) " · مربی" else "") { nav.player(id) }
+                            PersonRow(id, p.s("name") ?: "", (p.s("teamName") ?: "") + if (p.b("isCoach")) " · مربی" else "", first = i == 0) { nav.player(id) }
                         }
                     }
                 }
                 if (r.leagues.isNotEmpty()) item {
                     SectionTitle("لیگ‌ها")
                     Card {
-                        r.leagues.forEach { lg ->
+                        r.leagues.forEachIndexed { i, lg ->
                             val id = lg.s("id")?.toIntOrNull() ?: 0
-                            Row(Modifier.fillMaxWidth().clickable { nav.league(id) }.padding(start = 14.dp, end = 4.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                LeagueLogo(id, 26.dp); Spacer(Modifier.width(12.dp))
-                                Ltr(lg.s("name") ?: "", Modifier.weight(1f), weight = FontWeight.Bold)
+                            ListRow(first = i == 0, onClick = { nav.league(id) }) {
+                                LeagueLogo(id, 34.dp)
+                                Column(Modifier.weight(1f)) { Ltr(lg.s("name") ?: "", style = vz(14.sp, androidx.compose.ui.text.font.FontWeight.Bold)); Ltr(lg.s("countryCode") ?: "", style = vz(12.sp), color = C.mute) }
                                 StarButton(Store.isLeague(id), { Store.toggleLeague(id, lg.s("name") ?: "") })
                             }
                         }
@@ -115,7 +104,7 @@ fun SearchScreen() {
                 if (r.matches.isNotEmpty()) item {
                     SectionTitle("بازی‌ها")
                     Card {
-                        r.matches.forEach { s ->
+                        r.matches.forEachIndexed { i, s ->
                             val st = s.o("status")
                             val m = MatchItem(
                                 s.s("id")?.toIntOrNull() ?: 0,
@@ -123,7 +112,7 @@ fun SearchScreen() {
                                 Side(s.i("awayTeamId") ?: 0, s.s("awayTeamName") ?: "", s.i("awayScore")),
                                 parseTime(st.s("utcTime") ?: s.s("matchDate")), st.b("started"), st.b("finished"), st.b("cancelled"), "", st.o("reason").s("short") ?: "",
                             )
-                            MatchRow(m, { nav.match(m.id) }, showDate = true)
+                            MatchRow(m, { nav.match(m.id) }, showDate = true, first = i == 0)
                         }
                     }
                 }

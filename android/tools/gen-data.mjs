@@ -19,11 +19,15 @@ package app.goallive.live.data
 class Club(
     val fa: String, val nick: String, val founded: Int, val city: String, val stadium: String,
     val c1: Long, val c2: Long, val ink: Long, val accent: Long?, val motto: String, val story: String,
+    val pattern: String,
     val legends: List<String>, val years: List<Pair<Int, String>>,
 )
 
 object Clubs {
     fun get(id: Any?): Club? = id?.toString()?.toIntOrNull()?.let { MAP[it] }
+
+    /** Club ids in the site's order (the "my team" picker grid). */
+    val ids: List<Int> get() = MAP.keys.toList()
 
     fun derby(a: Any?, b: Any?): String? {
         val x = a?.toString()?.toIntOrNull() ?: return null
@@ -42,7 +46,7 @@ for (const [id, c] of Object.entries(CLUBS)) {
   k += `        ${id} to Club(
             ${ks(c.fa)}, ${ks(c.nick)}, ${c.founded || 0}, ${ks(c.city)}, ${ks(c.stadium)},
             ${col(c.c[0])}, ${col(c.c[1])}, ${col(c.ink || '#fff')}, ${c.accent ? col(c.accent) : 'null'}, ${ks(c.motto)},
-            ${ks(c.story)},
+            ${ks(c.story)}, ${ks(c.pattern)},
             listOf(${(c.legends || []).map(ks).join(', ')}),
             listOf(${(c.years || []).map(([y, t]) => `${y} to ${ks(t)}`).join(', ')}),
         ),

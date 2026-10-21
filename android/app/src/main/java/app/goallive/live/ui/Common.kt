@@ -1,16 +1,19 @@
 package app.goallive.live.ui
 
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,16 +31,8 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.Star
-import androidx.compose.material.icons.rounded.StarBorder
-import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,9 +44,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
@@ -71,9 +77,41 @@ private const val IMG = "https://images.fotmob.com/image_resources"
 fun teamLogo(id: Int, large: Boolean = false) = "$IMG/logo/teamlogo/${id}${if (large) "" else "_small"}.png"
 fun leagueLogo(id: Int) = "$IMG/logo/leaguelogo/dark/$id.png"
 fun playerFace(id: Int) = "$IMG/playerimages/$id.png"
+fun flagLogo(ccode: String) = "$IMG/logo/teamlogo/${ccode.lowercase()}.png"
+
+/* ---------- backdrop ---------- */
+
+/** The site's ".stadium": a soft accent glow from the top, mowed stripes and two floodlight beams. */
+@Composable
+fun Stadium(accent: Color) {
+    Canvas(Modifier.fillMaxSize()) {
+        drawRect(C.bg)
+        val stripe = 64.dp.toPx()
+        var x = 0f
+        while (x < size.width) { drawRect(Color(0x03FFFFFF), Offset(x, 0f), Size(stripe, size.height)); x += stripe * 2 }
+        drawRect(Brush.radialGradient(listOf(accent.copy(alpha = 0.07f), Color.Transparent), Offset(size.width / 2, -size.height * 0.1f), size.height * 0.6f))
+        beam(-0.22f * size.width, -24f)
+        beam(size.width * 1.22f, 24f)
+    }
+}
+
+private fun DrawScope.beam(cx: Float, deg: Float) {
+    val w = size.width * 0.6f
+    val h = size.height * 1.5f
+    val top = -size.height * 0.3f
+    rotate(deg, Offset(cx, top)) {
+        val p = Path().apply {
+            moveTo(cx - w * 0.04f, top); lineTo(cx + w * 0.04f, top); lineTo(cx + w / 2, top + h); lineTo(cx - w / 2, top + h); close()
+        }
+        drawPath(p, Brush.verticalGradient(listOf(Color(0x0AD6F0FF), Color.Transparent), top, top + h * 0.7f))
+    }
+}
+
+/* ---------- images ---------- */
 
 @Composable
 fun Crest(id: Int, size: Dp = 24.dp, large: Boolean = size > 40.dp) {
+    if (id <= 0) { Spacer(Modifier.size(size)); return }
     AsyncImage(model = teamLogo(id, large), contentDescription = null, modifier = Modifier.size(size), contentScale = ContentScale.Fit)
 }
 
@@ -83,136 +121,237 @@ fun LeagueLogo(id: Int, size: Dp = 22.dp) {
 }
 
 @Composable
-fun Face(id: Int, size: Dp = 38.dp, ring: Color? = null) {
+fun Face(id: Int, size: Dp = 38.dp, ring: Color? = null, ringWidth: Dp = 2.dp) {
     Box(
         Modifier.size(size).clip(CircleShape).background(C.card2)
-            .then(if (ring != null) Modifier.border(2.dp, ring, CircleShape) else Modifier),
+            .border(if (ring != null) ringWidth else 1.dp, ring ?: C.line, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
+        Icon(Ic.people, null, tint = C.faint, modifier = Modifier.size(size * 0.5f))
         AsyncImage(model = playerFace(id), contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
     }
 }
 
-/** Text that is always laid out left-to-right (Latin names, minutes like 45+2'). */
+/* ---------- text ---------- */
+
+/** Text laid out left-to-right (Latin names, minutes like 45+2'), in the site's broadcast font by default. */
 @Composable
-fun Ltr(text: String, modifier: Modifier = Modifier, style: androidx.compose.ui.text.TextStyle = MaterialTheme.typography.bodyMedium,
-        color: Color = Color.Unspecified, weight: FontWeight? = null, maxLines: Int = 1, align: TextAlign? = null) {
+fun Ltr(
+    text: String, modifier: Modifier = Modifier, style: TextStyle = lat(15.sp), color: Color = Color.Unspecified,
+    weight: FontWeight? = null, maxLines: Int = 1, align: TextAlign? = null,
+) {
     Text(text, modifier, color = color, style = style.copy(textDirection = TextDirection.ContentOrLtr), fontWeight = weight,
         maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
 }
 
+/** Plain text in the site's body font. */
+@Composable
+fun T(text: String, size: Int = 14, w: FontWeight = FontWeight.Normal, color: Color = C.ink, modifier: Modifier = Modifier,
+      maxLines: Int = Int.MAX_VALUE, align: TextAlign? = null) {
+    Text(text, modifier, color = color, style = vz(size.sp, w), maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
+}
+
+/* ---------- surfaces ---------- */
+
+private val CardShape = RoundedCornerShape(22.dp)
+
 @Composable
 fun Card(modifier: Modifier = Modifier, pad: PaddingValues = PaddingValues(0.dp), content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card)
-            .border(1.dp, C.line, RoundedCornerShape(18.dp)).padding(pad),
+        modifier.fillMaxWidth().clip(CardShape).background(C.card).border(1.dp, C.line, CardShape).padding(pad),
         content = content,
     )
 }
 
+/** ".card-h": bold card header with optional grey sub text and an end slot. */
 @Composable
-fun CardTitle(text: String, modifier: Modifier = Modifier, end: @Composable RowScope.() -> Unit = {}) {
-    Row(modifier.fillMaxWidth().padding(start = 16.dp, end = 12.dp, top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+fun CardTitle(text: String, modifier: Modifier = Modifier, sub: String? = null, end: @Composable RowScope.() -> Unit = {}) {
+    Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        T(text, 14, FontWeight.ExtraBold)
+        if (sub != null) T(sub, 12, FontWeight.Medium, C.mute)
+        Spacer(Modifier.weight(1f))
         end()
     }
 }
 
+/** ".section-title": a glowing accent bar and a bold label. */
 @Composable
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = C.mute, modifier = modifier.padding(start = 6.dp, top = 18.dp, bottom = 8.dp))
+    val accent = LocalAccent.current
+    Row(modifier.padding(start = 4.dp, end = 4.dp, top = 22.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(4.dp, 16.dp).glow(accent, 6.dp, RoundedCornerShape(2.dp)).clip(RoundedCornerShape(2.dp)).background(accent))
+        Spacer(Modifier.width(10.dp))
+        T(text, 13, FontWeight.Black)
+    }
+}
+
+/** Soft colored halo around an element (the site's box-shadow glows). */
+fun Modifier.glow(color: Color, radius: Dp, shape: Shape = RoundedCornerShape(12.dp)): Modifier = drawBehind {
+    val r = radius.toPx()
+    for (i in 3 downTo 1) {
+        val g = r * i / 3
+        drawRoundRect(color.copy(alpha = color.alpha * 0.18f), Offset(-g, -g), Size(size.width + 2 * g, size.height + 2 * g),
+            androidx.compose.ui.geometry.CornerRadius(g + 6.dp.toPx()))
+    }
 }
 
 @Composable
 fun Divider(modifier: Modifier = Modifier) = Box(modifier.fillMaxWidth().height(1.dp).background(C.line))
 
+/** ".list-row": a padded row separated by a hairline (none above the first). */
 @Composable
-fun LiveDot(color: Color = C.live, size: Dp = 7.dp) {
-    val t = rememberInfiniteTransition(label = "dot")
-    val a by t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "a")
+fun ListRow(first: Boolean = false, onClick: (() -> Unit)? = null, pad: PaddingValues = PaddingValues(horizontal = 16.dp, vertical = 11.dp),
+            content: @Composable RowScope.() -> Unit) {
+    if (!first) Divider()
+    Row(
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(pad),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), content = content,
+    )
+}
+
+@Composable
+fun LiveDot(color: Color = C.live, size: Dp = 6.dp, pulse: Boolean = true) {
+    val a = if (pulse) {
+        val t = rememberInfiniteTransition(label = "dot")
+        t.animateFloat(1f, 0.25f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "a").value
+    } else 1f
     Box(Modifier.size(size).alpha(a).clip(CircleShape).background(color))
 }
 
+enum class PillKind { Plain, Live, Accent }
+
+/** ".pill" (grey), ".pill.live" (red) and ".pill.accent" (tinted). */
 @Composable
-fun Pill(text: String, color: Color = LocalAccent.current, filled: Boolean = false, onClick: (() -> Unit)? = null, icon: ImageVector? = null) {
+fun Pill(text: String, kind: PillKind = PillKind.Plain, onClick: (() -> Unit)? = null, icon: ImageVector? = null, dot: Boolean = false) {
+    val accent = LocalAccent.current
+    val (bg, fg) = when (kind) {
+        PillKind.Live -> C.live to Color.White
+        PillKind.Accent -> accent.copy(alpha = 0.14f) to accent
+        PillKind.Plain -> C.card2 to C.mute
+    }
     Row(
-        Modifier.clip(RoundedCornerShape(50)).background(if (filled) color else color.copy(alpha = 0.14f))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+        Modifier.height(26.dp).clip(RoundedCornerShape(50)).background(bg)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        if (icon != null) Icon(icon, null, Modifier.size(15.dp), tint = if (filled) MaterialTheme.colorScheme.onPrimary else color)
-        Text(text, style = MaterialTheme.typography.labelMedium, color = if (filled) MaterialTheme.colorScheme.onPrimary else color, fontWeight = FontWeight.Bold)
+        if (dot) LiveDot(fg, 6.dp)
+        if (icon != null) Icon(icon, null, Modifier.size(14.dp), tint = fg)
+        T(text, 11, FontWeight.ExtraBold, fg, maxLines = 1)
     }
 }
 
-/** Segmented chips; the selected one is filled with the accent. */
+/** ".seg": a segmented control; the selected item is inverted (white on black). */
 @Composable
-fun Seg(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
+fun Seg(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, badge: Map<String, Int> = emptyMap(),
+        icons: Map<String, ImageVector> = emptyMap(), onSelect: (String) -> Unit) {
     Row(
-        modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(16.dp)).padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         for ((k, label) in options) {
             val on = k == selected
-            Box(
-                Modifier.clip(RoundedCornerShape(50)).background(if (on) LocalAccent.current else C.card2)
-                    .clickable { onSelect(k) }.padding(horizontal = 14.dp, vertical = 7.dp),
+            Row(
+                Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(12.dp)).background(if (on) C.ink else Color.Transparent)
+                    .clickable { onSelect(k) }.padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
             ) {
-                Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
-                    color = if (on) MaterialTheme.colorScheme.onPrimary else C.text)
+                icons[k]?.let { Icon(it, null, Modifier.size(15.dp), tint = if (on) C.bg else C.mute); Spacer(Modifier.width(5.dp)) }
+                T(label, 12, FontWeight.ExtraBold, if (on) C.bg else C.mute, maxLines = 1)
+                badge[k]?.takeIf { it > 0 }?.let { n ->
+                    Spacer(Modifier.width(6.dp))
+                    Box(Modifier.heightIn(min = 18.dp).widthIn(min = 18.dp).clip(RoundedCornerShape(50)).background(C.live).padding(horizontal = 5.dp),
+                        contentAlignment = Alignment.Center) { T("$n", 10, FontWeight.Bold, Color.White) }
+                }
             }
         }
     }
 }
 
+/** ".tabs": page tabs; the selected one is an accent chip with a glow. */
 @Composable
-fun Rating(r: Double?, modifier: Modifier = Modifier) {
+fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
+    val accent = LocalAccent.current
+    Row(
+        modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        for ((k, label) in options) {
+            val on = k == selected
+            Box(
+                Modifier.then(if (on) Modifier.glow(accent.copy(alpha = 0.4f), 8.dp) else Modifier).clip(RoundedCornerShape(12.dp))
+                    .background(if (on) accent else Color.Transparent).clickable { onSelect(k) }.padding(horizontal = 14.dp, vertical = 8.dp),
+            ) { T(label, 13, FontWeight.ExtraBold, if (on) LocalAccentInk.current else C.mute, maxLines = 1) }
+        }
+    }
+}
+
+/** ".rate": the coloured player rating badge. */
+@Composable
+fun Rating(r: Double?, modifier: Modifier = Modifier, small: Boolean = false) {
     if (r == null || r <= 0) return
     val c = when {
-        r >= 8 -> Color(0xFF1E88FF)
-        r >= 7 -> Color(0xFF14B86A)
-        r >= 6 -> Color(0xFFF0A020)
-        else -> Color(0xFFE5383B)
+        r >= 9 -> Color(0xFF1D9BF0)
+        r >= 7.5 -> Color(0xFF14B866)
+        r >= 6.5 -> Color(0xFF9FB21B)
+        r >= 5.5 -> Color(0xFFF08A24)
+        else -> Color(0xFFE5434B)
     }
-    Box(modifier.clip(RoundedCornerShape(6.dp)).background(c).padding(horizontal = 5.dp, vertical = 1.dp)) {
-        Text(dec(r, 1), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+    Box(modifier.clip(RoundedCornerShape(7.dp)).background(c).padding(horizontal = if (small) 5.dp else 6.dp, vertical = 1.dp)) {
+        Text(dec(r, 1), color = Color.White, style = vz(if (small) 10.sp else 11.sp, FontWeight.Black))
     }
 }
 
 @Composable
-fun StarButton(on: Boolean, onToggle: () -> Unit, size: Dp = 20.dp) {
-    IconButton(onClick = onToggle, modifier = Modifier.size(36.dp)) {
-        Icon(if (on) Icons.Rounded.Star else Icons.Rounded.StarBorder, null, Modifier.size(size), tint = if (on) C.gold else C.mute)
+fun StarButton(on: Boolean, onToggle: () -> Unit, size: Dp = 18.dp, tint: Color = C.faint, box: Dp = 32.dp) {
+    Box(Modifier.size(box).clip(RoundedCornerShape(10.dp)).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
+        Icon(if (on) Ic.starOn else Ic.star, if (on) "دنبال نکن" else "دنبال کن", Modifier.size(size), tint = if (on) C.gold else tint)
     }
 }
+
+@Composable
+fun IconBtn(icon: ImageVector, desc: String?, tint: Color = C.ink, bg: Color = Color.Transparent, size: Dp = 20.dp, onClick: () -> Unit) {
+    Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(bg).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Icon(icon, desc, Modifier.size(size), tint = tint)
+    }
+}
+
+/* ---------- states ---------- */
 
 @Composable
 fun Skeleton(rows: Int = 6, modifier: Modifier = Modifier) {
     val t = rememberInfiniteTransition(label = "sk")
-    val a by t.animateFloat(0.35f, 0.75f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "a")
-    Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    val x by t.animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = LinearEasing)), label = "x")
+    val brush = Brush.linearGradient(
+        listOf(C.card2, C.line2, C.card2),
+        start = Offset(-600f + 1400f * x, 0f), end = Offset(-200f + 1400f * x, 0f),
+    )
+    Column(modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         repeat(rows) { i ->
-            Box(Modifier.fillMaxWidth(if (i % 3 == 0) 1f else 0.92f).height(if (i == 0) 90.dp else 54.dp).alpha(a).clip(RoundedCornerShape(16.dp)).background(C.card2))
+            Box(Modifier.fillMaxWidth().height(if (i == 0) 96.dp else 60.dp).clip(RoundedCornerShape(16.dp)).background(brush))
         }
     }
 }
 
 @Composable
-fun ErrorView(onRetry: () -> Unit, text: String = "اتصال به اینترنت برقرار نشد") {
-    Column(Modifier.fillMaxWidth().padding(40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(Icons.Rounded.WifiOff, null, Modifier.size(42.dp), tint = C.mute)
-        Spacer(Modifier.height(10.dp))
-        Text(text, color = C.mute, textAlign = TextAlign.Center)
-        TextButton(onClick = onRetry) { Text("تلاش دوباره", color = LocalAccent.current, fontWeight = FontWeight.Bold) }
+fun ErrorView(onRetry: () -> Unit, text: String = "اتصال برقرار نشد") {
+    val accent = LocalAccent.current
+    Column(Modifier.fillMaxWidth().padding(vertical = 52.dp, horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Icon(Ic.info, null, Modifier.size(40.dp), tint = C.faint)
+        Spacer(Modifier.height(12.dp))
+        T(text, 14, color = C.mute, align = TextAlign.Center)
+        Spacer(Modifier.height(12.dp))
+        Box(Modifier.clip(RoundedCornerShape(50)).background(accent.copy(alpha = 0.14f)).clickable(onClick = onRetry).padding(horizontal = 16.dp, vertical = 7.dp)) {
+            T("تلاش دوباره", 13, FontWeight.ExtraBold, accent)
+        }
     }
 }
 
 @Composable
 fun EmptyView(text: String, icon: ImageVector? = null) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 48.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (icon != null) { Icon(icon, null, Modifier.size(40.dp), tint = C.mute.copy(alpha = 0.6f)); Spacer(Modifier.height(10.dp)) }
-        Text(text, color = C.mute, textAlign = TextAlign.Center)
+    Column(Modifier.fillMaxWidth().padding(vertical = 52.dp, horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (icon != null) { Icon(icon, null, Modifier.size(40.dp), tint = C.faint); Spacer(Modifier.height(12.dp)) }
+        T(text, 14, color = C.mute, align = TextAlign.Center)
     }
 }
 
@@ -237,7 +376,7 @@ class Loader<T> {
  */
 @Composable
 fun <T> rememberLoader(vararg keys: Any?, peek: (() -> T?)? = null, poll: (T) -> Long? = { null }, block: suspend () -> T): Loader<T> {
-    val l = remember(*keys) { Loader<T>().apply { peek?.invoke()?.let { state = Load.Ok(it) } } }
+    val l = remember(*keys) { Loader<T>().apply { runCatching { peek?.invoke() }.getOrNull()?.let { state = Load.Ok(it) } } }
     val owner = LocalLifecycleOwner.current
     LaunchedEffect(l, l.tick) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -260,87 +399,125 @@ fun <T> rememberLoader(vararg keys: Any?, peek: (() -> T?)? = null, poll: (T) ->
 @Composable
 fun <T> LoadBox(l: Loader<T>, skeletonRows: Int = 6, content: @Composable (T) -> Unit) {
     when (val s = l.state) {
-        is Load.Loading -> Skeleton(skeletonRows)
+        is Load.Loading -> Skeleton(skeletonRows, Modifier.padding(horizontal = 14.dp))
         is Load.Err -> ErrorView({ l.state = Load.Loading; l.reload() })
         is Load.Ok -> content(s.v)
     }
 }
 
-/* ---------- match row ---------- */
+/* ---------- match row (".m") ---------- */
 
-/** Score as separate pieces so the home goals always sit on the right in RTL. */
+/** Score digits; the home goals sit on the right (RTL). */
 @Composable
-fun ScoreText(h: Int?, a: Int?, size: Int = 15, color: Color = C.text, weight: FontWeight = FontWeight.ExtraBold) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text("${h ?: "-"}", fontSize = size.sp, fontWeight = weight, color = color, style = MaterialTheme.typography.titleMedium)
-        Text("-", fontSize = (size - 2).sp, color = C.mute, style = MaterialTheme.typography.titleMedium)
-        Text("${a ?: "-"}", fontSize = size.sp, fontWeight = weight, color = color, style = MaterialTheme.typography.titleMedium)
+fun ScoreText(h: Int?, a: Int?, size: Int = 16, color: Color = C.ink, weight: FontWeight = FontWeight.Black, sepColor: Color = C.faint) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((size / 3).dp)) {
+        Text("${h ?: "-"}", color = color, style = vz(size.sp, weight))
+        Text("-", color = sepColor, style = vz(size.sp, FontWeight.Light))
+        Text("${a ?: "-"}", color = color, style = vz(size.sp, weight))
     }
 }
 
 @Composable
-fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: String? = null, star: Boolean = true, flash: Boolean = false) {
+fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: String? = null, star: Boolean = true, flash: Boolean = false, first: Boolean = false) {
     val accent = LocalAccent.current
-    Row(
-        Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.16f) else Color.Transparent)
-            .clickable(onClick = onClick).padding(start = 14.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // status column
-        Column(Modifier.width(54.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            when {
-                m.live -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    LiveDot(size = 6.dp)
-                    Ltr(statusText(m), color = C.live, weight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
-                }
-                m.finished || m.cancelled -> Text(statusText(m), color = C.mute, style = MaterialTheme.typography.labelMedium, maxLines = 1)
-                else -> {
-                    Text(timeOf(m.time), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+    if (!first) Divider()
+    Box(Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = onClick)) {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 16.dp else 10.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            // status
+            Box(Modifier.width(42.dp), contentAlignment = Alignment.Center) {
+                val st = statusText(m).replace("بین دو نیمه", "نیمه")
+                when {
+                    m.live -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        LiveDot(size = 6.dp); Spacer(Modifier.width(3.dp))
+                        Ltr(st, style = vz(11.sp, FontWeight.ExtraBold), color = C.live)
+                    }
+                    st.isNotEmpty() -> T(st, 11, FontWeight.ExtraBold, C.mute, maxLines = 2, align = TextAlign.Center)
+                    showDate -> T(persianDate(m.time, "d MMM"), 11, FontWeight.ExtraBold, C.mute, maxLines = 2, align = TextAlign.Center)
                 }
             }
-            if (showDate) Text(shortDate(m.time), color = C.mute, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            val homeLose = m.finished && (m.home.score ?: 0) < (m.away.score ?: 0)
+            val awayLose = m.finished && (m.away.score ?: 0) < (m.home.score ?: 0)
+            // home (right)
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Crest(m.home.id, 21.dp)
+                Ltr(m.home.name, Modifier.weight(1f, false), style = lat(14.sp, if (homeLose) FontWeight.SemiBold else FontWeight.Bold), color = if (homeLose) C.mute else C.ink)
+            }
+            ScoreBox(m)
+            // away (left): crest on the outer edge
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
+                Ltr(m.away.name, Modifier.weight(1f, false), style = lat(14.sp, if (awayLose) FontWeight.SemiBold else FontWeight.Bold), color = if (awayLose) C.mute else C.ink)
+                Crest(m.away.id, 21.dp)
+            }
+            if (star) StarButton(Store.follows(m), { Store.toggleMatch(m.id) }, 16.dp, box = 26.dp) else Spacer(Modifier.width(26.dp))
         }
-        Column(Modifier.weight(1f).padding(horizontal = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            TeamLine(m.home.id, m.home.name, if (m.hasScore) m.home.score else null, m.live, winner(m, true), m.penHome)
-            TeamLine(m.away.id, m.away.name, if (m.hasScore) m.away.score else null, m.live, winner(m, false), m.penAway)
-            if (sub != null) Text(sub, color = C.mute, style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        if (star) StarButton(Store.follows(m), { Store.toggleMatch(m.id) }, 18.dp) else Spacer(Modifier.width(8.dp))
-    }
-}
-
-private fun winner(m: MatchItem, home: Boolean): Boolean? {
-    if (!m.finished) return null
-    val h = m.home.score ?: return null
-    val a = m.away.score ?: return null
-    val ph = m.penHome ?: 0
-    val pa = m.penAway ?: 0
-    if (h == a && ph == pa) return null
-    val homeWon = h > a || (h == a && ph > pa)
-    return if (home) homeWon else !homeWon
-}
-
-@Composable
-private fun TeamLine(id: Int, name: String, score: Int?, live: Boolean, won: Boolean?, pen: Int?) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Crest(id, 20.dp)
-        Spacer(Modifier.width(8.dp))
-        Ltr(name, Modifier.weight(1f), color = if (won == false) C.mute else C.text, weight = if (won == true) FontWeight.Bold else FontWeight.Medium,
-            align = TextAlign.Start)
-        if (pen != null) Text("($pen)", color = C.mute, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(end = 4.dp))
-        if (score != null) Text("$score", fontWeight = FontWeight.ExtraBold, color = if (live) C.live else if (won == false) C.mute else C.text,
-            modifier = Modifier.widthIn(min = 16.dp), textAlign = TextAlign.Center)
+        if (sub != null) T(sub, 10, color = C.faint, maxLines = 1, align = TextAlign.Center,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 2.dp, start = 50.dp, end = 34.dp))
+        // live minute progress along the bottom edge
+        val min = m.minute.substringBefore('+').filter(Char::isDigit).toIntOrNull()
+        if (m.live && min != null && min > 0) Box(
+            Modifier.align(Alignment.BottomStart).fillMaxWidth((min / 90f).coerceAtMost(1f)).height(2.dp)
+                .background(Brush.horizontalGradient(listOf(C.live, Color.Transparent))),
+        )
     }
 }
 
 @Composable
-fun TopBar(title: String, onBack: (() -> Unit)?, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
-    Row(modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (onBack != null) IconButton(onClick = onBack) {
-            // auto-mirrored: points right in RTL
-            Icon(Icons.AutoMirrored.Rounded.ArrowBack, "بازگشت", tint = C.text, modifier = Modifier.size(24.dp))
-        } else Spacer(Modifier.width(12.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        actions()
+fun ScoreBox(m: MatchItem) {
+    val shape = RoundedCornerShape(11.dp)
+    val bg = when { m.live -> C.live; m.finished -> Color.Transparent; else -> C.card2 }
+    Box(
+        Modifier.width(64.dp).height(34.dp).then(if (m.live) Modifier.glow(C.live.copy(alpha = 0.3f), 6.dp, shape) else Modifier)
+            .clip(shape).background(bg).border(1.dp, if (m.live) Color.Transparent else C.line, shape),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            m.cancelled -> T("–", 14, FontWeight.ExtraBold)
+            m.started || m.finished -> ScoreText(m.home.score, m.away.score, 15, if (m.live) Color.White else C.ink, sepColor = if (m.live) Color.White.copy(alpha = 0.6f) else C.faint)
+            else -> T(timeOf(m.time), 14, FontWeight.ExtraBold)
+        }
     }
+}
+
+/* ---------- page heroes ---------- */
+
+/** Club texture over a hero (the site's patternStyle), drawn in white at low opacity. */
+fun DrawScope.drawPattern(name: String, alpha: Float = 0.14f) {
+    val w = Color.White.copy(alpha = alpha * 0.9f)
+    when (name) {
+        "stripes" -> { val s = 26.dp.toPx(); var x = 0f; while (x < size.width) { drawRect(w, Offset(x, 0f), Size(s, size.height)); x += 2 * s } }
+        "flame", "devil", "cannon" -> { val s = 22.dp.toPx(); var x = -size.height; while (x < size.width) { drawLine(w, Offset(x, size.height), Offset(x + size.height * 0.47f, 0f), 3.dp.toPx()); x += s } }
+        "wall" -> {
+            var y = 0f; while (y < size.height) { drawRect(w, Offset(0f, y), Size(size.width, 2.dp.toPx())); y += 16.dp.toPx() }
+            var x = 0f; while (x < size.width) { drawRect(w, Offset(x, 0f), Size(2.dp.toPx(), size.height)); x += 34.dp.toPx() }
+        }
+        "waves" -> { val st = Stroke(2.dp.toPx()); var r = 19.dp.toPx(); while (r < size.width * 1.5f) { drawCircle(w, r, Offset(0f, size.height), style = st); r += 40.dp.toPx() } }
+        "diamonds" -> {
+            val s = 24.dp.toPx(); var y = 0f; var row = 0
+            while (y < size.height + s) {
+                var x = if (row % 2 == 0) 0f else s
+                while (x < size.width + s) {
+                    val p = Path().apply { moveTo(x, y - s / 2); lineTo(x + s / 2, y); lineTo(x, y + s / 2); lineTo(x - s / 2, y); close() }
+                    drawPath(p, w); x += 2 * s
+                }
+                y += s; row++
+            }
+        }
+        else -> { val s = 18.dp.toPx(); var y = s / 2; while (y < size.height) { var x = s / 2; while (x < size.width) { drawCircle(w, 1.6.dp.toPx(), Offset(x, y)); x += s }; y += s } }
+    }
+}
+
+/** ".phero": full-width club/league/player hero with rounded bottom corners. */
+@Composable
+fun PageHero(c1: Color, pattern: String?, ink: Color = Color.White, content: @Composable BoxScope.() -> Unit) {
+    val shape = RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)
+    Box(
+        Modifier.fillMaxWidth().clip(shape)
+            .background(Brush.linearGradient(listOf(c1, darken(c1, 0.35f))))
+            .drawBehind { if (pattern != null) drawPattern(pattern) }
+            .padding(horizontal = 18.dp, vertical = 22.dp),
+        content = content,
+    )
 }

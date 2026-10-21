@@ -5,28 +5,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.EmojiEvents
-import androidx.compose.material.icons.rounded.LocalHospital
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -44,16 +39,33 @@ import app.goallive.live.data.objs
 import app.goallive.live.data.parseTime
 import app.goallive.live.data.path
 import app.goallive.live.data.s
+import app.goallive.live.data.strs
 import app.goallive.live.data.tr
 import org.json.JSONObject
 
 @Composable
 fun PlayerScreen(id: Int) {
-    val nav = LocalNav.current
     val l = rememberLoader(id) { Api.fm("playerData", mapOf("id" to id), 300_000) }
-    Column(Modifier.fillMaxSize()) {
-        TopBar("", { nav.back() })
-        LoadBox(l) { p -> PlayerBody(id, p) }
+    LoadBox(l) { p -> PlayerBody(id, p) }
+}
+
+/** A grid of label/value cells separated by hairlines (".info" / ".kpis"). */
+@Composable
+private fun Grid(cells: List<Pair<String, String>>, cols: Int, big: Boolean) {
+    Column(Modifier.fillMaxWidth().background(C.line)) {
+        cells.chunked(cols).forEachIndexed { r, row ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = if (r == 0) 0.dp else 1.dp)) {
+                row.forEachIndexed { c, (k, v) ->
+                    Column(Modifier.weight(1f).fillMaxHeight().padding(start = if (c == 0) 0.dp else 1.dp).background(C.cardSolid)
+                        .padding(horizontal = if (big) 8.dp else 16.dp, vertical = if (big) 14.dp else 12.dp),
+                        horizontalAlignment = if (big) Alignment.CenterHorizontally else Alignment.Start) {
+                        if (big) { T(v, 20, FontWeight.Black); T(k, 11, color = C.mute, align = TextAlign.Center) }
+                        else { T(k, 11, color = C.mute); T(v, 13, FontWeight.Bold) }
+                    }
+                }
+                repeat(cols - row.size) { Box(Modifier.weight(1f).fillMaxHeight().padding(start = 1.dp).background(C.cardSolid)) }
+            }
+        }
     }
 }
 
@@ -63,119 +75,114 @@ private fun PlayerBody(id: Int, p: JSONObject) {
     val team = p.o("primaryTeam")
     val teamId = team.i("teamId") ?: 0
     val club = Clubs.get(teamId)
-    val color = club?.let { Color(it.c1) } ?: parseColor(team.path("teamColors").s("color")) ?: C.card2
-    LazyColumn(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    val color = club?.let { Color(it.c1) } ?: parseColor(team.path("teamColors").s("color")) ?: Color(0xFF1A2A40)
+    val ink = club?.let { if (lum(Color(it.ink)) < 0.3f) Color(it.ink) else Color.White } ?: Color.White
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Brush.linearGradient(listOf(color.copy(alpha = 0.8f), C.card))).padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Face(id, 84.dp, Color.White.copy(alpha = 0.7f))
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Ltr(p.s("name") ?: "", style = MaterialTheme.typography.headlineSmall, weight = FontWeight.ExtraBold, maxLines = 2)
-                    if (team != null) Row(Modifier.clickable { nav.team(teamId) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Crest(teamId, 18.dp); Spacer(Modifier.width(6.dp))
-                        Text(club?.fa ?: team.s("teamName") ?: "", style = MaterialTheme.typography.labelLarge)
-                        if (team.b("onLoan")) Text(" (قرضی)", color = C.mute, style = MaterialTheme.typography.labelSmall)
+            PageHero(color, club?.pattern ?: "dots") {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Face(id, 84.dp, Color.White.copy(alpha = 0.85f), 3.dp)
+                    Column(Modifier.weight(1f)) {
+                        Ltr(p.s("name") ?: "", style = lat(26.sp, FontWeight.ExtraBold), color = ink, maxLines = 2)
+                        Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (team != null) Row(Modifier.clickable { nav.team(teamId) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Crest(teamId, 18.dp)
+                                T((club?.fa ?: team.s("teamName") ?: "") + if (team.b("onLoan")) " (قرضی)" else "", 13, FontWeight.SemiBold, ink.copy(alpha = 0.9f), maxLines = 1)
+                            }
+                            val pos = tr(p.path("positionDescription.primaryPosition").s("label"))
+                            T(listOf(pos, if (p.b("isCaptain")) "کاپیتان" else "").filter { it.isNotEmpty() }.joinToString(" · ").let { if (it.isNotEmpty()) "· $it" else "" },
+                                13, FontWeight.SemiBold, ink.copy(alpha = 0.85f), maxLines = 1)
+                        }
                     }
-                    Text(tr(p.path("positionDescription.primaryPosition").s("label")), color = C.text.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+        val info = p.a("playerInformation").objs().map { x ->
+            val v = x.o("value")
+            tr(x.s("title")) to when (x.s("title")) {
+                "Market value" -> money(v.l("numberValue"))
+                "Height" -> "${v.i("numberValue")} سانتی‌متر"
+                "Age" -> "${v.i("numberValue")} سال"
+                else -> v.s("dateValue")?.let { persianDate(parseTime(it), "d MMMM yyyy") } ?: tr(v.s("fallback") ?: v.s("numberValue"))
+            }
+        }
+        val ml = p.o("mainLeague")
+        if (info.isNotEmpty() || ml != null) item {
+            Card(Modifier.padding(horizontal = 14.dp)) {
+                if (info.isNotEmpty()) Grid(info, 2, false)
+                if (ml != null) {
+                    Divider()
+                    Row(Modifier.fillMaxWidth().clickable { nav.league(ml.i("leagueId") ?: 0) }.padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LeagueLogo(ml.i("leagueId") ?: 0, 18.dp)
+                        Ltr(ml.s("leagueName") ?: "", Modifier.weight(1f, false), style = vz(14.sp, FontWeight.ExtraBold))
+                        T(fa(ml.s("season") ?: ""), 12, FontWeight.Medium, C.mute)
+                    }
+                    val kpis = ml.a("stats").objs().take(8).map { s ->
+                        val v = s.d("value")
+                        tr(s.s("title")) to (if (v == null) "–" else if (v % 1 != 0.0) dec(v) else "${v.toInt()}")
+                    }
+                    if (kpis.isNotEmpty()) { Divider(); Grid(kpis, 2, true) }
                 }
             }
         }
         p.o("injuryInformation")?.let { inj ->
             item {
-                Card { Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.LocalHospital, null, tint = C.live); Spacer(Modifier.width(10.dp))
-                    Column { Text("مصدوم", fontWeight = FontWeight.Bold); Ltr(inj.s("name") ?: "", color = C.mute, style = MaterialTheme.typography.labelSmall) }
-                } }
-            }
-        }
-        val info = p.a("playerInformation").objs()
-        if (info.isNotEmpty()) item {
-            Card {
-                info.chunked(3).forEach { row ->
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp)) {
-                        row.forEach { x ->
-                            val v = x.o("value")
-                            val text = when (x.s("title")) {
-                                "Market value" -> money(v.l("numberValue"))
-                                "Height" -> "${v.i("numberValue")} سانتی‌متر"
-                                "Age" -> "${v.i("numberValue")} سال"
-                                else -> v.s("dateValue")?.let { persianDate(parseTime(it), "d MMMM yyyy") } ?: tr(v.s("fallback") ?: v.s("numberValue"))
-                            }
-                            Column(Modifier.weight(1f).padding(6.dp)) {
-                                Text(tr(x.s("title")), color = C.mute, style = MaterialTheme.typography.labelSmall)
-                                Text(text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge, maxLines = 2)
-                            }
+                Card(Modifier.padding(horizontal = 14.dp)) {
+                    ListRow(first = true) {
+                        Icon(Ic.bandage, null, Modifier.size(20.dp), tint = C.live)
+                        Column {
+                            T("مصدوم", 14, FontWeight.Bold)
+                            T(listOfNotNull(inj.s("name"), inj.path("expectedReturn").s("expectedReturnFallback")?.let { "بازگشت: $it" }).joinToString(" · "), 12, color = C.mute)
                         }
-                        repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                     }
                 }
             }
         }
-        p.o("mainLeague")?.let { ml ->
-            val stats = ml.a("stats").objs().take(8)
-            if (stats.isNotEmpty()) item {
-                Card {
-                    Row(Modifier.fillMaxWidth().clickable { nav.league(ml.i("leagueId") ?: 0) }.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LeagueLogo(ml.i("leagueId") ?: 0, 22.dp); Spacer(Modifier.width(8.dp))
-                        Ltr(ml.s("leagueName") ?: "", Modifier.weight(1f), weight = FontWeight.Bold)
-                        Text(ml.s("season") ?: "", color = C.mute, style = MaterialTheme.typography.labelMedium)
-                    }
-                    stats.chunked(4).forEach { row ->
-                        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 6.dp)) {
-                            row.forEach { s ->
-                                val v = s.d("value")
-                                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(if (v != null && v % 1 != 0.0) dec(v) else "${v?.toInt() ?: "–"}", fontSize = 22.sp, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineSmall)
-                                    Text(tr(s.s("title")), color = C.mute, style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center, maxLines = 2)
-                                }
-                            }
-                            repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
+        p.o("traits")?.takeIf { (it.a("items")?.length() ?: 0) > 0 }?.let { tr0 ->
+            item {
+                Card(Modifier.padding(horizontal = 14.dp)) {
+                    CardTitle(tr0.s("title") ?: "ویژگی‌ها")
+                    tr0.a("items").objs().forEach { t -> PctRow(tr(t.s("title")), "${((t.d("value") ?: 0.0) * 100).toInt()}٪", null, ((t.d("value") ?: 0.0) * 100).toFloat(), LocalAccent.current) }
                 }
             }
         }
         p.path("firstSeasonStats.statsSection").a("items").objs().forEach { g ->
             item {
-                Card {
-                    CardTitle(tr(g.s("title"))) { Text("رتبه بین هم‌پست‌ها", color = C.mute, style = MaterialTheme.typography.labelSmall) }
+                Card(Modifier.padding(horizontal = 14.dp)) {
+                    CardTitle(tr(g.s("title"))) { T("رتبه صدک بین هم‌پست‌ها", 12, FontWeight.Medium, C.mute) }
                     g.a("items").objs().forEach { s ->
                         val pct = (s.d("percentileRank") ?: 0.0).toFloat()
                         val c = when { pct >= 80 -> C.win; pct >= 50 -> C.gold; pct >= 25 -> Color(0xFFF08A24); else -> C.loss }
-                        Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
-                            Row {
-                                Text(tr(s.s("title")), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
-                                Ltr(s.s("statValue") ?: "", weight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            Box(Modifier.fillMaxWidth().height(5.dp).clip(RoundedCornerShape(3.dp)).background(C.card2)) {
-                                Box(Modifier.fillMaxWidth((pct / 100f).coerceIn(0.03f, 1f)).height(5.dp).clip(RoundedCornerShape(3.dp)).background(c))
-                            }
-                        }
+                        val per90 = s.d("per90")?.takeIf { s.s("statFormat") != "percent" }?.let { "${dec(it)} در ۹۰" }
+                        PctRow(tr(s.s("title")), fa(s.s("statValue") ?: ""), per90, pct, c)
                     }
-                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
         val recent = p.a("recentMatches").objs().filter { it.opt("playedInMatch") != false }.take(12)
         if (recent.isNotEmpty()) item {
-            SectionTitle("بازی‌های اخیر")
-            Card {
-                recent.forEachIndexed { i, m ->
-                    if (i > 0) Divider()
-                    Row(Modifier.fillMaxWidth().clickable { nav.match(m.i("id") ?: 0) }.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Crest(m.i("opponentTeamId") ?: 0, 26.dp); Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Ltr((if (m.b("isHomeTeam")) "" else "@ ") + (m.s("opponentTeamName") ?: ""), weight = FontWeight.Bold)
-                            Text("${shortDate(parseTime(m.path("matchDate").s("utcTime")))} · ${m.i("homeScore") ?: 0}-${m.i("awayScore") ?: 0}", color = C.mute, style = MaterialTheme.typography.labelSmall)
+            Column(Modifier.padding(horizontal = 14.dp)) {
+                SectionTitle("بازی‌های اخیر")
+                Card {
+                    recent.forEachIndexed { i, m ->
+                        ListRow(first = i == 0, onClick = { nav.match(m.i("id") ?: 0) }) {
+                            Crest(m.i("opponentTeamId") ?: 0, 34.dp)
+                            Column(Modifier.weight(1f)) {
+                                Ltr((if (m.b("isHomeTeam")) "" else "@ ") + (m.s("opponentTeamName") ?: ""))
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    T("${m.s("leagueName") ?: ""} · ${persianDate(parseTime(m.path("matchDate").s("utcTime")), "d MMM")} ·", 12, color = C.mute, maxLines = 1)
+                                    ScoreText(m.i("homeScore"), m.i("awayScore"), 12, C.mute)
+                                }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                if ((m.i("goals") ?: 0) > 0) Row(verticalAlignment = Alignment.CenterVertically) { T("${m.i("goals")}", 12, color = C.mute); Icon(Ic.ball, null, Modifier.size(13.dp), tint = C.mute) }
+                                if ((m.i("assists") ?: 0) > 0) T("${m.i("assists")} A", 12, color = C.mute)
+                                m.i("minutesPlayed")?.takeIf { it > 0 }?.let { T("$it′", 12, color = C.mute) }
+                                if (m.b("playerOfTheMatch")) Icon(Ic.starOn, null, Modifier.size(13.dp), tint = C.gold)
+                                Rating(m.path("ratingProps").s("rating")?.toDoubleOrNull())
+                            }
                         }
-                        if ((m.i("goals") ?: 0) > 0) Text("⚽${m.i("goals")} ", style = MaterialTheme.typography.labelMedium)
-                        if ((m.i("assists") ?: 0) > 0) Text("A${m.i("assists")} ", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Rating(m.path("ratingProps").s("rating")?.toDoubleOrNull())
                     }
                 }
             }
@@ -185,18 +192,18 @@ private fun PlayerBody(id: Int, p: JSONObject) {
         career?.keys()?.asSequence()?.toList()?.forEach { k ->
             val entries = career.o(k).a("teamEntries").objs()
             if (entries.isNotEmpty()) item {
-                SectionTitle("سوابق ${labels[k] ?: k}")
-                Card {
-                    entries.forEachIndexed { i, t ->
-                        if (i > 0) Divider()
-                        Row(Modifier.fillMaxWidth().clickable { nav.team(t.i("teamId") ?: 0) }.padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Crest(t.i("teamId") ?: 0, 26.dp); Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) {
-                                Ltr(t.s("team") ?: "", weight = FontWeight.Bold)
-                                Text("${t.s("startDate")?.take(4) ?: ""} – ${t.s("endDate")?.take(4) ?: "اکنون"}", color = C.mute, style = MaterialTheme.typography.labelSmall)
+                Column(Modifier.padding(horizontal = 14.dp)) {
+                    SectionTitle("سوابق ${labels[k] ?: k}")
+                    Card {
+                        entries.forEachIndexed { i, t ->
+                            ListRow(first = i == 0, onClick = { nav.team(t.i("teamId") ?: 0) }) {
+                                Crest(t.i("teamId") ?: 0, 34.dp)
+                                Column(Modifier.weight(1f)) {
+                                    Ltr(t.s("team") ?: "", style = vz(14.sp, FontWeight.Bold))
+                                    T("${t.s("startDate")?.take(4) ?: ""} – ${t.s("endDate")?.take(4) ?: "اکنون"}" + if (t.s("transferType") == "on loan") " · قرضی" else "", 12, color = C.mute)
+                                }
+                                T(listOfNotNull(t.i("appearances")?.let { "$it بازی" }, t.i("goals")?.takeIf { it > 0 }?.let { "$it گل" }).joinToString(" · "), 12, color = C.mute)
                             }
-                            Text(listOfNotNull(t.i("appearances")?.let { "$it بازی" }, t.i("goals")?.takeIf { it > 0 }?.let { "$it گل" }).joinToString(" · "),
-                                color = C.mute, style = MaterialTheme.typography.labelMedium)
                         }
                     }
                 }
@@ -206,20 +213,37 @@ private fun PlayerBody(id: Int, p: JSONObject) {
             t.a("tournaments").objs().filter { (it.a("seasonsWon")?.length() ?: 0) > 0 }.map { it to (t.s("teamName") ?: "") }
         }
         if (trophies.isNotEmpty()) item {
-            SectionTitle("افتخارات")
-            Card {
-                trophies.forEachIndexed { i, (x, teamName) ->
-                    if (i > 0) Divider()
-                    Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.EmojiEvents, null, tint = C.gold); Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Ltr(x.s("leagueName") ?: "", weight = FontWeight.Bold)
-                            Ltr(teamName, color = C.mute, style = MaterialTheme.typography.labelSmall)
+            Column(Modifier.padding(horizontal = 14.dp)) {
+                SectionTitle("افتخارات")
+                Card {
+                    trophies.forEachIndexed { i, (x, teamName) ->
+                        ListRow(first = i == 0) {
+                            Icon(Ic.trophy, null, Modifier.size(18.dp), tint = C.gold)
+                            Column(Modifier.weight(1f)) {
+                                Ltr(x.s("leagueName") ?: "", style = vz(14.sp, FontWeight.Bold))
+                                Ltr("$teamName · " + fa(x.a("seasonsWon").strs().joinToString("، ")), style = vz(12.sp), color = C.mute, maxLines = 2)
+                            }
+                            T("${x.a("seasonsWon")?.length() ?: 0}×", 14, FontWeight.Black)
                         }
-                        Text("${x.a("seasonsWon")?.length() ?: 0}×", fontWeight = FontWeight.Black, color = C.gold)
                     }
                 }
             }
+        }
+    }
+}
+
+/** ".pct": label, value and a coloured percentile bar. */
+@Composable
+private fun PctRow(label: String, value: String, extra: String?, pct: Float, color: Color) {
+    Divider()
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(label, 13, modifier = Modifier.weight(1f))
+            Ltr(value, style = vz(13.sp, FontWeight.ExtraBold))
+            if (extra != null) { Spacer(Modifier.size(6.dp)); T(extra, 11, color = C.mute) }
+        }
+        Box(Modifier.padding(top = 4.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(6.dp)).background(C.card2)) {
+            Box(Modifier.fillMaxWidth((pct / 100f).coerceIn(0.03f, 1f)).fillMaxHeight().clip(RoundedCornerShape(6.dp)).background(color))
         }
     }
 }

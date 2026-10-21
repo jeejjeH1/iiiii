@@ -79,11 +79,23 @@ object Store {
         else {
             val fa = Clubs.get(t.id)?.fa ?: t.name
             val o = JSONObject().put("id", t.id.toString()).put("name", t.name).put("fa", fa)
-            t.color?.let { o.put("color", it) }
+            // the widget paints itself in the club color
+            (t.color ?: Clubs.get(t.id)?.let { String.format("#%06X", it.c1 and 0xFFFFFF) })?.let { o.put("color", it) }
             widgetPrefs.edit().putString("myTeam", o.toString()).apply()
             if (t.id !in teams) toggleTeam(t.id, t.name)
         }
     }
+
+    fun clearFollows() {
+        teams = emptyMap(); leagues = emptyMap(); matches = emptySet()
+        writeMap("teams", teams); writeMap("leagues", leagues)
+        p.edit().putStringSet("matches", emptySet()).apply()
+        onFollowChange?.invoke()
+    }
+
+    var onboarded: Boolean
+        get() = p.getBoolean("onboarded", false)
+        set(v) { p.edit().putBoolean("onboarded", v).apply() }
 
     fun setNotify(goals: Boolean = notifyGoals, lineups: Boolean = notifyLineups, startEnd: Boolean = notifyStartEnd) {
         notifyGoals = goals; notifyLineups = lineups; notifyStartEnd = startEnd

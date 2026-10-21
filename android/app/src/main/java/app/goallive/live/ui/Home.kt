@@ -2,38 +2,41 @@ package app.goallive.live.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ExpandLess
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.SportsSoccer
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,32 +45,54 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.min
 import app.goallive.live.data.Api
 import app.goallive.live.data.Clubs
+import app.goallive.live.data.Comps
 import app.goallive.live.data.LeagueBlock
 import app.goallive.live.data.MatchItem
 import app.goallive.live.data.Store
-import app.goallive.live.data.i
-import app.goallive.live.data.l
-import app.goallive.live.data.o
+import app.goallive.live.data.parseMatch
 import app.goallive.live.data.parseMatchList
-import app.goallive.live.data.s
+import app.goallive.live.data.o
 import kotlinx.coroutines.delay
 import org.json.JSONObject
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val BIG = setOf(42, 47, 87, 55, 54, 53, 523, 73, 77, 50, 44, 289, 10216)
+
+/** Club color for a team: its theme, else a stable hue (site: teamColor). */
+fun teamColor(id: Int): Color = Clubs.get(id)?.let { Color(it.c1) } ?: hueColor(id)
+
+/** CSS linear-gradient(deg, ...) with hard or soft stops, painted behind a box. */
+fun DrawScope.cssLinear(deg: Float, vararg stops: Pair<Float, Color>) {
+    val r = Math.toRadians(deg.toDouble())
+    val dx = sin(r).toFloat(); val dy = -cos(r).toFloat()
+    val len = abs(size.width * dx) + abs(size.height * dy)
+    val c = Offset(size.width / 2, size.height / 2)
+    drawRect(Brush.linearGradient(*stops, start = c - Offset(dx, dy) * (len / 2), end = c + Offset(dx, dy) * (len / 2)))
+}
 
 @Composable
 fun HomeScreen() {
     val nav = LocalNav.current
-    var day by rememberSaveable { mutableStateOf(0) }
+    var day by rememberSaveable { mutableIntStateOf(0) }
     var filter by rememberSaveable { mutableStateOf("all") }
+    var byTime by rememberSaveable { mutableStateOf(false) }
     val collapsed = remember { mutableStateMapOf<Int, Boolean>() }
     val dayStart = startOfDay(day)
     val url = Api.fmUrl("matches", Api.matchesParams(dayKey(dayStart)))
@@ -78,7 +103,7 @@ fun HomeScreen() {
         poll = { list -> if (day == 0) (if (list.any { b -> b.matches.any { it.live } }) 20_000L else 60_000L) else if (day > 0) 300_000L else null },
     ) { parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(dayStart)), 15_000)) }
 
-    // flash rows whose score just changed
+    // flash rows whose score just went up (".m.goal")
     val lastScores = remember { HashMap<Int, Int>() }
     val flash = remember { mutableStateMapOf<Int, Long>() }
     LaunchedEffect(loader.value) {
@@ -87,158 +112,304 @@ fun HomeScreen() {
         for (m in list.flatMap { it.matches }) {
             val total = (m.home.score ?: 0) + (m.away.score ?: 0)
             val before = lastScores[m.id]
-            if (before != null && total > before && m.live) flash[m.id] = now + 10_000
+            if (before != null && total > before && m.live) flash[m.id] = now + 3_400
             lastScores[m.id] = total
         }
-        delay(10_500)
+        delay(3_500)
         flash.keys.filter { (flash[it] ?: 0) < System.currentTimeMillis() }.forEach { flash.remove(it) }
     }
 
-    val listState = rememberLazyListState()
-    Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().height(58.dp).padding(start = 18.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.SportsSoccer, null, tint = LocalAccent.current, modifier = Modifier.size(26.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("گل‌لایو", style = MaterialTheme.typography.headlineMedium, modifier = Modifier.weight(1f))
-            IconButton(onClick = { nav.search() }) { Icon(Icons.Rounded.Search, "جستجو", tint = C.text) }
+    val list = loader.value
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace)) {
+        if (day == 0 && list != null) {
+            val live = list.flatMap { b -> b.matches.filter { it.live }.map { it to b } }
+            if (live.isNotEmpty()) item(key = "ticker") { Ticker(live.sortedByDescending { (_, b) -> if (b.primaryId in BIG) 1 else 0 }.take(24).map { it.first }) }
         }
-        DateStrip(day) { day = it }
-        val blocks = loader.value
-        val all = blocks?.flatMap { it.matches }.orEmpty()
-        val liveN = all.count { it.live }
-        val favN = blocks?.sumOf { b -> b.matches.count { Store.followsWithLeague(it) } } ?: 0
-        Seg(
-            listOf("all" to "همه ${all.size}", "live" to (if (liveN > 0) "● زنده $liveN" else "زنده"), "fav" to "دنبال‌شده‌ها $favN"),
-            filter, Modifier.padding(vertical = 8.dp),
-        ) { filter = it }
-
-        LoadBox(loader, 7) { list ->
-            val keep: (MatchItem) -> Boolean = { m -> filter == "all" || (if (filter == "live") m.live else Store.followsWithLeague(m)) }
-            val shown = list.map { b -> b to b.matches.filter(keep) }.filter { it.second.isNotEmpty() }
-                .sortedByDescending { (b, ms) -> (if (Store.isLeague(b.primaryId)) 4 else 0) + (if (ms.any { Store.follows(it) }) 2 else 0) + (if (b.primaryId in BIG) 1 else 0) }
-            LazyColumn(state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (day == 0 && filter == "all") Store.myTeam?.let { t -> item { MyTeamCard(t.id, t.name) } }
-                if (shown.isEmpty()) item { EmptyView(if (filter == "live") "الان بازی زنده‌ای در جریان نیست" else if (filter == "fav") "هنوز تیم یا لیگی را دنبال نکرده‌اید؛ روی ستاره بزنید" else "بازی‌ای در این روز نیست", Icons.Rounded.SportsSoccer) }
-                items(shown) { (b, ms) ->
-                    val isCollapsed = collapsed[b.id] == true && filter == "all"
-                    LeagueCard(b, ms, isCollapsed, { collapsed[b.id] = !isCollapsed }, flash)
+        if (day == 0) Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name, list) } }
+        if (day == 0 && list != null) {
+            val hit = list.mapNotNull { b -> Comps.get(b.primaryId)?.let { b to it } }.filter { it.first.matches.isNotEmpty() }.maxByOrNull { it.first.matches.size }
+            if (hit != null) item(key = "comp") { CompNight(hit.first, hit.second) }
+        }
+        if (list != null) {
+            val picks = featured(list)
+            if (picks.isNotEmpty()) {
+                item(key = "featT") { SectionTitle("بازی‌های بزرگ") }
+                item(key = "feat") { Featured(picks) }
+            }
+        }
+        item(key = "dates") { DateStrip(day) { day = it } }
+        item(key = "tools") {
+            val all = list?.flatMap { it.matches }.orEmpty()
+            val liveN = all.count { it.live }
+            val favN = list?.sumOf { b -> b.matches.count { Store.followsWithLeague(it) } } ?: 0
+            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Seg(
+                    listOf("all" to "همه ${all.size}", "live" to "زنده", "fav" to "دنبال‌شده‌ها" + if (favN > 0) " $favN" else ""),
+                    filter, Modifier.weight(1f), badge = mapOf("live" to liveN), icons = mapOf("fav" to Ic.star),
+                ) { filter = it }
+                Box(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(13.dp))
+                    .clickable { byTime = !byTime }, contentAlignment = Alignment.Center) {
+                    Icon(if (byTime) Ic.list else Ic.trophy, if (byTime) "مرتب‌سازی بر اساس لیگ" else "مرتب‌سازی بر اساس زمان", Modifier.size(20.dp), tint = C.ink)
+                }
+            }
+        }
+        when (val s = loader.state) {
+            is Load.Loading -> item { Skeleton(6) }
+            is Load.Err -> item { ErrorView({ loader.state = Load.Loading; loader.reload() }) }
+            is Load.Ok -> {
+                val keep: (MatchItem) -> Boolean = { m -> filter == "all" || (if (filter == "live") m.live else Store.followsWithLeague(m)) }
+                val emptyText = when (filter) {
+                    "live" -> "الان بازی زنده‌ای در جریان نیست"
+                    "fav" -> "هنوز تیم یا لیگی را دنبال نکرده‌اید؛ روی ستاره بزنید"
+                    else -> "بازی‌ای در این روز نیست"
+                }
+                if (byTime) {
+                    val rows = s.v.flatMap { b -> b.matches.filter(keep) }.sortedWith(compareByDescending<MatchItem> { it.live }.thenBy { it.time })
+                    if (rows.isEmpty()) item { EmptyView(emptyText, Ic.ball) }
+                    else item {
+                        Card(Modifier.padding(top = 12.dp)) {
+                            rows.forEachIndexed { i, m -> MatchRow(m, { nav.match(m.id) }, sub = m.leagueName, flash = (flash[m.id] ?: 0) > 0, first = i == 0) }
+                        }
+                    }
+                } else {
+                    val shown = s.v.map { b -> b to b.matches.filter(keep) }.filter { it.second.isNotEmpty() }
+                        .sortedByDescending { (b, ms) -> (if (Store.isLeague(b.primaryId)) 2 else 0) + (if (ms.any { Store.follows(it) }) 1 else 0) }
+                    if (shown.isEmpty()) item { EmptyView(emptyText, Ic.ball) }
+                    items(shown) { (b, ms) ->
+                        val isCollapsed = collapsed[b.id] == true && filter == "all"
+                        LeagueCard(b, ms, isCollapsed, { collapsed[b.id] = !isCollapsed }, flash)
+                    }
                 }
             }
         }
     }
 }
+
+/* ---------- league block (".lg") ---------- */
 
 @Composable
 private fun LeagueCard(b: LeagueBlock, ms: List<MatchItem>, isCollapsed: Boolean, toggle: () -> Unit, flash: Map<Int, Long>) {
     val nav = LocalNav.current
+    val accent = LocalAccent.current
     val live = ms.count { it.live }
-    Card(Modifier.animateContentSize()) {
-        Row(Modifier.fillMaxWidth().clickable(onClick = toggle).padding(start = 14.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            LeagueLogo(b.primaryId, 22.dp)
-            Spacer(Modifier.width(10.dp))
-            Row(Modifier.weight(1f).clickable { nav.league(b.primaryId) }, verticalAlignment = Alignment.CenterVertically) {
-                Ltr(b.name, Modifier.weight(1f, fill = false), weight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                if (b.ccode.isNotEmpty() && b.ccode != "INT") Text("  ${b.ccode}", color = C.mute, style = MaterialTheme.typography.labelSmall)
+    Card(Modifier.padding(top = 12.dp).animateContentSize()) {
+        Box {
+            // accent tab on the start edge
+            Box(Modifier.align(Alignment.CenterStart).padding(top = 14.dp, bottom = 12.dp).width(3.dp).height(20.dp)
+                .clip(RoundedCornerShape(topEnd = 3.dp, bottomEnd = 3.dp)).background(accent))
+            Row(Modifier.fillMaxWidth().clickable(onClick = toggle).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LeagueLogo(b.primaryId, 22.dp)
+                Row(Modifier.weight(1f).clickable { nav.league(b.primaryId) }, verticalAlignment = Alignment.CenterVertically) {
+                    Ltr(b.name, Modifier.weight(1f, false), style = vz(13.sp, FontWeight.Black))
+                    if (b.ccode.isNotEmpty() && b.ccode != "INT") Text("  ${b.ccode}", color = C.mute, style = lat(11.sp, FontWeight.Bold).copy(letterSpacing = 1.sp))
+                }
+                if (live > 0) Pill("$live", PillKind.Live, dot = true)
+                StarButton(Store.isLeague(b.primaryId), { Store.toggleLeague(b.primaryId, b.name) })
+                Icon(Ic.down, null, Modifier.size(18.dp).rotate(if (isCollapsed) 90f else 0f), tint = C.faint)
             }
-            if (live > 0) Row(Modifier.padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                LiveDot(size = 6.dp); Text("$live", color = C.live, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-            }
-            StarButton(Store.isLeague(b.primaryId), { Store.toggleLeague(b.primaryId, b.name) }, 18.dp)
-            Icon(if (isCollapsed) Icons.Rounded.ExpandMore else Icons.Rounded.ExpandLess, null, tint = C.mute, modifier = Modifier.padding(end = 8.dp).size(20.dp))
         }
         AnimatedVisibility(!isCollapsed) {
-            Column {
-                for (m in ms) {
-                    Divider()
-                    MatchRow(m, { nav.match(m.id) }, flash = (flash[m.id] ?: 0) > System.currentTimeMillis())
+            Column { ms.forEach { m -> MatchRow(m, { nav.match(m.id) }, flash = (flash[m.id] ?: 0) > 0) } }
+        }
+    }
+}
+
+/* ---------- live ticker (".ticker") ---------- */
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun Ticker(live: List<MatchItem>) {
+    val nav = LocalNav.current
+    Box(Modifier.padding(top = 2.dp, bottom = 6.dp).fillMaxWidth().height(34.dp)
+        .background(C.card).border(1.dp, C.line)) {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(Modifier.fillMaxSize().basicMarquee(iterations = Int.MAX_VALUE, velocity = 40.dp).padding(start = 70.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
+                live.forEach { m ->
+                    Row(Modifier.clickable { nav.match(m.id) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Crest(m.home.id, 16.dp)
+                        Text(m.home.name, color = C.ink, style = lat(13.sp), maxLines = 1)
+                        Text("${m.home.score ?: 0}-${m.away.score ?: 0}", color = LocalAccent.current, style = vz(13.sp, FontWeight.Black))
+                        Text(m.away.name, color = C.ink, style = lat(13.sp), maxLines = 1)
+                        Crest(m.away.id, 16.dp)
+                        Text(statusText(m), color = C.live, style = vz(11.sp, FontWeight.Bold))
+                    }
+                }
+            }
+        }
+        // red "LIVE" tag with a slanted edge, on the right
+        val slant = GenericShape { s, _ -> moveTo(s.height * 0.35f, 0f); lineTo(s.width, 0f); lineTo(s.width, s.height); lineTo(0f, s.height); close() }
+        Row(Modifier.align(Alignment.CenterStart).fillMaxHeight().clip(slant).background(C.live).padding(start = 12.dp, end = 20.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("LIVE", color = Color.White, style = lat(12.sp, FontWeight.ExtraBold).copy(letterSpacing = 2.sp))
+            LiveDot(Color.White)
+        }
+    }
+}
+
+/* ---------- big games (".featured" / ".fcard") ---------- */
+
+private fun featured(list: List<LeagueBlock>): List<MatchItem> {
+    fun score(m: MatchItem, pid: Int) = (if (m.live) 100 else 0) + (if (Clubs.get(m.home.id) != null) 30 else 0) + (if (Clubs.get(m.away.id) != null) 30 else 0) +
+        (if (Clubs.derby(m.home.id, m.away.id) != null) 40 else 0) + (if (pid in BIG) 15 else 0) + (if (Store.follows(m)) 50 else 0) - (if (m.finished) 20 else 0)
+    return list.flatMap { b -> b.matches.filter { !it.cancelled }.map { it to score(it, b.primaryId) } }
+        .filter { it.second >= 30 }.sortedByDescending { it.second }.take(8).map { it.first }
+}
+
+@Composable
+private fun Featured(picks: List<MatchItem>) {
+    val nav = LocalNav.current
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val w = min(maxWidth * 0.82f, 330.dp)
+        LazyRow(contentPadding = PaddingValues(top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(picks) { m ->
+                val shape = RoundedCornerShape(24.dp)
+                val c1 = teamColor(m.home.id); val c2 = teamColor(m.away.id)
+                Box(Modifier.width(w).height(178.dp).clip(shape).drawBehind {
+                    cssLinear(245f, 0f to c1, 0.49f to c1, 0.51f to c2, 1f to c2)
+                    drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.05f), Color.Black.copy(alpha = 0.55f))))
+                    drawRect(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.6f), Color.Transparent), Offset(size.width / 2, size.height * 1.2f), size.width * 0.6f))
+                }.clickable { nav.match(m.id) }) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Ltr(m.leagueName, Modifier.weight(1f), style = vz(11.sp, FontWeight.ExtraBold), color = Color.White.copy(alpha = 0.92f))
+                        if (m.live) Pill("زنده", PillKind.Live, dot = true)
+                    }
+                    Row(Modifier.fillMaxWidth().align(Alignment.Center).padding(horizontal = 12.dp).offset(y = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        FTeam(m.home.id, m.home.name, Modifier.weight(1f))
+                        Column(Modifier.width(80.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            if (m.started && !m.cancelled) ScoreText(m.home.score, m.away.score, 30, Color.White, sepColor = Color.White.copy(alpha = 0.5f))
+                            else Text(timeOf(m.time), color = Color.White, style = vz(30.sp, FontWeight.Black))
+                            T(if (m.started) statusText(m) else persianDate(m.time, "EEE"), 11, FontWeight.Bold, Color.White.copy(alpha = 0.85f), maxLines = 1)
+                        }
+                        FTeam(m.away.id, m.away.name, Modifier.weight(1f))
+                    }
+                    Clubs.derby(m.home.id, m.away.id)?.let {
+                        T("⚡ $it", 12, FontWeight.Black, C.gold, Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp))
+                    }
                 }
             }
         }
     }
 }
+
+@Composable
+private fun FTeam(id: Int, name: String, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Crest(id, 58.dp, large = true)
+        Spacer(Modifier.height(6.dp))
+        Ltr(name, style = lat(15.sp, FontWeight.ExtraBold), color = Color.White, maxLines = 2, align = TextAlign.Center)
+    }
+}
+
+/* ---------- competition night (".comp-night") ---------- */
+
+@Composable
+private fun CompNight(b: LeagueBlock, c: app.goallive.live.data.Comp) {
+    val nav = LocalNav.current
+    val accent = Color(c.accent); val bg = Color(c.bg); val glow = Color(c.glow)
+    val live = b.matches.count { it.live }
+    Row(
+        Modifier.padding(top = 10.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp))
+            .drawBehind {
+                cssLinear(120f, 0f to bg, 1f to lerpColor(bg, glow, 0.55f))
+                // a few stars
+                for ((x, y) in listOf(0.15f to 0.3f, 0.6f to 0.2f, 0.85f to 0.7f, 0.35f to 0.8f, 0.72f to 0.45f)) drawCircle(Color.White.copy(alpha = 0.6f), 1.3f.dp.toPx(), Offset(size.width * x, size.height * y))
+            }
+            .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
+            .clickable { nav.league(b.primaryId) }.padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(Ic.starOn, null, Modifier.size(40.dp), tint = accent)
+        Column(Modifier.weight(1f)) {
+            T(c.tag, 17, FontWeight.Black, Color.White)
+            T("${b.matches.size} بازی امروز" + if (live > 0) " · $live بازی زنده" else "", 12, color = Color.White.copy(alpha = 0.85f))
+        }
+        Icon(Ic.chev, null, Modifier.size(20.dp), tint = Color.White)
+    }
+}
+
+/* ---------- dates (".dates") ---------- */
 
 @Composable
 private fun DateStrip(selected: Int, onPick: (Int) -> Unit) {
+    val accent = LocalAccent.current
     val days = (-7..7).toList()
     val state = rememberLazyListState(initialFirstVisibleItemIndex = (selected + 7 - 2).coerceAtLeast(0))
-    LazyRow(state = state, contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    LazyRow(Modifier.padding(top = 6.dp, bottom = 10.dp), state = state, contentPadding = PaddingValues(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         items(days) { d ->
             val ms = startOfDay(d)
             val on = d == selected
+            val shape = RoundedCornerShape(16.dp)
             Column(
-                Modifier.clip(RoundedCornerShape(14.dp)).background(if (on) LocalAccent.current else C.card)
-                    .clickable { onPick(d) }.padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                Modifier.offset(y = if (on) (-2).dp else 0.dp).width(64.dp).height(56.dp)
+                    .then(if (on) Modifier.glow(accent.copy(alpha = 0.35f), 8.dp, shape) else Modifier)
+                    .clip(shape).background(if (on) accent else C.card).border(1.dp, if (on) Color.Transparent else C.line, shape)
+                    .clickable { onPick(d) },
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
             ) {
-                val ink = if (on) MaterialTheme.colorScheme.onPrimary else C.text
-                Text(dayName(ms), color = ink, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                Text(persianDate(ms, "d MMM"), color = if (on) ink.copy(alpha = 0.8f) else C.mute, style = MaterialTheme.typography.labelSmall)
+                val ink = LocalAccentInk.current
+                T(dayName(ms).let { if (it.length > 6) persianDate(ms, "EEE") else it }, 11, FontWeight.Bold, if (on) ink.copy(alpha = 0.7f) else C.mute, maxLines = 1)
+                T(persianDate(ms, "d MMM"), 14, FontWeight.Black, if (on) ink else C.ink, maxLines = 1)
             }
         }
     }
 }
 
-/** "My team" card: live score, next match or last result, painted in the club's colors. */
+/* ---------- my team (".myteam") ---------- */
+
 @Composable
-fun MyTeamCard(teamId: Int, name: String) {
+fun MyTeamCard(teamId: Int, name: String, today: List<LeagueBlock>? = null) {
     val nav = LocalNav.current
-    val l = rememberLoader(teamId, poll = { d -> if (d.s("state") == "live") 30_000L else 300_000L }) { Api.obj("/api/widget?team=$teamId", 20_000) }
     val club = Clubs.get(teamId)
-    val c1 = club?.let { Color(it.c1) } ?: parseColor(Store.myTeam?.color) ?: C.card2
-    val c2 = club?.let { Color(it.c2) } ?: C.card
-    val ink = club?.let { Color(it.ink) } ?: if (lum(c1) > 0.6f) Color(0xFF0B1B3A) else Color.White
-    val d = l.value
-    val m = d?.o("match")
+    // today's match from the list we already have, otherwise the server's next / last match
+    val fromList = today?.flatMap { it.matches }?.firstOrNull { it.home.id == teamId || it.away.id == teamId }
+    val l = rememberLoader(teamId, fromList == null, poll = { _ -> 300_000L }) {
+        if (fromList != null) null else {
+            val d = Api.obj("/api/widget?team=$teamId", 60_000)
+            val state = d.optString("state")
+            d.o("match")?.let { m ->
+                val st = JSONObject().put("started", state == "live" || state == "finished").put("finished", state == "finished")
+                    .put("liveTime", JSONObject().put("short", m.optString("minute")))
+                parseMatch(JSONObject().put("id", m.optInt("id")).put("home", m.optJSONObject("home")).put("away", m.optJSONObject("away"))
+                    .put("timeTS", m.optLong("kickoff")).put("status", st), 0, m.optString("league"))
+            }
+        }
+    }
+    val m = fromList ?: l.value ?: return
+    val c1 = club?.let { Color(it.c1) } ?: parseColor(Store.myTeam?.color) ?: LocalAccent.current
+    val c2 = club?.let { Color(it.accent ?: it.c2) } ?: Color.Black
+    val ink = club?.let { if (lum(Color(it.ink)) < 0.3f) Color(it.ink) else Color.White } ?: Color.White
     Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
-            .background(Brush.linearGradient(listOf(c1, lerpColor(c1, c2, 0.55f), C.card)))
-            .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(22.dp))
-            .clickable { val id = m.i("id") ?: 0; if (id > 0) nav.match(id) else nav.team(teamId) }
-            .padding(16.dp),
+        Modifier.padding(top = 10.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp))
+            .drawBehind {
+                cssLinear(120f, 0f to c1, 0.7f to darken(c1, 0.3f), 1f to c2)
+                club?.let { drawPattern(it.pattern) }
+            }
+            .clickable { nav.match(m.id) }.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp),
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Crest(teamId, 28.dp)
-                Spacer(Modifier.width(8.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("تیم من", color = ink.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall)
-                    Text(club?.fa ?: name, color = ink, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                when (d?.s("state")) {
-                    "live" -> Row(Modifier.clip(RoundedCornerShape(50)).background(C.live).padding(horizontal = 10.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("زنده  ", color = Color.White, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
-                        Ltr(cleanMin(m.s("minute")), color = Color.White, style = MaterialTheme.typography.labelMedium, weight = FontWeight.Bold)
-                    }
-                    "finished" -> Text("پایان بازی", color = ink.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
-                    "upcoming" -> Text(countdown(m.l("kickoff") ?: 0), color = ink.copy(alpha = 0.8f), style = MaterialTheme.typography.labelMedium)
-                }
+                T("⭐ تیم من · ${club?.fa ?: name}", 12, FontWeight.Black, ink, Modifier.weight(1f), maxLines = 1)
+                if (m.live) Pill("زنده", PillKind.Live, dot = true) else Ltr(m.leagueName, style = vz(12.sp, FontWeight.Black), color = ink)
             }
-            if (m != null) {
-                Spacer(Modifier.height(14.dp))
-                val h = m.o("home"); val a = m.o("away")
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Crest(h.i("id") ?: 0, 40.dp); Ltr(h.s("name") ?: "", color = ink, style = MaterialTheme.typography.labelLarge)
-                    }
-                    if (d.s("state") == "upcoming") {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(timeOf(m.l("kickoff") ?: 0), color = ink, fontSize = 26.sp, fontWeight = FontWeight.Black, style = MaterialTheme.typography.headlineMedium)
-                            Text(shortDate(m.l("kickoff") ?: 0), color = ink.copy(alpha = 0.75f), style = MaterialTheme.typography.labelSmall)
-                        }
-                    } else ScoreText(h.i("score"), a.i("score"), 30, ink, FontWeight.Black)
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Crest(a.i("id") ?: 0, 40.dp); Ltr(a.s("name") ?: "", color = ink, style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-                Ltr(m.s("league") ?: "", Modifier.fillMaxWidth(), color = ink.copy(alpha = 0.7f), style = MaterialTheme.typography.labelSmall,
-                    align = androidx.compose.ui.text.style.TextAlign.Center)
-            } else if (d != null) {
-                Spacer(Modifier.height(8.dp))
-                Text("فعلاً بازی‌ای برنامه‌ریزی نشده", color = ink.copy(alpha = 0.8f))
+            Row(Modifier.padding(top = 12.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                MtTeam(m.home.id, m.home.name, ink, Modifier.weight(1f))
+                if (m.started && !m.cancelled) ScoreText(m.home.score, m.away.score, 30, ink, sepColor = ink.copy(alpha = 0.5f))
+                else Text(timeOf(m.time), color = ink, style = vz(30.sp, FontWeight.Black))
+                MtTeam(m.away.id, m.away.name, ink, Modifier.weight(1f))
             }
+            T(if (m.started || m.finished) statusText(m) else persianDate(m.time, "EEEE d MMMM"), 12, FontWeight.Bold,
+                ink.copy(alpha = 0.9f), Modifier.fillMaxWidth(), align = TextAlign.Center)
         }
     }
 }
 
-private fun cleanMin(s: String?) = app.goallive.live.data.cleanMinute(s).let { if (it == "HT") "بین دو نیمه" else it }
+@Composable
+private fun MtTeam(id: Int, name: String, ink: Color, modifier: Modifier) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        Crest(id, 46.dp, large = true)
+        Spacer(Modifier.height(6.dp))
+        Ltr(name, style = lat(15.sp, FontWeight.ExtraBold), color = ink, align = TextAlign.Center)
+    }
+}
