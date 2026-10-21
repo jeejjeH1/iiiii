@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نتایج زنده فوتبال</title>
+<style>
+  :root { --bg:#0f1419; --card:#1a212b; --line:#2a3340; --fg:#e8edf2; --mute:#8b97a6; --live:#e5484d; --accent:#3ddc97; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui,Tahoma,sans-serif; }
+  header { position:sticky; top:0; background:var(--bg); border-bottom:1px solid var(--line); padding:12px 16px; z-index:1; }
+  h1 { margin:0 0 10px; font-size:18px; }
+  .bar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button, input { background:var(--card); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 12px; font:inherit; }
+  button { cursor:pointer; } button.on { border-color:var(--accent); color:var(--accent); }
+  main { max-width:720px; margin:0 auto; padding:12px 16px 40px; }
+  .league { background:var(--card); border:1px solid var(--line); border-radius:12px; margin:12px 0; overflow:hidden; }
+  .league h2 { margin:0; padding:10px 14px; font-size:14px; color:var(--mute); border-bottom:1px solid var(--line); }
+  .m { display:grid; grid-template-columns:1fr 84px 1fr; align-items:center; gap:8px; padding:10px 14px; border-top:1px solid var(--line); }
+  .m:first-of-type { border-top:0; }
+  .home { text-align:left; direction:ltr; } .away { text-align:right; direction:ltr; }
+  .mid { text-align:center; direction:ltr; }
+  .score { font-weight:700; font-size:17px; }
+  .st { font-size:12px; color:var(--mute); }
+  .live .st { color:var(--live); font-weight:700; }
+  .msg { text-align:center; color:var(--mute); padding:40px 0; }
+  #upd { color:var(--mute); font-size:12px; margin-inline-start:auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⚽ نتایج زنده فوتبال</h1>
+  <div class="bar">
+    <button id="prev">◀</button>
+    <input type="date" id="date">
+    <button id="next">▶</button>
+    <button id="liveOnly">فقط زنده</button>
+    <span id="upd"></span>
+  </div>
+</header>
+<main id="out"><div class="msg">در حال بارگذاری…</div></main>
+<script>
+const $ = (id) => document.getElementById(id);
+const dateEl = $('date'), out = $('out');
+let liveOnly = false, timer;
+
+const iso = (d) => d.toLocaleDateString('sv'); // YYYY-MM-DD in local tz
+dateEl.value = iso(new Date());
+
+function shift(n) { const d = new Date(dateEl.value); d.setDate(d.getDate() + n); dateEl.value = iso(d); load(); }
+$('prev').onclick = () => shift(-1);
+$('next').onclick = () => shift(1);
+dateEl.onchange = load;
+$('liveOnly').onclick = (e) => { liveOnly = !liveOnly; e.target.classList.toggle('on', liveOnly); render(); };
+
+let leagues = [];
+
+function status(s) {
+  if (s.cancelled) return { text: 'لغو شد', live: false };
+  if (s.finished) return { text: s.reason?.short || 'پایان', live: false };
+  if (s.started) return { text: s.liveTime?.short || 'زنده', live: true };
+  const t = new Date(s.utcTime);
+  return { text: t.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }), live: false };
+}
+
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+function render() {
+  const html = leagues.map((l) => {
+    const ms = (l.matches || []).filter((m) => !liveOnly || (m.status.started && !m.status.finished));
+    if (!ms.length) return '';
+    return `<section class="league"><h2>${esc(l.ccode)} · ${esc(l.name)}</h2>` + ms.map((m) => {
+      const st = status(m.status);
+      const hasScore = m.status.started || m.status.finished;
+      return `<div class="m ${st.live ? 'live' : ''}">
+        <div class="home">${esc(m.home.name)}</div>
+        <div class="mid"><div class="score">${hasScore ? esc(m.status.scoreStr || `${m.home.score} - ${m.away.score}`) : '–'}</div><div class="st">${esc(st.text)}</div></div>
+        <div class="away">${esc(m.away.name)}</div></div>`;
+    }).join('') + '</section>';
+  }).join('');
+  out.innerHTML = html || '<div class="msg">مسابقه‌ای پیدا نشد.</div>';
+}
+
+async function load() {
+  clearTimeout(timer);
+  const date = dateEl.value.replaceAll('-', '');
+  try {
+    const r = await fetch(`/api/matches?date=${date}&tz=${encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone)}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.status);
+    leagues = j.leagues || [];
+    render();
+    $('upd').textContent = 'به‌روزرسانی: ' + new Date().toLocaleTimeString('fa-IR');
+  } catch (e) {
+    out.innerHTML = `<div class="msg">خطا در دریافت اطلاعات: ${esc(e.message)}</div>`;
+  }
+  timer = setTimeout(load, 30000); // auto-refresh
+}
+load();
+</script>
+</body>
+</html>
