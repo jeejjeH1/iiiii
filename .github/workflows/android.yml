@@ -35,7 +35,8 @@ jobs:
           ./gradlew assembleRelease --no-daemon 2>&1 | tee build.log
       - name: Show compile errors
         if: failure()
-        run: grep -E "^e: |error:|What went wrong" -A2 build.log | head -150
+        run: |
+          grep -E "^e: |error:|What went wrong" -A2 build.log | head -150
       - run: cp app/build/outputs/apk/release/app-release.apk goallive.apk
       - uses: actions/upload-artifact@v4
         with:
