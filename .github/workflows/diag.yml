@@ -1,0 +1,23 @@
+# One-off diagnostics for the highlights feature (safe to delete).
+name: Diagnose highlights
+on:
+  push:
+    paths: ['.github/workflows/diag.yml']
+  workflow_dispatch:
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Site endpoint
+        run: |
+          curl -sS -m 30 -w '\nHTTP %{http_code}\n' "https://iiiii-psi.vercel.app/api/hl?q=%D8%AE%D9%84%D8%A7%D8%B5%D9%87%20%D8%A8%D8%A7%D8%B2%DB%8C%20%D9%BE%D8%B1%D8%B3%D9%BE%D9%88%D9%84%DB%8C%D8%B3&must=%D9%BE%D8%B1%D8%B3%D9%BE%D9%88%D9%84%DB%8C%D8%B3" | head -c 1500
+      - name: Aparat legacy API (headers + body)
+        run: |
+          curl -sS -m 20 -D - -o body1.txt -H 'Origin: https://iiiii-psi.vercel.app' "https://www.aparat.com/etc/api/videoBySearch/text/%D9%BE%D8%B1%D8%B3%D9%BE%D9%88%D9%84%DB%8C%D8%B3/perpage/3" || true
+          head -c 1200 body1.txt; echo
+      - name: Aparat v1 API (headers + body)
+        run: |
+          curl -sS -m 20 -D - -o body2.txt -H 'Origin: https://iiiii-psi.vercel.app' "https://api.aparat.com/fa/v1/video/video/search/text/%D9%BE%D8%B1%D8%B3%D9%BE%D9%88%D9%84%DB%8C%D8%B3" || true
+          head -c 1200 body2.txt; echo
+      - name: Aparat embed page
+        run: curl -sS -m 20 -o /dev/null -w 'embed HTTP %{http_code}\n' "https://www.aparat.com/video/video/embed/videohash/abc123/vt/frame" || true
