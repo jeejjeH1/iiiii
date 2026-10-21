@@ -117,9 +117,9 @@ fun HomeScreen() {
             val shown = list.map { b -> b to b.matches.filter(keep) }.filter { it.second.isNotEmpty() }
                 .sortedByDescending { (b, ms) -> (if (Store.isLeague(b.primaryId)) 4 else 0) + (if (ms.any { Store.follows(it) }) 2 else 0) + (if (b.primaryId in BIG) 1 else 0) }
             LazyColumn(state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (day == 0 && filter == "all") Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name) } }
+                if (day == 0 && filter == "all") Store.myTeam?.let { t -> item { MyTeamCard(t.id, t.name) } }
                 if (shown.isEmpty()) item { EmptyView(if (filter == "live") "الان بازی زنده‌ای در جریان نیست" else if (filter == "fav") "هنوز تیم یا لیگی را دنبال نکرده‌اید؛ روی ستاره بزنید" else "بازی‌ای در این روز نیست", Icons.Rounded.SportsSoccer) }
-                items(shown, key = { it.first.id }) { (b, ms) ->
+                items(shown) { (b, ms) ->
                     val isCollapsed = collapsed[b.id] == true && filter == "all"
                     LeagueCard(b, ms, isCollapsed, { collapsed[b.id] = !isCollapsed }, flash)
                 }

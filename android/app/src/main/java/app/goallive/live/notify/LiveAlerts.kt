@@ -96,8 +96,12 @@ object LiveAlerts {
         val am = ctx.getSystemService(AlarmManager::class.java)
         val at = SystemClock.elapsedRealtime() + delay
         val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
-        if (exact) am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, intent(ctx))
-        else am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, intent(ctx))
+        try {
+            if (exact) am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, intent(ctx))
+            else am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, intent(ctx))
+        } catch (e: SecurityException) {
+            am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, intent(ctx))
+        }
     }
 
     suspend fun run(ctx: Context) {

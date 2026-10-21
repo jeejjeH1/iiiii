@@ -289,7 +289,7 @@ fun LeaguesScreen() {
                 item { SectionTitle("محبوب"); Card { popular.forEach { row(it) } } }
                 item { SectionTitle("بین‌المللی"); Card { intl.forEach { row(it) } } }
                 item { SectionTitle("کشورها") }
-                items(countries, key = { it.s("ccode") ?: it.s("name") ?: "" }) { c ->
+                items(countries) { c ->
                     val key = c.s("ccode") ?: ""
                     val isOpen = open[key] == true
                     Card {

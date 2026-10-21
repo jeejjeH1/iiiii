@@ -99,10 +99,11 @@ fun Root(openMatch: MutableIntState) {
                     composable("league/{id}", listOf(navArgument("id") { type = NavType.IntType })) { LeagueScreen(it.arguments?.getInt("id") ?: 0) }
                     composable("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
                 }
-            }
-            LaunchedEffect(openMatch.intValue) {
-                val id = openMatch.intValue
-                if (id > 0) { nav.match(id); openMatch.intValue = 0 }
+                // after NavHost has set its graph: open the match a notification pointed at
+                LaunchedEffect(openMatch.intValue) {
+                    val id = openMatch.intValue
+                    if (id > 0) { nav.match(id); openMatch.intValue = 0 }
+                }
             }
             AskNotifications()
             Intro()
