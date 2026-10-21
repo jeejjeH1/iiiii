@@ -1,6 +1,7 @@
 import { club, patternStyle } from './clubs.js';
 import { storyHtml } from './story.js';
 import { animateCounts } from './motion.js';
+import { useComp } from './themes.js';
 import {
   esc, fa, num, dec, tr, api, icon, crest, lgLogo, face, flagImg, tabs, seg, errorBox, empty, skeleton, starBtn, matchRow,
   matchIdFromUrl, formChips, rating, dateOf, timeOf, score, money, age, isDark, teamImgL,
@@ -60,6 +61,7 @@ export async function leagueView(el, [id, tabArg], q) {
   let d;
   try { d = await api('leagues', { id, ccode3: 'IRN', ...(season && { season }) }, { maxAge: 12e4 }); } catch (e) { el.innerHTML = errorBox(e); return; }
   const det = d.details || {};
+  useComp(id);
   const has = (k) => (d.tabs || []).includes(k);
   const avail = [
     ['table', 'جدول', !!d.table?.length], ['fixtures', 'بازی‌ها', !!d.fixtures?.allMatches?.length],

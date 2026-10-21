@@ -674,3 +674,53 @@ table.tbl { width:100%; border-collapse:collapse; font-size:13px; font-variant-n
 .player-foot { text-align:center; font-size:11px; color:var(--faint); padding:14px 16px 0; }
 .hl-play { top:40%; }
 .hl-tile:not(.big) .hl-play { top:16px; left:auto; right:12px; transform:none; }
+
+/* ---------- page transitions (View Transitions API) ---------- */
+.top { view-transition-name:vt-top; }
+.nav-in { view-transition-name:vt-nav; }
+.stadium { view-transition-name:vt-stadium; }
+::view-transition-old(root) { animation:vtOut .28s var(--ease) both; }
+::view-transition-new(root) { animation:vtIn .45s var(--ease) both; }
+@keyframes vtOut { to { opacity:0; transform:scale(.97); filter:blur(6px); } }
+@keyframes vtIn { from { opacity:0; transform:translateY(18px) scale(1.01); } }
+::view-transition-group(vt-h), ::view-transition-group(vt-a), ::view-transition-group(vt-s) { animation-duration:.55s; animation-timing-function:cubic-bezier(.2,.9,.25,1.05); }
+::view-transition-image-pair(vt-h), ::view-transition-image-pair(vt-a) { isolation:auto; }
+body.loading .top::after { content:''; position:absolute; left:0; bottom:-1px; height:2px; width:40%; background:var(--accent); box-shadow:0 0 12px var(--accent-glow); animation:loadbar 1s ease-in-out infinite; }
+@keyframes loadbar { from { left:-40%; } to { left:100%; } }
+
+/* ---------- competition themes ---------- */
+body[data-comp] .stadium { background:radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--comp-glow) 30%, transparent), transparent 62%),
+  repeating-linear-gradient(90deg, var(--stripe) 0 64px, transparent 64px 128px), var(--bg); }
+body[data-comp] .stadium::before { content:''; position:absolute; inset:0; opacity:.5;
+  background-image:radial-gradient(1.4px 1.4px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 15%, #fff, transparent), radial-gradient(1.2px 1.2px at 40% 70%, #fff, transparent),
+    radial-gradient(1px 1px at 85% 55%, #fff, transparent), radial-gradient(1.6px 1.6px at 10% 85%, #fff, transparent), radial-gradient(1px 1px at 55% 45%, #fff, transparent);
+  background-size:340px 340px; animation:twinkle 4s ease-in-out infinite alternate; }
+@keyframes twinkle { to { opacity:.15; } }
+body[data-comp="ucl"] .hero-m .bg::after { background:radial-gradient(70% 60% at 50% 45%, rgba(4,11,36,.15), rgba(4,11,36,.85)), linear-gradient(180deg, rgba(4,11,36,.3), rgba(4,11,36,.7)); }
+.starball { width:22px; height:22px; fill:currentColor; flex:none; animation:spin 14s linear infinite; }
+.comp-badge { display:flex; justify-content:center; align-items:center; gap:8px; margin-top:8px; font-size:12.5px; font-weight:900; letter-spacing:.4px;
+  color:var(--accent); text-shadow:0 0 14px var(--accent-glow); animation:rise .6s var(--ease) .2s both; }
+.comp-night { position:relative; display:flex; align-items:center; gap:12px; margin:10px 0 4px; padding:16px; border-radius:22px; overflow:hidden; isolation:isolate; color:#fff;
+  background:linear-gradient(120deg, var(--cb), color-mix(in srgb, var(--cg) 55%, var(--cb))); border:1px solid color-mix(in srgb, var(--ca) 35%, transparent);
+  box-shadow:0 14px 34px rgba(0,0,0,.4), inset 0 0 40px color-mix(in srgb, var(--cg) 30%, transparent); }
+.comp-night .starball { width:44px; height:44px; color:var(--ca); filter:drop-shadow(0 0 10px var(--ca)); }
+.comp-night b { display:block; font-size:17px; font-weight:900; }
+.comp-night small { font-size:12px; opacity:.85; }
+.cn-stars { position:absolute; inset:0; z-index:-1; opacity:.6; background-image:radial-gradient(1.2px 1.2px at 15% 30%, #fff, transparent), radial-gradient(1px 1px at 60% 20%, #fff, transparent),
+  radial-gradient(1.4px 1.4px at 85% 70%, #fff, transparent), radial-gradient(1px 1px at 35% 80%, #fff, transparent); background-size:160px 90px; animation:twinkle 3s ease-in-out infinite alternate; }
+
+/* ---------- championship celebration ---------- */
+body.champion { --gold:#ffd75e; }
+body.champion .brand-mark { background:linear-gradient(135deg, #ffe08a, #e8a317); color:#3a2500; box-shadow:0 0 0 4px rgba(255,197,61,.2), 0 0 26px rgba(255,197,61,.6); }
+.gold-rain { position:fixed; inset:0; z-index:5; pointer-events:none; width:100%; height:100%; }
+.champ-banner { position:relative; overflow:hidden; isolation:isolate; margin:10px 0 4px; padding:22px 16px 18px; border-radius:26px; text-align:center; color:#fff;
+  background:linear-gradient(160deg, color-mix(in srgb, var(--c1) 80%, #000), #2a1a00 70%); border:1px solid rgba(255,215,94,.5); box-shadow:0 0 40px rgba(255,197,61,.25); }
+.cb-rays { position:absolute; inset:-50%; z-index:-1; background:repeating-conic-gradient(from 0deg, rgba(255,215,94,.18) 0 8deg, transparent 8deg 22deg); animation:spin 30s linear infinite; }
+.cb-trophy { font-size:54px; line-height:1; animation:trophy 2.4s var(--spring) infinite; filter:drop-shadow(0 6px 18px rgba(255,197,61,.7)); }
+@keyframes trophy { 0%, 100% { transform:translateY(0) rotate(-4deg); } 50% { transform:translateY(-8px) rotate(4deg) scale(1.06); } }
+.champ-banner img { width:56px; height:56px; margin:6px auto; filter:drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+.champ-banner b { display:block; font-size:22px; font-weight:900; background:linear-gradient(90deg, #fff1b8, #ffd75e, #fff1b8); -webkit-background-clip:text; background-clip:text; color:transparent;
+  background-size:200% 100%; animation:goldtext 3s linear infinite; }
+@keyframes goldtext { to { background-position:200% 0; } }
+.champ-banner small { font-size:12.5px; opacity:.9; }
+.cb-off { position:absolute; top:10px; left:10px; width:30px; height:30px; border-radius:10px; display:grid; place-items:center; color:#fff; background:rgba(0,0,0,.3); }

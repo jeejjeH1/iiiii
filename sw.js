@@ -1,7 +1,7 @@
 // Offline shell: app files are network-first (always fresh when online) with a cached fallback.
 // API responses are never cached here; the edge cache in front of /api handles that.
-const CACHE = 'goallive-v6';
-const SHELL = ['/', '/assets/app.css', '/assets/app.js', '/assets/core.js', '/assets/match.js', '/assets/pages.js', '/assets/fa.js', '/assets/clubs.js', '/assets/motion.js', '/assets/story.js', '/assets/extras.js', '/icon.svg', '/icons/icon-192.png', '/manifest.webmanifest'];
+const CACHE = 'goallive-v7';
+const SHELL = ['/', '/assets/app.css', '/assets/app.js', '/assets/core.js', '/assets/match.js', '/assets/pages.js', '/assets/fa.js', '/assets/clubs.js', '/assets/motion.js', '/assets/story.js', '/assets/extras.js', '/assets/themes.js', '/icon.svg', '/icons/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {

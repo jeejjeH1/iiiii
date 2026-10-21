@@ -5,6 +5,7 @@ import {
 import { matchView } from './match.js';
 import { club, derbyName, CLUBS, patternStyle } from './clubs.js';
 import { celebrate } from './motion.js';
+import { applyPendingComp, compNightBanner, championBanner, applyChampion, checkChampion } from './themes.js';
 import { leagueView, teamView, playerView } from './pages.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -182,7 +183,9 @@ async function homeView(el, _p, q) {
   };
   el.innerHTML = `
     <div id="ticker"></div>
+    <div id="champ"></div>
     <div id="myteam"></div>
+    <div id="compnight"></div>
     <div id="featured"></div>
     <div class="dates">${dates.map(label).join('')}
       <label class="date date-pick" title="انتخاب تاریخ">${icon('cal')}<input type="date" value="${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6)}"></label></div>
@@ -190,7 +193,7 @@ async function homeView(el, _p, q) {
       <button class="icon-btn" id="sortBtn" title="مرتب‌سازی">${icon(homeState.sort === 'time' ? 'list' : 'trophy')}</button></div>
     <div id="list">${skeleton(6)}</div>
     <div class="status-line" id="upd"></div>`;
-  $('.date.on', el)?.scrollIntoView({ inline: 'center', block: 'nearest' });
+  setTimeout(() => $('.date.on', el)?.scrollIntoView({ inline: 'center', block: 'nearest' }), 60); // after the page is swapped in
   $('.date-pick input', el).onchange = (e) => { if (e.target.value) location.hash = '#/?d=' + e.target.value.replaceAll('-', ''); };
   $('#sortBtn', el).onclick = () => { homeState.sort = homeState.sort === 'league' ? 'time' : 'league'; $('#sortBtn', el).innerHTML = icon(homeState.sort === 'time' ? 'list' : 'trophy'); toast(homeState.sort === 'time' ? 'مرتب‌سازی بر اساس زمان' : 'مرتب‌سازی بر اساس لیگ'); render(); };
   el.addEventListener('click', (e) => {
@@ -214,6 +217,8 @@ async function homeView(el, _p, q) {
     setIfChanged($('#ticker', el), tickerHtml(leagues));
     setIfChanged($('#featured', el), featuredHtml(leagues));
     myTeamCard($('#myteam', el), isToday ? leagues : null);
+    setIfChanged($('#compnight', el), compNightBanner(leagues));
+    setIfChanged($('#champ', el), championBanner());
     // list items animate in on the first paint only, not on every live refresh
     let n = 0;
     const idx = () => (painted ? undefined : n++);
@@ -398,7 +403,7 @@ function setMyTeam(id, name, color) {
   store.myTeam = { id: String(id), name, color };
   store.teams[id] = name; // following it gives goal/lineup alerts
   store.onboarded = true; save();
-  applyTeamTheme(); syncPush(); askNotify();
+  applyTeamTheme(); syncPush(); askNotify(); checkChampion().then(applyChampion);
   toast(`${club(id)?.fa || name} تیم تو شد 💪`);
   route();
 }
@@ -558,28 +563,66 @@ const routes = [
   [/^\/favorites$/, favView, 'favorites'],
   [/^\/search$/, searchView, 'search'],
 ];
-let cleanup = null, lastPath = '';
+let shownCleanup = null, lastPath = '', navSeq = 0; // shownCleanup stops the timers of the page on screen
+const motionOk = () => !!document.startViewTransition && !matchMedia('(prefers-reduced-motion: reduce)').matches;
 async function route() {
   const raw = location.hash.slice(1) || '/';
   const [path, qs] = raw.split('?');
   const q = new URLSearchParams(qs || '');
   const hit = routes.find(([re]) => re.test(path)) || routes[0];
   const params = path.match(hit[0]) || [];
-  if (typeof cleanup === 'function') cleanup();
-  cleanup = null;
   const samePage = path.split('/').slice(0, 3).join('/') === lastPath.split('/').slice(0, 3).join('/');
   lastPath = path;
-  document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.nav === hit[2]));
-  document.body.classList.toggle('has-back', hit[1] !== homeView && !['leagues', 'favorites', 'search'].includes(path.slice(1)));
+  const seq = ++navSeq;
+  if (q.has('celebrate') && store.myTeam) { // preview of the trophy celebration
+    store.champion = { team: store.myTeam.id, name: store.myTeam.name, title: 'نمایش آزمایشی جشن قهرمانی', until: Date.now() + 10 * 6e4 }; save(); applyChampion();
+  }
+  // Render the next page off-screen first (briefly), then swap it in; with View Transitions the
+  // tapped card's crests and score morph into the match header.
   const el = document.createElement('div');
   el.className = samePage ? '' : 'view';
-  view.replaceChildren(el);
-  if (!samePage) scrollTo(0, 0);
-  try { cleanup = await hit[1](el, params.slice(1), q); } catch (e) { el.innerHTML = errorBox(e); console.error(e); }
+  const morph = !samePage && motionOk();
+  let swapped = false, newCleanup = null;
+  const render = (async () => { try { return await hit[1](el, params.slice(1), q); } catch (e) { el.innerHTML = errorBox(e); console.error(e); } })();
+  if (morph) {
+    document.body.classList.add('loading');
+    await Promise.race([render, new Promise((r) => setTimeout(r, 1200))]);
+    document.body.classList.remove('loading');
+    if (seq !== navSeq) { render.then((c) => typeof c === 'function' && c()); return; }
+  }
+  const swap = () => {
+    const old = shownCleanup;
+    shownCleanup = newCleanup;
+    swapped = true;
+    if (typeof old === 'function') old();
+    document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.nav === hit[2]));
+    document.body.classList.toggle('has-back', hit[1] !== homeView && !['leagues', 'favorites', 'search'].includes(path.slice(1)));
+    if (morph) el.classList.remove('view');
+    view.replaceChildren(el);
+    if (!samePage) scrollTo(0, 0);
+    applyPendingComp(true);
+  };
+  if (morph) document.startViewTransition(swap); else swap();
+  const c = await render;
+  if (seq !== navSeq) { if (typeof c === 'function') c(); return; } // already being replaced
+  if (swapped) { shownCleanup = c; applyPendingComp(false); } else newCleanup = c; // otherwise the swap applies it
 }
+// Tag the tapped match card so its crests/score can morph into the match page header.
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href^="#/match/"]');
+  if (!a || e.target.closest('[data-fav]') || !motionOk()) return;
+  document.querySelectorAll('[style*="view-transition-name"]').forEach((x) => { x.style.viewTransitionName = ''; }); // names must be unique
+  const imgs = a.querySelectorAll('img');
+  if (imgs[0]) imgs[0].style.viewTransitionName = 'vt-h';
+  if (imgs[1]) imgs[1].style.viewTransitionName = 'vt-a';
+  const sc = a.querySelector('.sc, .mid, .mt-vs b, .mcard .c b');
+  if (sc) sc.style.viewTransitionName = 'vt-s';
+}, true);
 addEventListener('hashchange', route);
 route();
 pollToday(true);
+applyChampion();
+checkChampion().then(applyChampion);
 playIntro().then(() => { if (!store.onboarded && !store.myTeam) setTimeout(openTeamPicker, 500); });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {

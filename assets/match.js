@@ -6,6 +6,7 @@ import { tableCard } from './pages.js';
 import { club, derbyName, patternStyle } from './clubs.js';
 import { storyHtml } from './story.js';
 import { commentaryTab, winProbability, highlightsCard, loadHighlights, shareCard } from './extras.js';
+import { useComp, compBadge } from './themes.js';
 import { celebrate, animateCounts } from './motion.js';
 
 const REFRESH = 20000;
@@ -68,11 +69,12 @@ function header(d) {
     <div class="bg"></div>${pattern ? `<div class="pat" style="${patternStyle(pattern)}"></div>` : ''}<div class="sweep"></div>${PITCH_LINES}
     <div class="hero-top"><a class="lg-link" href="#/league/${g.parentLeagueId || g.leagueId}">${lgLogo(g.parentLeagueId || g.leagueId, '')}<span>${esc(g.leagueName)}${round}</span></a>
       <span class="end">${starBtn('matches', g.matchId, home.name + ' - ' + away.name)}<button class="icon-btn" id="shareBtn" title="اشتراک‌گذاری">${icon('share', 18)}</button></span></div>
+    ${compBadge(g.parentLeagueId || g.leagueId)}
     ${derby ? `<div class="derby-tag">⚡ ${derby} ⚡</div>` : ''}
     <div class="mh-grid">
-      <a class="mh-team" href="#/team/${home.id}"><img src="${teamImgL(home.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(home.name)}</span>${ch ? `<small>${esc(ch.fa)}</small>` : ''}</a>
-      <div class="board">${center}<div class="mh-date">${dateOf(s.utcTime, { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      <a class="mh-team a" href="#/team/${away.id}"><img src="${teamImgL(away.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(away.name)}</span>${ca ? `<small>${esc(ca.fa)}</small>` : ''}</a>
+      <a class="mh-team" href="#/team/${home.id}"><img style="view-transition-name:vt-h" src="${teamImgL(home.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(home.name)}</span>${ch ? `<small>${esc(ch.fa)}</small>` : ''}</a>
+      <div class="board" style="view-transition-name:vt-s">${center}<div class="mh-date">${dateOf(s.utcTime, { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+      <a class="mh-team a" href="#/team/${away.id}"><img style="view-transition-name:vt-a" src="${teamImgL(away.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(away.name)}</span>${ca ? `<small>${esc(ca.fa)}</small>` : ''}</a>
     </div>
     ${hasGoals || reds(ev.homeTeamRedCards) || reds(ev.awayTeamRedCards) ? `<div class="mh-scorers">
       <div>${scorers(ev.homeTeamGoals, 'h')}<ul class="h">${reds(ev.homeTeamRedCards)}</ul></div>
@@ -434,6 +436,7 @@ export async function matchView(el, [id, tabArg]) {
     return d;
   };
   try { await load(); } catch (e) { el.innerHTML = errorBox(e); return; }
+  useComp(d.general.parentLeagueId || d.general.leagueId);
   if (String(d.general?.matchId) !== String(id)) ui.shot = null;
 
   const c = d.content || {};
