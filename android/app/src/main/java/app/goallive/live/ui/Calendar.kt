@@ -197,7 +197,7 @@ private fun addEvent(m: MatchItem) = Intent(Intent.ACTION_INSERT).setData(Calend
 /** iCalendar file with every upcoming fixture (calendar apps import it in one go). */
 private fun ics(list: List<MatchItem>): String {
     val f = SimpleDateFormat("yyyyMMdd'T'HHmmss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
-    val esc = { s: String -> s.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\;") }
+    val esc = { s: String -> s.replace("\\", "\\\\").replace(",", "\\,").replace(";", "\\;") }
     return buildString {
         append("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//GoalLive//FA\r\n")
         for (m in list) {
