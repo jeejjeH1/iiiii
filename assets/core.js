@@ -183,5 +183,5 @@ document.addEventListener('click', (e) => {
 export function askNotify() {
   if (!('Notification' in window) || Notification.permission !== 'default' || store.askedNotify) return;
   store.askedNotify = true; save();
-  Notification.requestPermission().then((p) => { if (p === 'granted') { store.notify = true; save(); toast('اعلان گل برای علاقه‌مندی‌ها فعال شد'); } });
+  Notification.requestPermission().then((p) => { if (p === 'granted') { store.notify = true; save(); toast('اعلان گل و ترکیب برای دنبال‌شده‌ها فعال شد'); } });
 }

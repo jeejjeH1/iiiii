@@ -43,6 +43,31 @@ function beep() {
 }
 const followed = (m, l) => isFav('matches', m.id) || isFav('teams', m.home.id) || isFav('teams', m.away.id) || isFav('leagues', l.primaryId);
 
+// System notification (via the service worker where possible: Android only allows that route) + in-page toast.
+async function alertUser(title, body, matchId, tag) {
+  beep();
+  if (!document.hidden) toast(`${title} ${body}`);
+  if (!store.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const opts = { body, icon: '/icon.svg', badge: '/icon.svg', tag, renotify: true, data: { url: `/#/match/${matchId}` }, dir: 'rtl', lang: 'fa' };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) return reg.showNotification(title, opts);
+    const n = new Notification(title, opts);
+    n.onclick = () => { focus(); location.hash = `#/match/${matchId}`; n.close(); };
+  } catch {}
+}
+
+// Scorer + minute for a fresh goal, from the match details (best effort).
+async function goalText(m) {
+  const base = `${m.home.name} ${m.status.scoreStr} ${m.away.name}`;
+  try {
+    const d = await api('matchDetails', { matchId: m.id }, { maxAge: 0 });
+    const g = (d.content?.matchFacts?.events?.events || []).filter((e) => e.type === 'Goal').pop();
+    if (g) return `${base}\n${g.nameStr || g.player?.name || ''} ${g.timeStr}'${g.ownGoal ? ' (گل به خودی)' : ''}`;
+  } catch {}
+  return base;
+}
+
 function detectGoals(data, notify) {
   for (const l of data.leagues || []) for (const m of l.matches || []) {
     const s = m.status.scoreStr;
@@ -50,19 +75,39 @@ function detectGoals(data, notify) {
     const before = prevScore.get(m.id);
     if (before && before !== s && isLive(m.status)) {
       goalFlash.set(m.id, Date.now() + 3400);
-      if (notify && followed(m, l)) {
-        beep();
-        const text = `${m.home.name} ${s} ${m.away.name}`;
-        toast('⚽ گل! ' + text);
-        if (store.notify && 'Notification' in window && Notification.permission === 'granted' && document.hidden) {
-          try { new Notification('گل! ⚽', { body: text, icon: '/icon.svg', tag: 'goal-' + m.id }); } catch {}
-        }
-      }
+      if (notify && store.notifyGoals !== false && followed(m, l)) goalText(m).then((t) => alertUser('⚽ گل!', t, m.id, 'goal-' + m.id + '-' + s));
     }
     prevScore.set(m.id, s);
   }
 }
 
+// Lineups come out ~1h before kick-off: watch followed matches from 90 minutes out, announce once per match.
+const lineupChecked = new Map(); // match id -> last check time
+async function detectLineups(data) {
+  if (store.notifyLineups === false) return;
+  store.lineupSent ||= {};
+  const now = Date.now();
+  for (const l of data.leagues || []) for (const m of l.matches || []) {
+    const ko = new Date(m.status.utcTime) - now;
+    if (m.status.started || m.status.cancelled || ko > 90 * 6e4 || ko < -15 * 6e4) continue;
+    if (!followed(m, l) || store.lineupSent[m.id] || now - (lineupChecked.get(m.id) || 0) < 110e3) continue;
+    lineupChecked.set(m.id, now);
+    try {
+      const d = await api('matchDetails', { matchId: m.id }, { maxAge: 0 });
+      const L = d.content?.lineup;
+      if (!L?.homeTeam?.starters?.length || !L?.awayTeam?.starters?.length || (L.lineupType && L.lineupType !== 'standard')) continue;
+      store.lineupSent[m.id] = now; save();
+      const team = (T) => `${T.name}${T.formation ? ` (${T.formation})` : ''}: ${T.starters.map((p) => p.lastName || p.name).join('، ')}`;
+      const fav = [L.homeTeam, L.awayTeam].filter((T) => isFav('teams', T.id));
+      const body = (fav.length ? fav : [L.homeTeam, L.awayTeam]).map(team).join('\n');
+      alertUser(`📋 ترکیب ${m.home.name} - ${m.away.name} اعلام شد`, body, m.id, 'lineup-' + m.id);
+    } catch {}
+  }
+  // forget old entries
+  for (const [id, t] of Object.entries(store.lineupSent)) if (now - t > 2 * 864e5) delete store.lineupSent[id];
+}
+
+const hasFollows = () => Object.keys(store.teams).length + Object.keys(store.leagues).length + Object.keys(store.matches).length > 0;
 let feedTimer;
 async function pollToday(force) {
   clearTimeout(feedTimer);
@@ -73,12 +118,15 @@ async function pollToday(force) {
     detectGoals(d, !!todayData);
     todayData = d;
     feedListeners.forEach((f) => f(d));
+    if (hasFollows()) detectLineups(d);
   } catch (e) {
     feedListeners.forEach((f) => f(null, e));
   }
+  // keep watching in a background tab (slower) so followed teams still get alerts
   if (!document.hidden) feedTimer = setTimeout(pollToday, REFRESH);
+  else if (hasFollows() && store.notify) feedTimer = setTimeout(pollToday, 60e3);
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) pollToday(true); else clearTimeout(feedTimer); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) pollToday(true); });
 
 /* ---------- home: matches by day ---------- */
 const homeState = { filter: 'all', sort: 'league' };
@@ -291,7 +339,9 @@ function openSettings() {
       <div class="kv-h">ظاهر</div>
       <div style="padding:0 16px 12px">${seg('theme', [['', 'خودکار'], ['light', 'روشن'], ['dark', 'تیره']], store.theme)}</div>
       <div class="kv-h">اعلان‌ها</div>
-      <div class="list-row" data-set="notify">${icon('bell')}<div class="grow"><b>اعلان گل</b><div class="meta">${notifOk ? 'برای تیم‌ها، لیگ‌ها و بازی‌های دنبال‌شده (وقتی سایت باز است)' : 'مرورگر شما از اعلان پشتیبانی نمی‌کند'}</div></div>${sw(store.notify)}</div>
+      <div class="list-row" data-set="notify">${icon('bell')}<div class="grow"><b>اعلان‌ها</b><div class="meta">${notifOk ? 'برای تیم‌ها، لیگ‌ها و بازی‌های دنبال‌شده؛ تا وقتی سایت در مرورگر باز است (حتی در تب پس‌زمینه)' : 'مرورگر شما از اعلان پشتیبانی نمی‌کند'}</div></div>${sw(store.notify)}</div>
+      <div class="list-row" data-set="notifyGoals">${icon('ball')}<div class="grow"><b>گل‌ها</b><div class="meta">با نام گلزن و دقیقه</div></div>${sw(store.notifyGoals !== false)}</div>
+      <div class="list-row" data-set="notifyLineups">${icon('shirt')}<div class="grow"><b>اعلام ترکیب</b><div class="meta">حدود یک ساعت قبل از بازی</div></div>${sw(store.notifyLineups !== false)}</div>
       <div class="list-row" data-set="sound">${icon('live')}<div class="grow"><b>صدای گل</b></div>${sw(store.sound)}</div>
       <div class="kv-h">داده‌ها</div>
       <div class="list-row" data-set="clear">${icon('x')}<div class="grow"><b>پاک کردن علاقه‌مندی‌ها</b></div></div>
@@ -311,8 +361,9 @@ function openSettings() {
       const p = await Notification.requestPermission();
       if (p !== 'granted') { toast('اجازه اعلان داده نشد'); return; }
     }
-    store[k] = !store[k]; save();
-    r.querySelector('.switch').classList.toggle('on', store[k]);
+    store[k] = k.startsWith('notify') && k !== 'notify' ? store[k] === false : !store[k]; save();
+    r.querySelector('.switch').classList.toggle('on', store[k] !== false && !!store[k]);
+    if (k === 'notify' && store.notify) pollToday(true);
   });
 }
 
