@@ -188,7 +188,7 @@ export function askNotify() {
 }
 
 /* ---------- Web Push: lets the server notify even when the app is closed ---------- */
-export const pushSupported = () => !plugins() && 'serviceWorker' in navigator && 'PushManager' in window;
+export const pushSupported = () => !isNativeApp() && 'serviceWorker' in navigator && 'PushManager' in window;
 const b64 = (s) => Uint8Array.from(atob((s + '='.repeat((4 - (s.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
 let syncTimer;
 // Subscribe (or refresh) and tell the server what this device follows; unsubscribes when alerts are off.
@@ -222,24 +222,40 @@ export async function testPush() {
   return (await fetch('/api/push?a=test', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) })).ok;
 }
 
-/* ---------- notifications: browser, or native when running inside the Android app ---------- */
-const plugins = () => (window.Capacitor?.isNativePlatform?.() ? window.Capacitor.Plugins : null);
-export const notifySupported = () => !!plugins()?.LocalNotifications || 'Notification' in window;
+/* ---------- native bridge (when running inside the Android app) ---------- */
+// The APK loads this site remotely, so @capacitor/core isn't bundled: call plugins through the injected
+// bridge. Plugins.X proxies exist on some Capacitor versions; nativePromise/nativeCallback always do.
+const C = () => window.Capacitor;
+export const isNativeApp = () => { const c = C(); return !!c && !!(c.isNativePlatform?.() || c.getPlatform?.() === 'android' || typeof c.nativePromise === 'function'); };
+export function native(plugin, method, opts = {}) {
+  const p = C()?.Plugins?.[plugin];
+  if (p?.[method]) return p[method](opts);
+  if (typeof C()?.nativePromise === 'function') return C().nativePromise(plugin, method, opts);
+  return Promise.reject(new Error('no native bridge'));
+}
+function nativeListen(plugin, event, cb) {
+  const p = C()?.Plugins?.[plugin];
+  if (p?.addListener) return p.addListener(event, cb);
+  if (typeof C()?.nativeCallback === 'function') return C().nativeCallback(plugin, 'addListener', { eventName: event }, cb);
+}
+
+/* ---------- notifications: browser, or native inside the Android app ---------- */
+export const notifySupported = () => isNativeApp() || 'Notification' in window;
 export async function notifyPermission(ask) {
-  const LN = plugins()?.LocalNotifications;
-  if (LN) {
-    let p = (await LN.checkPermissions()).display;
-    if (p !== 'granted' && ask) p = (await LN.requestPermissions()).display;
-    return p === 'granted';
+  if (isNativeApp()) {
+    try {
+      let p = (await native('LocalNotifications', 'checkPermissions')).display;
+      if (p !== 'granted' && ask) p = (await native('LocalNotifications', 'requestPermissions')).display;
+      return p === 'granted';
+    } catch { return false; }
   }
   if (!('Notification' in window)) return false;
   if (Notification.permission === 'default' && ask) return (await Notification.requestPermission()) === 'granted';
   return Notification.permission === 'granted';
 }
 export async function showNotification(title, body, matchId, tag) {
-  const LN = plugins()?.LocalNotifications;
-  if (LN) {
-    return LN.schedule({ notifications: [{ id: Math.floor(Math.random() * 2e9), title, body, largeBody: body, smallIcon: 'ic_stat_ball', iconColor: '#20d27c', extra: { matchId } }] });
+  if (isNativeApp()) {
+    return native('LocalNotifications', 'schedule', { notifications: [{ id: Math.floor(Math.random() * 2e9), title, body, largeBody: body, smallIcon: 'ic_stat_ball', iconColor: '#20d27c', extra: { matchId } }] });
   }
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   // via the service worker where possible: Android Chrome only allows that route
@@ -249,8 +265,14 @@ export async function showNotification(title, body, matchId, tag) {
   const n = new Notification(title, opts);
   n.onclick = () => { focus(); location.hash = `#/match/${matchId}`; n.close(); };
 }
-if (plugins()) {
-  const { LocalNotifications: LN, App } = plugins();
-  LN?.addListener('localNotificationActionPerformed', (e) => { const id = e.notification?.extra?.matchId; if (id) location.hash = `#/match/${id}`; });
-  App?.addListener('backButton', ({ canGoBack }) => (canGoBack ? history.back() : App.exitApp()));
+if (isNativeApp()) {
+  nativeListen('LocalNotifications', 'localNotificationActionPerformed', (e) => { const id = e?.notification?.extra?.matchId; if (id) location.hash = `#/match/${id}`; });
+  nativeListen('App', 'backButton', (e) => (e?.canGoBack ? history.back() : native('App', 'exitApp').catch(() => {})));
+}
+
+// Hand "my team" to the home-screen widget (it reads Capacitor Preferences = SharedPreferences "CapacitorStorage").
+export function shareTeamWithWidget(team) {
+  if (!isNativeApp()) return;
+  const op = team ? native('Preferences', 'set', { key: 'myTeam', value: JSON.stringify(team) }) : native('Preferences', 'remove', { key: 'myTeam' });
+  op.catch(() => {});
 }

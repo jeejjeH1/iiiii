@@ -1,5 +1,5 @@
 // Match extras: live commentary, win probability, highlights and the shareable result card.
-import { esc, fa, num, api, icon, crest, isLive, statusShort, dateOf, toast, sheet, empty, errorBox, skeleton } from './core.js';
+import { esc, fa, num, api, icon, crest, isLive, statusShort, dateOf, toast, sheet, empty, errorBox, skeleton, isNativeApp, native } from './core.js';
 import { club } from './clubs.js';
 
 /* ---------- live commentary (FotMob, English only) ---------- */
@@ -220,12 +220,38 @@ export async function shareCard(d) {
   x.font = '700 32px "Barlow Condensed", Vazirmatn'; x.direction = 'ltr'; x.fillText(location.host, W / 2 - 150, H - 32);
 
   const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png'));
-  const file = new File([blob], `goallive-${g.matchId}.png`, { type: 'image/png' });
+  const name = `goallive-${g.matchId}.png`;
+  const file = new File([blob], name, { type: 'image/png' });
   const url = URL.createObjectURL(blob);
+  const app = isNativeApp();
+  const canShare = app || !!navigator.canShare?.({ files: [file] });
   const bg = sheet(`<div class="card-h" style="font-size:16px">کارت بازی<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
     <div style="padding:0 16px"><img src="${url}" alt="" style="width:100%;border-radius:18px;box-shadow:var(--shadow)"></div>
-    <div style="display:flex;gap:8px;padding:14px 16px 20px">
-      ${navigator.canShare?.({ files: [file] }) ? `<button class="watch-btn" data-share style="margin:0;flex:1;animation:none">${icon('share', 18)} اشتراک‌گذاری</button>` : ''}
-      <a class="watch-btn" href="${url}" download="${file.name}" style="margin:0;flex:1;animation:none;background:var(--accent);color:var(--accent-ink);box-shadow:none">ذخیره تصویر</a></div>`);
-  bg.querySelector('[data-share]')?.addEventListener('click', () => navigator.share({ files: [file], title: `${h.name} - ${a.name}`, text: location.href }).catch(() => {}));
+    <div style="display:flex;gap:8px;padding:14px 16px 6px">
+      ${canShare ? `<button class="watch-btn" data-share style="margin:0;flex:1;animation:none">${icon('share', 18)} اشتراک‌گذاری</button>` : ''}
+      <button class="watch-btn" data-save style="margin:0;flex:1;animation:none;background:var(--accent);color:var(--accent-ink);box-shadow:none">ذخیره تصویر</button></div>
+    <p class="mute" style="text-align:center;font-size:11.5px;margin:4px 16px 18px">${app ? 'تصویر در پوشه Documents/GoalLive گوشی ذخیره می‌شود' : 'اگر ذخیره نشد، روی تصویر انگشت نگه دارید و «Save image» را بزنید'}</p>`);
+  const b64 = () => new Promise((ok) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(',')[1]); r.readAsDataURL(blob); });
+  bg.querySelector('[data-share]')?.addEventListener('click', async () => {
+    try {
+      if (app) {
+        // the app's WebView can't share blobs: write to the cache folder and hand the file to the share sheet
+        const w = await native('Filesystem', 'writeFile', { path: name, data: await b64(), directory: 'CACHE' });
+        await native('Share', 'share', { title: `${h.name} - ${a.name}`, files: [w.uri] });
+      } else await navigator.share({ files: [file], title: `${h.name} - ${a.name}`, text: location.href });
+    } catch (e) { if (e?.name !== 'AbortError' && !/cancel/i.test(e?.message || '')) toast('اشتراک‌گذاری انجام نشد'); }
+  });
+  bg.querySelector('[data-save]').addEventListener('click', async () => {
+    if (app) {
+      try {
+        await native('Filesystem', 'writeFile', { path: `GoalLive/${name}`, data: await b64(), directory: 'DOCUMENTS', recursive: true });
+        toast('در Documents/GoalLive ذخیره شد ✅');
+      } catch { toast('ذخیره نشد؛ از «اشتراک‌گذاری» استفاده کنید'); }
+      return;
+    }
+    // a detached anchor outside the sheet, so closing the sheet can't cancel the download
+    const link = Object.assign(document.createElement('a'), { href: url, download: name, rel: 'noopener' });
+    document.body.append(link); link.click(); link.remove();
+    toast('تصویر دانلود شد');
+  });
 }

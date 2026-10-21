@@ -1,6 +1,6 @@
 import {
   esc, fa, num, ymd, parseYmd, dateOf, tz, api, store, save, icon, crest, lgLogo, face, matchRow, isLive, isFav, starBtn,
-  skeleton, empty, errorBox, seg, toast, sheet, isDark, teamImg, teamImgL, statusShort, timeOf, notifySupported, notifyPermission, showNotification, pushSupported, syncPush, testPush, askNotify,
+  skeleton, empty, errorBox, seg, toast, sheet, isDark, teamImg, teamImgL, statusShort, timeOf, notifySupported, notifyPermission, showNotification, pushSupported, syncPush, testPush, askNotify, shareTeamWithWidget, isNativeApp,
 } from './core.js';
 import { matchView } from './match.js';
 import { club, derbyName, CLUBS, patternStyle } from './clubs.js';
@@ -390,6 +390,7 @@ function applyTeamTheme() {
   const t = store.myTeam, c = t && club(t.id);
   const colors = c ? [c.accent, c.c[0], c.c[1]].filter(Boolean) : t?.color ? [t.color] : [];
   const pick = colors.find((x) => lum(x) > 0.12) || colors[0];
+  shareTeamWithWidget(t ? { id: t.id, name: t.name, fa: c?.fa || t.name, color: (c?.c[0] || t.color || '#1b2a3a').slice(0, 7) } : null);
   if (!pick) { ['--accent', '--accent-ink', '--accent-soft', '--accent-glow'].forEach((k) => root.removeProperty(k)); return; }
   root.setProperty('--accent', pick);
   root.setProperty('--accent-ink', lum(pick) > 0.55 ? '#0b0f14' : '#ffffff');
@@ -471,7 +472,7 @@ async function myTeamCard(box, leagues) {
 
 /* ---------- install as an app ---------- */
 let installEvt = null;
-const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone || !!window.Capacitor?.isNativePlatform?.();
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone || isNativeApp();
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; $('#installBtn')?.classList.remove('hide'); });
 addEventListener('appinstalled', () => { installEvt = null; $('#installBtn')?.classList.add('hide'); toast('گل‌لایو نصب شد'); });
 async function installApp() {
@@ -497,7 +498,7 @@ function openSettings() {
       <div class="kv-h">اعلان‌ها</div>
       <div class="list-row" data-set="notify">${icon('bell')}<div class="grow"><b>اعلان‌ها</b><div class="meta">${!notifOk ? 'مرورگر شما از اعلان پشتیبانی نمی‌کند'
         : pushSupported() ? 'برای تیم‌ها، لیگ‌ها و بازی‌های دنبال‌شده؛ حتی وقتی اپ بسته است'
-        : window.Capacitor ? 'در این نسخه فقط وقتی اپ باز است. برای اعلان با اپ بسته، سایت را در Chrome باز کنید و «Install app» را بزنید.' : 'برای دنبال‌شده‌ها، وقتی اپ باز است'}</div></div>${sw(store.notify)}</div>
+        : isNativeApp() ? 'در این نسخه فقط وقتی اپ باز است. برای اعلان با اپ بسته، سایت را در Chrome باز کنید و «Install app» را بزنید.' : 'برای دنبال‌شده‌ها، وقتی اپ باز است'}</div></div>${sw(store.notify)}</div>
       <div class="list-row" data-set="notifyGoals">${icon('ball')}<div class="grow"><b>گل‌ها</b><div class="meta">با نام گلزن و دقیقه</div></div>${sw(store.notifyGoals !== false)}</div>
       <div class="list-row" data-set="notifyLineups">${icon('shirt')}<div class="grow"><b>اعلام ترکیب</b><div class="meta">حدود یک ساعت قبل از بازی</div></div>${sw(store.notifyLineups !== false)}</div>
       <div class="list-row" data-set="notifyEvents">${icon('whistle')}<div class="grow"><b>شروع و پایان بازی</b></div>${sw(store.notifyEvents !== false)}</div>
@@ -505,6 +506,7 @@ function openSettings() {
       <div class="list-row" data-set="sound">${icon('live')}<div class="grow"><b>صدای گل</b></div>${sw(store.sound)}</div>
       <div class="kv-h">اپلیکیشن</div>
       <div class="list-row" data-set="install">${icon('shirt')}<div class="grow"><b>نصب گل‌لایو روی گوشی</b><div class="meta">${standalone ? 'نصب شده است' : 'مثل یک اپ، با آیکون روی صفحه اصلی و تمام‌صفحه'}</div></div></div>
+      <div class="list-row" data-set="widget">${icon('cal')}<div class="grow"><b>ویجت صفحه اصلی</b><div class="meta">نتیجه زنده تیم من روی صفحه اصلی گوشی (اندروید)</div></div>${icon('chev', 18)}</div>
       <div class="kv-h">داده‌ها</div>
       <div class="list-row" data-set="clear">${icon('x')}<div class="grow"><b>پاک کردن علاقه‌مندی‌ها</b></div></div>
       <div class="list-row" style="cursor:default">${icon('info')}<div class="grow meta">داده‌ها از FotMob گرفته می‌شود (غیررسمی). بازی‌های زنده هر ۲۰ ثانیه به‌روز می‌شوند.</div></div>
@@ -517,6 +519,14 @@ function openSettings() {
     const k = r.dataset.set;
     if (k === 'install') { s.remove(); installApp(); return; }
     if (k === 'myteam') { s.remove(); openTeamPicker(); return; }
+    if (k === 'widget') {
+      s.remove();
+      sheet(`<div class="card-h" style="font-size:16px">ویجت صفحه اصلی<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
+        <div style="padding:4px 18px 22px;line-height:2.1">${isNativeApp()
+          ? `${store.myTeam ? '' : '۰. اول از تنظیمات «تیم من» را انتخاب کنید.<br>'}۱. از اپ بیرون بروید و روی جای خالی صفحه اصلی گوشی انگشت را نگه دارید.<br>۲. «ویجت‌ها» (Widgets) را بزنید.<br>۳. «گل‌لایو» را پیدا کنید و ویجت را روی صفحه بکشید.<br><span class="mute">در بازی زنده هر حدود یک دقیقه به‌روز می‌شود. با زدن روی ویجت اپ باز می‌شود.</span>`
+          : `ویجت فقط در <b>اپ اندروید گل‌لایو (فایل APK)</b> هست؛ نسخه وب و آیفون امکان ویجت ندارند.<br><a class="pill accent" style="margin-top:8px" href="https://github.com/jeejjeH1/iiiii/releases/download/android-latest/goallive.apk">دانلود اپ اندروید</a>`}</div>`);
+      return;
+    }
     if (k === 'testPush') {
       if (!store.notify) { toast('اول اعلان‌ها را روشن کنید'); return; }
       toast('در حال ارسال…');

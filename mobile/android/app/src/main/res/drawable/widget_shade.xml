@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark gradient over the team colour so white text stays readable. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient android:angle="270" android:startColor="#66000000" android:centerColor="#99000000" android:endColor="#DD05070A" />
+    <corners android:radius="24dp" />
+</shape>
