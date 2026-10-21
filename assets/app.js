@@ -207,7 +207,7 @@ async function homeView(el, _p, q) {
     }
   });
 
-  let painted = false;
+  let painted = false, lastList = '';
   const setIfChanged = (box, html) => { if (box && box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; } };
   function render() {
     const list = $('#list', el);
@@ -246,7 +246,7 @@ async function homeView(el, _p, q) {
     const favL = (l) => (isFav('leagues', l.primaryId) ? 2 : 0) + (l.matches.some((m) => followed(m, l)) ? 1 : 0);
     const blocks = leagues.map((l) => ({ l, ms: l.matches.filter((m) => keep(m, l)) })).filter((x) => x.ms.length)
       .sort((a, b) => favL(b.l) - favL(a.l));
-    list.innerHTML = blocks.map(({ l, ms }) => {
+    const html = blocks.map(({ l, ms }) => {
       const coll = store.collapsed[l.id] && homeState.filter === 'all';
       const live = ms.filter((m) => isLive(m.status)).length;
       return `<section class="card lg ${coll ? 'collapsed' : ''} ${painted ? '' : 'rise'}" style="--i:${painted ? 0 : n++}">
@@ -259,6 +259,7 @@ async function homeView(el, _p, q) {
         </div>
         <div class="lg-body">${ms.map((m) => flash(matchRow(m, { i: idx() }), m)).join('')}</div></section>`;
     }).join('') || emptyFor();
+    if (html !== lastList) { lastList = html; list.innerHTML = html; } // live refreshes usually change nothing
     painted = true;
   }
   const emptyFor = () => homeState.filter === 'live' ? empty('الان بازی زنده‌ای در جریان نیست', 'live')
@@ -557,7 +558,7 @@ function playIntro() {
   if (seen || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.remove(); return Promise.resolve(); }
   return new Promise((done) => {
     const end = () => { el.classList.add('out'); setTimeout(() => { el.remove(); done(); }, 450); };
-    const t = setTimeout(end, 2300);
+    const t = setTimeout(end, 1400);
     el.addEventListener('click', () => { clearTimeout(t); end(); }, { once: true });
   });
 }
@@ -596,7 +597,7 @@ async function route() {
   const render = (async () => { try { return await hit[1](el, params.slice(1), q); } catch (e) { el.innerHTML = errorBox(e); console.error(e); } })();
   if (morph) {
     document.body.classList.add('loading');
-    await Promise.race([render, new Promise((r) => setTimeout(r, 1200))]);
+    await Promise.race([render, new Promise((r) => setTimeout(r, 350))]); // never hold the tap long
     document.body.classList.remove('loading');
     if (seq !== navSeq) { render.then((c) => typeof c === 'function' && c()); return; }
   }

@@ -501,6 +501,7 @@ export async function matchView(el, [id, tabArg]) {
     const s = d.header.status;
     return isLive(s) || (!s.started && !s.cancelled && new Date(s.utcTime) - Date.now() < 30 * 60e3 && new Date(s.utcTime) - Date.now() > -3 * 36e5);
   };
+  let lastSig = '';
   const tick = async () => {
     if (!alive) return;
     if (!document.hidden && needsPoll()) {
@@ -513,7 +514,9 @@ export async function matchView(el, [id, tabArg]) {
           celebrate({ sub: `${d.header.teams[0].name} ${fa(now[0])} - ${fa(now[1])} ${d.header.teams[1].name}`,
             c1: club(t.id)?.c[0] || getComputedStyle(el).getPropertyValue(i ? '--away' : '--home'), c2: club(t.id)?.c[1] || club(o.id)?.c[0] || '#fff' });
         }
-        if (tab !== 'table') render();
+        // only rebuild the page when something visible changed
+        const sig = JSON.stringify(d.header) + (d.content?.matchFacts?.events?.events?.length || 0) + JSON.stringify(d.content?.stats || '').length;
+        if (tab !== 'table' && sig !== lastSig) { lastSig = sig; render(); }
       } catch {}
     }
     timer = setTimeout(tick, REFRESH);
