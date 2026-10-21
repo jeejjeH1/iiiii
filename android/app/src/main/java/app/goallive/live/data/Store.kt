@@ -73,7 +73,7 @@ object Store {
         onFollowChange?.invoke()
     }
 
-    fun setMyTeam(t: MyTeam?) {
+    fun pickMyTeam(t: MyTeam?) {
         myTeam = t
         if (t == null) widgetPrefs.edit().remove("myTeam").apply()
         else {

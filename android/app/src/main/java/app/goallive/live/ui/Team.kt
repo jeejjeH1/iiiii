@@ -116,8 +116,8 @@ private fun TeamBody(id: Int, d: JSONObject, club: Club?, color: Color) {
                     Pill(if (mine) "تیم من" else "انتخاب به‌عنوان تیم من", if (mine) C.gold else ink, filled = mine,
                         icon = if (mine) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                         onClick = {
-                            if (mine) Store.setMyTeam(null)
-                            else Store.setMyTeam(MyTeam(id, name, d.path("overview.teamColors").s("darkMode") ?: d.path("overview.teamColors").s("color")))
+                            if (mine) Store.pickMyTeam(null)
+                            else Store.pickMyTeam(MyTeam(id, name, d.path("overview.teamColors").s("darkMode") ?: d.path("overview.teamColors").s("color")))
                         })
                 }
             }

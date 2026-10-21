@@ -96,7 +96,7 @@ fun SettingsScreen() {
                             Text(t?.let { Clubs.get(it.id)?.fa ?: it.name } ?: "انتخاب تیم من", fontWeight = FontWeight.Bold)
                             Text("رنگ اپ، کارت صفحه اول و ویجت با تیم شما هماهنگ می‌شود", color = C.mute, style = MaterialTheme.typography.labelSmall)
                         }
-                        if (t != null) IconButton(onClick = { Store.setMyTeam(null) }) { Icon(Icons.Rounded.Close, "حذف", tint = C.mute) }
+                        if (t != null) IconButton(onClick = { Store.pickMyTeam(null) }) { Icon(Icons.Rounded.Close, "حذف", tint = C.mute) }
                     }
                 }
             }
@@ -178,7 +178,7 @@ fun SettingsScreen() {
                 val d = Api.fm("teams", mapOf("id" to id, "ccode3" to "IRN"), 3_600_000)
                 d.path("overview.teamColors").s("darkMode") ?: d.path("overview.teamColors").s("color")
             }.getOrNull() else null
-            Store.setMyTeam(MyTeam(id, name, color))
+            Store.pickMyTeam(MyTeam(id, name, color))
             LiveAlerts.start(ctx)
         }
     }
