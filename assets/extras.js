@@ -92,7 +92,9 @@ const FA_NAMES = {
   'Monaco': 'موناکو', 'Lille': 'لیل', 'Benfica': 'بنفیکا', 'FC Porto': 'پورتو', 'Sporting CP': 'اسپورتینگ', 'Ajax': 'آژاکس', 'PSV Eindhoven': 'آیندهوون', 'Feyenoord': 'فاینورد',
   'Galatasaray': 'گالاتاسرای', 'Fenerbahçe': 'فنرباغچه', 'Besiktas': 'بشیکتاش', 'Club Brugge': 'کلوب بروژ', 'Celtic': 'سلتیک', 'Shakhtar Donetsk': 'شاختار',
   'Al-Hilal': 'الهلال', 'Al Hilal': 'الهلال', 'Al-Nassr': 'النصر', 'Al Nassr': 'النصر', 'Al-Ittihad': 'الاتحاد', 'Al Ittihad': 'الاتحاد', 'Al-Ahli': 'الاهلی', 'Al Ahli': 'الاهلی',
-  'Slavia Prague': 'اسلاویا پراگ', 'Inter Miami CF': 'اینترمیامی', 'Spain': 'اسپانیا', 'Argentina': 'آرژانتین', 'Brazil': 'برزیل', 'France': 'فرانسه', 'England': 'انگلیس',
+  'Slavia Prague': 'اسلاویا پراگ', 'AEK Athens': 'آاک آتن', 'Olympiacos': 'المپیاکوس', 'Panathinaikos': 'پاناتینایکوس', 'Red Star Belgrade': 'ستاره سرخ',
+  'Dinamo Zagreb': 'دینامو زاگرب', 'Young Boys': 'یانگ بویز', 'Salzburg': 'سالزبورگ', 'Sturm Graz': 'اشتورم گراتس', 'Copenhagen': 'کپنهاگ', 'Union St. Gilloise': 'اونیون',
+  'Bodø/Glimt': 'بودو گلیمت', 'Viking': 'وایکینگ', 'Qarabag FK': 'قره‌باغ', 'Kairat Almaty': 'کایرات', 'Pafos FC': 'پافوس', 'Athletic Bilbao': 'اتلتیک بیلبائو', 'Inter Miami CF': 'اینترمیامی', 'Spain': 'اسپانیا', 'Argentina': 'آرژانتین', 'Brazil': 'برزیل', 'France': 'فرانسه', 'England': 'انگلیس',
   'Germany': 'آلمان', 'Portugal': 'پرتغال', 'Italy': 'ایتالیا', 'Netherlands': 'هلند', 'Belgium': 'بلژیک', 'Croatia': 'کرواسی', 'Japan': 'ژاپن', 'South Korea': 'کره جنوبی',
   'Saudi Arabia': 'عربستان', 'Qatar': 'قطر', 'Iraq': 'عراق', 'Uzbekistan': 'ازبکستان', 'United Arab Emirates': 'امارات', 'Morocco': 'مراکش',
 };

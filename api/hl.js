@@ -48,7 +48,10 @@ module.exports = async (req, res) => {
     };
     const need = Math.min(must.length, 2) * 10; // both teams named in the title
     const inWindow = (v) => !after || !v.created || (v.created >= after - 2 * 36e5 && v.created <= after + 10 * 864e5);
-    const videos = all.filter((v) => score(v) >= need && inWindow(v)).sort((a, b) => score(b) - score(a)).slice(0, 8)
+    let pick = all.filter((v) => score(v) >= need && inWindow(v));
+    // teams without a known Persian name rarely match by title; the upload date window is strict enough with one team
+    if (!pick.length && after && need > 10) pick = all.filter((v) => score(v) >= 15 && v.created && inWindow(v));
+    const videos = pick.sort((a, b) => score(b) - score(a)).slice(0, 8)
       .map((v) => ({ ...v, embed: `https://www.aparat.com/video/video/embed/videohash/${v.uid}/vt/frame` }));
     res.setHeader('Cache-Control', 'public, s-maxage=1800, stale-while-revalidate=7200');
     res.end(JSON.stringify({ videos }));
