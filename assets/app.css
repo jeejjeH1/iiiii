@@ -191,7 +191,7 @@ main { max-width:880px; margin:0 auto; padding:6px 16px 32px; }
 .ev.goal .ico { background:var(--accent-soft); color:var(--accent); }
 .ev .score-chip { font-weight:800; font-size:12px; color:var(--ink); }
 .ev-divider { text-align:center; padding:8px 0; position:relative; }
-.ev-divider span { background:var(--card); position:relative; z-index:1; padding:3px 12px; border-radius:99px; border:1px solid var(--line); font-size:11.5px; font-weight:700; color:var(--mute); }
+.ev-divider > span { background:var(--card); position:relative; z-index:1; padding:3px 12px; border-radius:99px; border:1px solid var(--line); font-size:11.5px; font-weight:700; color:var(--mute); }
 .card-y { width:11px; height:15px; border-radius:2.5px; background:var(--gold); display:block; }
 .card-r { width:11px; height:15px; border-radius:2.5px; background:var(--live); display:block; }
 .card-yr { width:11px; height:15px; border-radius:2.5px; background:linear-gradient(135deg, var(--gold) 50%, var(--live) 50%); display:block; }
@@ -381,7 +381,8 @@ table.tbl { width:100%; border-collapse:collapse; font-size:13px; font-variant-n
 .scr .sep { color:var(--faint); }
 .mh { position:relative; }
 .mh-actions { position:absolute; top:8px; left:8px; display:flex; }
-.mh-league { display:flex; justify-content:center; padding:0 84px; min-height:30px; margin-bottom:10px; white-space:nowrap; overflow:hidden; }
+.mh-league { display:block; text-align:center; padding:4px 92px 0; min-height:30px; margin-bottom:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mh-league img { display:inline-block; vertical-align:-3px; margin-inline-end:6px; }
 
 /* English names inside RTL UI: truncate at the end of the name, not the start */
 .m .tm span, .tbl td.team span, .list-row .ellipsis b, .ellipsis.ltr { unicode-bidi:plaintext; }
@@ -393,3 +394,5 @@ table.tbl { width:100%; border-collapse:collapse; font-size:13px; font-variant-n
   .tbl td, .tbl th { padding:9px 4px; }
   .info.info3 { grid-template-columns:repeat(2,1fr); }
 }
+.watch-btn { margin-top:14px; display:inline-flex; align-items:center; gap:8px; height:40px; padding:0 18px; border-radius:99px; background:var(--live); color:#fff; font-weight:700; font-size:14px; box-shadow:0 6px 18px var(--live-soft); transition:transform .15s; }
+.watch-btn:hover { transform:translateY(-1px); }

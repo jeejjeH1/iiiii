@@ -58,7 +58,24 @@ function header(d) {
       <div class="ball">${hasGoals ? icon('ball', 14) : ''}</div>
       <div>${scorers(ev.awayTeamGoals, 'a')}<ul class="a">${reds(ev.awayTeamRedCards)}</ul></div></div>` : ''}
     ${extra ? `<div class="mh-extra">${extra}</div>` : ''}
+    ${watchable(s) ? `<button class="watch-btn" id="watchBtn">${icon('live', 18)} تماشای زنده</button>` : ''}
   </div>`;
+}
+// Live coverage stays on the broadcasters' own sites (rights holders); we only link out to them.
+const watchable = (s) => isLive(s) || (!s.started && !s.cancelled && new Date(s.utcTime) - Date.now() < 3 * 36e5);
+const BROADCASTERS = [
+  ['آپارات اسپورت', 'پخش زنده لیگ برتر ایران و رقابت‌های اروپایی', 'https://sport.aparat.com/'],
+  ['نماوا', 'پخش زنده با اشتراک نماوا', 'https://www.namava.ir/'],
+  ['تلوبیون · شبکه ورزش', 'پخش زنده شبکه ورزش صداوسیما', 'https://telewebion.com/live/varzesh'],
+  ['تلوبیون · شبکه ۳', 'پخش زنده شبکه سه', 'https://telewebion.com/live/tv3'],
+];
+function watchSheet(d) {
+  const [h, a] = d.header.teams;
+  sheet(`<div class="card-h" style="font-size:16px">تماشای زنده<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
+    <div class="kv-h">${esc(h.name)} - ${esc(a.name)}</div>
+    ${BROADCASTERS.map(([name, sub, url]) => `<a class="list-row" href="${url}" target="_blank" rel="noopener">${icon('live', 22, 'style="color:var(--live)"')}<div class="grow"><b>${name}</b><div class="meta">${sub}</div></div>${icon('chev', 18)}</a>`).join('')}
+    <div class="list-row" style="cursor:default">${icon('info')}<div class="grow meta">پخش در سایت رسمی هر سرویس باز می‌شود. هر بازی فقط روی سرویسی پخش می‌شود که حق پخش آن را دارد.</div></div>
+    <div style="height:12px"></div>`);
 }
 function countdown(iso) {
   const ms = new Date(iso) - Date.now();
@@ -410,6 +427,7 @@ export async function matchView(el, [id, tabArg]) {
     if (sh) { ui.shot = +sh.dataset.shot; render(); if (sh.tagName === 'BUTTON') el.querySelector('.pitch')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
     const pl = e.target.closest('[data-player]');
     if (pl) { e.preventDefault(); playerSheet(d, pl.dataset.player); return; }
+    if (e.target.closest('#watchBtn')) { watchSheet(d); return; }
     if (e.target.closest('#shareBtn')) {
       const [h, a] = d.header.teams, text = `${h.name} ${d.header.status.scoreStr || 'vs'} ${a.name}`;
       if (navigator.share) navigator.share({ title: text, url: location.href }).catch(() => {});
