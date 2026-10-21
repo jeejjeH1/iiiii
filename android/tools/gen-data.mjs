@@ -23,7 +23,7 @@ class Club(
 )
 
 object Clubs {
-    fun get(id: Any?): Club? = MAP[id?.toString()?.toIntOrNull() ?: return null]
+    fun get(id: Any?): Club? = id?.toString()?.toIntOrNull()?.let { MAP[it] }
 
     fun derby(a: Any?, b: Any?): String? {
         val x = a?.toString()?.toIntOrNull() ?: return null

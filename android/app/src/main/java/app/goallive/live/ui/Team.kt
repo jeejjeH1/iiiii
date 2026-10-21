@@ -50,6 +50,7 @@ import app.goallive.live.data.Clubs
 import app.goallive.live.data.MyTeam
 import app.goallive.live.data.Store
 import app.goallive.live.data.a
+import app.goallive.live.data.b
 import app.goallive.live.data.d
 import app.goallive.live.data.i
 import app.goallive.live.data.l
@@ -256,7 +257,7 @@ private fun Fact(k: String, v: String, modifier: Modifier) {
 private fun TeamFixtures(d: JSONObject) {
     val nav = LocalNav.current
     val all = d.path("fixtures.allFixtures").a("fixtures").objs()
-    val next = all.indexOfFirst { !it.o("status").optBoolean("finished") && !it.o("status").optBoolean("cancelled") }
+    val next = all.indexOfFirst { !it.o("status").b("finished") && !it.o("status").b("cancelled") }
     val past = if (next < 0) all else all.subList(0, next)
     val upcoming = if (next < 0) emptyList() else all.subList(next, all.size)
     if (upcoming.isNotEmpty()) {

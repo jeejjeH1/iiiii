@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import app.goallive.live.data.Api
 import app.goallive.live.data.Store
 import app.goallive.live.data.a
+import app.goallive.live.data.b
 import app.goallive.live.data.d
 import app.goallive.live.data.i
 import app.goallive.live.data.o
@@ -201,7 +202,7 @@ private fun LeagueFixtures(d: JSONObject) {
     fun roundOf(m: JSONObject) = m.s("round") ?: m.s("roundName") ?: ""
     val rounds = all.map(::roundOf).distinct()
     val firstIdx = d.o("fixtures").o("firstUnplayedMatch").i("firstUnplayedMatchIndex")
-    val first = firstIdx?.let { all.getOrNull(it) } ?: all.firstOrNull { !it.o("status").optBoolean("finished") } ?: all.lastOrNull()
+    val first = firstIdx?.let { all.getOrNull(it) } ?: all.firstOrNull { !it.o("status").b("finished") } ?: all.lastOrNull()
     var cur by rememberSaveable { mutableStateOf(first?.let(::roundOf) ?: rounds.firstOrNull() ?: "") }
     val i = rounds.indexOf(cur)
     Card {
