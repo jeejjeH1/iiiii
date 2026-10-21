@@ -1,8 +1,2 @@
-startale-motion/build/stills/
-startale-motion/build/part_*
-startale-motion/build/parts.txt
-startale-motion/build/video_noaudio.mp4
-startale-motion/build/audio.wav
-startale-motion/build/render.log
-startale-motion/build/check/
-startale-motion/startale_motion_preview.mp4
+node_modules/
+.vercel/
