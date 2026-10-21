@@ -1,6 +1,9 @@
+import { club, patternStyle } from './clubs.js';
+import { storyHtml } from './story.js';
+import { animateCounts } from './motion.js';
 import {
   esc, fa, num, dec, tr, api, icon, crest, lgLogo, face, flagImg, tabs, seg, errorBox, empty, skeleton, starBtn, matchRow,
-  matchIdFromUrl, formChips, rating, dateOf, timeOf, score, money, age, isDark,
+  matchIdFromUrl, formChips, rating, dateOf, timeOf, score, money, age, isDark, teamImgL,
 } from './core.js';
 
 const $ = (s, el) => el.querySelector(s);
@@ -45,8 +48,9 @@ document.addEventListener('click', (e) => {
   scope.querySelectorAll('[data-tv]').forEach((t) => (t.hidden = t.dataset.tv !== b.dataset.v));
 });
 
-const hero = (img, title, sub, end = '', band = '') => `<div class="card">${band ? `<div class="hero-band" style="background:${band}"></div>` : ''}
-  <div class="hero">${img}<div class="grow"><h1>${title}</h1><div class="sub">${sub}</div></div><div class="end">${end}</div></div></div>`;
+const hero = (img, title, sub, end = '', c1 = '', pattern = '', lat = false, ink = '') => `<section class="phero" style="${c1 ? `--c1:${c1};` : ''}${ink ? `color:${ink};` : ''}">
+  <div class="bg"></div>${pattern ? `<div class="pat" style="${patternStyle(pattern)}"></div>` : ''}
+  <div class="phero-in">${img}<div class="grow"><h1 class="${lat ? 'lat' : ''}">${title}</h1><div class="sub">${sub}</div></div><div class="end">${end}</div></div></section>`;
 
 /* ---------- league ---------- */
 const lgState = { round: {} };
@@ -72,7 +76,7 @@ export async function leagueView(el, [id, tabArg], q) {
     <div class="list-row"><span class="badge-num" style="width:auto">${fa(s.seasonName)}</span>${s.winner ? `<a class="row grow" href="#/team/${s.winner.id}">${icon('trophy', 16, 'style="color:var(--gold)"')}${crest(s.winner.id)}<b class="ellipsis">${esc(s.winner.name)}</b></a>` : '<span class="grow"></span>'}
       ${s.loser ? `<a class="end" href="#/team/${s.loser.id}">${crest(s.loser.id, 'sm')}<span class="ellipsis">${esc(s.loser.name)}</span></a>` : ''}</div>`).join('')}</div>` : empty('اطلاعاتی نیست', 'trophy');
   el.innerHTML = hero(lgLogo(id, 'crest lg'), esc(det.name), `${det.country && det.country !== 'INT' ? `<img class="crest sm" src="${flagImg(det.country)}" alt="" onerror="this.remove()">${esc(det.country)} · ` : ''}فصل ${seasonSel || fa(det.selectedSeason || '')}`,
-    starBtn('leagues', id, det.name), det.leagueColor || '') + tabs('#/league/' + id, avail, tab) + body;
+    starBtn('leagues', id, det.name), det.leagueColor || '', 'dots', true) + tabs('#/league/' + id, avail, tab) + body;
   document.title = `${det.name} | گل‌لایو`;
   const sel = $('#seasonSel', el);
   if (sel) sel.onchange = () => { location.hash = `#/league/${id}/${tab}?season=${encodeURIComponent(seasons[sel.selectedIndex])}`; };
@@ -127,19 +131,25 @@ export async function teamView(el, [id, tabArg]) {
     ['overview', 'نمای کلی', true], ['fixtures', 'بازی‌ها', !!d.fixtures?.allFixtures?.fixtures?.length], ['table', 'جدول', !!d.table?.length],
     ['squad', 'بازیکنان', !!d.squad?.squad?.length], ['trophies', 'افتخارات', !!d.history?.trophyList?.length],
   ].filter((t) => t[2]);
+  const cl = club(id);
+  if (cl) avail.splice(1, 0, ['story', 'تاریخچه', true]);
   const tab = avail.some((t) => t[0] === tabArg) ? tabArg : 'overview';
   const color = ov.teamColors?.[isDark() ? 'darkMode' : 'lightMode'] || ov.teamColors?.color;
   const league = d.table?.[0]?.data;
   let body = '';
-  if (tab === 'overview') body = teamOverview(d);
+  const trophies = (d.history?.trophyList || []).filter((x) => +x.won > 0).sort((a, b) => b.won - a.won).slice(0, 8).map((x) => ({ name: x.name, won: +x.won }));
+  if (tab === 'story') body = storyHtml(id, cl, trophies);
+  else if (tab === 'overview') body = teamOverview(d);
   else if (tab === 'fixtures') body = teamFixtures(d);
   else if (tab === 'table') body = tableCard(d.table, [id]);
   else if (tab === 'squad') body = squad(d);
   else if (tab === 'trophies') body = `<div class="card">${d.history.trophyList.map((t) => `
     <a class="list-row" href="#/league/${t.leagueId}">${lgLogo(t.leagueId, 'crest md')}<div class="grow"><b>${esc(t.name)}</b><div class="meta ltr" style="text-align:right">${fa((t.seasonsWon || '').split(',').filter(Boolean).slice(0, 6).join('، '))}${(t.seasonsWon || '').split(',').length > 6 ? ' …' : ''}</div></div>
       <span class="end"><b style="color:var(--gold);font-size:16px">${icon('trophy', 16)} ${num(t.won)}</b>${t.runnerup ? `<span>نایب‌قهرمان ${num(t.runnerup)}</span>` : ''}</span></a>`).join('')}</div>`;
-  el.innerHTML = hero(crest(id, 'lg'), esc(det.name), `${det.country ? `<img class="crest sm" src="${flagImg(det.country)}" alt="" onerror="this.remove()">${esc(det.country)}` : ''}${league ? ` · <a href="#/league/${league.leagueId}">${esc(league.leagueName)}</a>` : ''}`,
-    starBtn('teams', id, det.name), color) + tabs('#/team/' + id, avail, tab) + body;
+  el.innerHTML = hero(`<img class="crest" src="${teamImgL(id)}" alt="" onerror="this.style.visibility='hidden'">`, cl ? `${esc(cl.fa)}` : esc(det.name),
+    `${cl ? `<span class="ltr lat" style="font-size:15px">${esc(det.name)}</span> · ${esc(cl.nick)}` : det.country ? `<img class="crest sm" src="${flagImg(det.country)}" alt="" onerror="this.remove()">${esc(det.country)}` : ''}${league ? ` · <a href="#/league/${league.leagueId}">${esc(league.leagueName)}</a>` : ''}`,
+    starBtn('teams', id, det.name), cl?.c[0] || color || '', cl?.pattern || '', !cl, cl?.ink) + tabs('#/team/' + id, avail, tab) + body;
+  animateCounts(el);
   document.title = `${det.name} | گل‌لایو`;
 }
 const fxRow = (f) => matchRow({ id: f.id, home: f.home, away: f.away, status: f.status }, { date: true, extra: f.tournament?.name ? `<span class="agg">${esc(f.tournament.name)}</span>` : '' });
@@ -229,8 +239,9 @@ export async function playerView(el, [id]) {
   const traits = p.traits?.items?.length ? `<div class="card" style="margin-top:12px"><div class="card-h">${esc(p.traits.title || 'ویژگی‌ها')}</div>${p.traits.items.map((t) => `
     <div class="pct"><span>${esc(tr(t.title))}</span><span class="val">${num(Math.round(t.value * 100))}٪</span><div class="bar"><b style="width:${t.value * 100}%;background:var(--accent)"></b></div></div>`).join('')}</div>` : '';
   const injury = p.injuryInformation ? `<div class="card" style="margin-top:12px"><div class="list-row">${icon('bandage', 20, 'style="color:var(--live)"')}<div class="grow"><b>مصدوم</b><div class="meta">${esc(p.injuryInformation.name || '')}${p.injuryInformation.expectedReturn?.expectedReturnFallback ? ' · بازگشت: ' + esc(p.injuryInformation.expectedReturn.expectedReturnFallback) : ''}</div></div></div></div>` : '';
-  el.innerHTML = `<div class="card"><div class="hero">${face(id, 'avatar lg')}<div class="grow"><h1 class="ltr" style="text-align:right">${esc(p.name)}</h1>
-      <div class="sub">${team ? `<a class="row" style="gap:6px" href="#/team/${team.teamId}">${crest(team.teamId, 'sm')}${esc(team.teamName)}</a>${team.onLoan ? ' (قرضی)' : ''} · ` : ''}${esc(tr(pos || ''))}${p.isCaptain ? ' · کاپیتان' : ''}</div></div></div>
+  const pc = club(team?.teamId);
+  el.innerHTML = hero(face(id, 'avatar lg'), esc(p.name), `${team ? `<a class="row" style="gap:6px" href="#/team/${team.teamId}">${crest(team.teamId, 'sm')}${esc(team.teamName)}</a>${team.onLoan ? ' (قرضی)' : ''} · ` : ''}${esc(tr(pos || ''))}${p.isCaptain ? ' · کاپیتان' : ''}`,
+    '', pc?.c[0] || team?.teamColors?.color || '', pc?.pattern || 'dots', true, pc?.ink) + `<div class="card" style="margin-top:14px">
     <div class="info info3">${info}</div>${ml ? `<div class="card-h" style="border-top:1px solid var(--line)">${lgLogo(ml.leagueId)}${esc(ml.leagueName)}<span class="sub">${fa(ml.season)}</span></div>${kpis}` : ''}</div>
     ${injury}${traits}${deep}${recentHtml}${careerHtml}${trophyHtml}`;
   document.title = `${p.name} | گل‌لایو`;

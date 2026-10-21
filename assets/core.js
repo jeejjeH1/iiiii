@@ -34,8 +34,7 @@ export const crest = (id, cls = '') => `<img class="crest ${cls}" src="${cls ===
 export const lgLogo = (id, cls = 'crest sm') => `<img class="${cls}" src="${leagueImg(id)}" alt="" loading="lazy" onerror="this.src='${IMG}/logo/leaguelogo/${id}.png';this.onerror=()=>this.style.visibility='hidden'">`;
 export const face = (id, cls = 'avatar') => `<img class="${cls}" src="${playerImg(id)}" alt="" loading="lazy" onerror="this.src='data:image/svg+xml,${encodeURIComponent(PERSON)}'">`;
 const PERSON = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><rect width="40" height="40" fill="#8883"/><circle cx="20" cy="16" r="7" fill="#8889"/><path d="M6 38c2-8 8-12 14-12s12 4 14 12" fill="#8889"/></svg>';
-export const isDark = () => document.documentElement.dataset.theme === 'dark' ||
-  (document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+export const isDark = () => document.documentElement.dataset.theme !== 'light';
 
 /* ---------- icons (24px stroke) ---------- */
 const P = {
@@ -92,6 +91,7 @@ export function toggleFav(kind, id, name) {
   if (m[id]) delete m[id]; else m[id] = name || true;
   save();
   toast(m[id] ? 'به علاقه‌مندی‌ها اضافه شد' : 'از علاقه‌مندی‌ها حذف شد');
+  syncPush();
   return !!m[id];
 }
 export const isFav = (kind, id) => !!store[kind][id];
@@ -148,7 +148,7 @@ export const formChips = (arr) => `<span class="form">${arr.map((f) => {
 export const matchIdFromUrl = (u) => String(u || '').split('#')[1] || '';
 
 // One compact row for any match-like object {id, home:{id,name,score}, away, status}
-export function matchRow(m, { showFav = true, extra = '', date = false } = {}) {
+export function matchRow(m, { showFav = true, extra = '', date = false, i } = {}) {
   const s = m.status || {};
   const live = isLive(s);
   const started = s.started || s.finished;
@@ -161,7 +161,7 @@ export function matchRow(m, { showFav = true, extra = '', date = false } = {}) {
   const st = live ? statusShort(s) : s.finished ? statusShort(s) : s.cancelled ? statusShort(s) : '';
   const hl = s.finished && hs < as ? 'lose' : '', al = s.finished && as < hs ? 'lose' : '';
   const minute = live ? parseInt(s.liveTime?.short) : NaN;
-  return `<a class="m ${live ? 'live' : ''}" href="#/match/${m.id}" data-mid="${m.id}">
+  return `<a class="m ${live ? 'live' : ''} ${s.finished ? 'fin' : ''} ${i != null ? 'rise' : ''}" ${i != null ? `style="--i:${i}"` : ''} href="#/match/${m.id}" data-mid="${m.id}">
     <div class="st">${live ? '<span class="dot pulse" style="display:inline-block;margin-inline-end:3px;vertical-align:middle"></span>' : ''}${st || (date ? dateOf(s.utcTime, { day: 'numeric', month: 'short' }) : '')}</div>
     <div class="tm h ${hl}">${crest(m.home.id)}<span>${esc(m.home.shortName || m.home.name)}</span>${m.home.redCards ? '<i class="rc"></i>' : ''}</div>
     <div class="sc">${sc}</div>
@@ -183,7 +183,42 @@ document.addEventListener('click', (e) => {
 export function askNotify() {
   if (!notifySupported() || store.askedNotify) return;
   store.askedNotify = true; save();
-  notifyPermission(true).then((ok) => { if (ok) { store.notify = true; save(); toast('اعلان گل و ترکیب برای دنبال‌شده‌ها فعال شد'); } });
+  notifyPermission(true).then((ok) => { if (ok) { store.notify = true; save(); syncPush(); toast('اعلان گل و ترکیب برای دنبال‌شده‌ها فعال شد'); } });
+}
+
+/* ---------- Web Push: lets the server notify even when the app is closed ---------- */
+export const pushSupported = () => !plugins() && 'serviceWorker' in navigator && 'PushManager' in window;
+const b64 = (s) => Uint8Array.from(atob((s + '='.repeat((4 - (s.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+let syncTimer;
+// Subscribe (or refresh) and tell the server what this device follows; unsubscribes when alerts are off.
+export function syncPush() {
+  clearTimeout(syncTimer);
+  return new Promise((done) => { syncTimer = setTimeout(() => doSync().then(done, (e) => { console.warn('push', e); done(false); }), 400); });
+}
+async function doSync() {
+  if (!pushSupported()) return false;
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!store.notify || Notification.permission !== 'granted') {
+    if (sub) { await fetch('/api/push?a=unsub', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) }); await sub.unsubscribe(); }
+    store.push = false; save();
+    return false;
+  }
+  if (!sub) {
+    const { key } = await (await fetch('/api/push?a=key')).json();
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64(key) });
+  }
+  const r = await fetch('/api/push?a=sub', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({
+    subscription: sub.toJSON(), teams: Object.keys(store.teams), leagues: Object.keys(store.leagues), matches: Object.keys(store.matches),
+    goals: store.notifyGoals !== false, lineups: store.notifyLineups !== false, events: store.notifyEvents !== false,
+  }) });
+  store.push = r.ok; save();
+  return r.ok;
+}
+export async function testPush() {
+  const sub = pushSupported() && (await (await navigator.serviceWorker.ready).pushManager.getSubscription());
+  if (!sub) return false;
+  return (await fetch('/api/push?a=test', { method: 'POST', body: JSON.stringify({ endpoint: sub.endpoint }) })).ok;
 }
 
 /* ---------- notifications: browser, or native when running inside the Android app ---------- */

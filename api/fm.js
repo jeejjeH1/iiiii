@@ -1,6 +1,8 @@
 // Vercel serverless function: allowlisted proxy to FotMob (browsers can't call it directly: no CORS).
 // GET /api/fm?e=<endpoint>&<params>   e.g. /api/fm?e=matchDetails&matchId=123
 // Also used by server.js for local development, so it only relies on plain Node req/res.
+const { fotmob } = require('../lib/fotmob');
+
 const ENDPOINTS = {
   matches: { path: 'data/matches', params: ['date', 'timezone', 'ccode3'], ttl: 15 },
   matchDetails: { path: 'data/matchDetails', params: ['matchId'], ttl: 15 },
@@ -47,18 +49,8 @@ module.exports = async (req, res) => {
     if (v) q.set(p, v.slice(0, 80));
   }
   try {
-    const r = await fetch(`https://www.fotmob.com/api/${ep.path}?${q}`, {
-      headers: {
-        'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36',
-        accept: 'application/json',
-        referer: 'https://www.fotmob.com/',
-        ...(process.env.FOTMOB_XMAS && { 'x-mas': process.env.FOTMOB_XMAS }),
-      },
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!r.ok) throw new Error('FotMob responded ' + r.status);
     const name = url.searchParams.get('e');
-    let body = await r.text();
+    let body = await fotmob(ep.path, q);
     let ttl = ep.ttl;
     if (TRIM[name] || name === 'matchDetails') {
       const d = JSON.parse(body);

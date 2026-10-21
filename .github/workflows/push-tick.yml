@@ -1,0 +1,38 @@
+# Drives server push: asks the site to check followed matches every 30s and send what changed.
+# Scheduled runs only fire from the default branch, so each run also loops for ~5.5h and then
+# re-dispatches itself (workflow_dispatch is allowed from GITHUB_TOKEN). Cancel the running job or disable the workflow to stop it.
+name: Push notifications
+
+on:
+  push:
+    paths: ['.github/workflows/push-tick.yml', 'api/push.js']
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 * * * *'
+
+permissions:
+  actions: write
+
+concurrency:
+  group: push-tick
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      SITE: https://iiiii-psi.vercel.app
+    steps:
+      - name: Poll every 30 seconds
+        run: |
+          end=$(( $(date +%s) + 330 * 60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            curl -fsS -m 55 "$SITE/api/push?a=tick" || true
+            echo
+            sleep 30
+          done
+      - name: Hand over to the next run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run push-tick.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME"

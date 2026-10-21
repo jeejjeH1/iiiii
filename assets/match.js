@@ -1,8 +1,11 @@
 import {
   esc, fa, num, dec, tr, api, icon, crest, lgLogo, face, tabs, seg, sheet, errorBox, empty, skeleton, isLive, statusShort,
-  timeOf, dateOf, score, rating, ratingClass, formChips, matchRow, matchIdFromUrl, starBtn, isDark, money,
+  timeOf, dateOf, score, rating, teamImgL, ratingClass, formChips, matchRow, matchIdFromUrl, starBtn, isDark, money,
 } from './core.js';
 import { tableCard } from './pages.js';
+import { club, derbyName, patternStyle } from './clubs.js';
+import { storyHtml } from './story.js';
+import { celebrate, animateCounts } from './motion.js';
 
 const REFRESH = 20000;
 const ui = { period: 'All', shotTeam: 'all', shot: null, plTeam: 'all', plSort: 'rating' }; // survives live re-renders
@@ -27,31 +30,48 @@ function teamColors(general) {
 function scorers(map, side) {
   const items = Object.values(map || {}).map((evs) => {
     const p = evs[0];
-    const mins = evs.map((e) => `<span class="min-ltr">${fa(e.timeStr)}${e.overloadTime ? '+' + fa(e.overloadTime) : ''}'</span>` + (e.ownGoal ? ' (گل به خودی)' : '') + (e.goalDescriptionKey === 'penalty' || e.suffixKey === 'penalty_short' || /pen/i.test(e.suffix || '') ? ' (پ)' : '')).join('، ');
+    const mins = evs.map((e) => `<span class="min-ltr">${minuteText(e)}'</span>` + (e.ownGoal ? ' (گل به خودی)' : '') + (e.goalDescriptionKey === 'penalty' || e.suffixKey === 'penalty_short' || /pen/i.test(e.suffix || '') ? ' (پ)' : '')).join('، ');
     return `<li><span class="ltr">${esc(p.lastName || p.nameStr || p.player?.name || '')}</span> ${mins}</li>`;
   });
   return `<ul class="${side}">${items.join('')}</ul>`;
 }
+const PITCH_LINES = `<svg class="pitchlines" viewBox="0 0 400 240" preserveAspectRatio="none"><rect x="10" y="10" width="380" height="220" rx="4"/>
+  <line x1="200" y1="10" x2="200" y2="230"/><circle cx="200" cy="120" r="34"/><rect x="10" y="62" width="56" height="116"/><rect x="334" y="62" width="56" height="116"/>
+  <path d="M66 96a26 26 0 0 1 0 48M334 96a26 26 0 0 0 0 48"/></svg>`;
+const prevScores = {};
 function header(d) {
   const g = d.general, h = d.header, [home, away] = h.teams, s = h.status;
   const started = s.started && !s.cancelled;
   const live = isLive(s);
+  const ch = club(home.id), ca = club(away.id);
+  const c1 = ch?.c[0] || 'var(--home)', c2 = ca?.c[0] || 'var(--away)';
+  const pattern = ch?.pattern || ca?.pattern;
+  // flip the digit that changed since the last render
+  const key = g.matchId, prev = prevScores[key];
+  prevScores[key] = [home.score, away.score];
+  const flip = (i, v) => (prev && prev[i] !== v ? 'd flip' : 'd');
+  const minute = parseInt(s.liveTime?.short) || 0, full = minute > 90 ? 120 : 90, C = 2 * Math.PI * 22;
   const center = started
-    ? `<div class="mh-score ${live ? 'live' : ''}" style="${live ? 'color:var(--live)' : ''}"><span>${fa(home.score)}</span><span class="sep">-</span><span>${fa(away.score)}</span></div>
-       <div class="mh-status">${live ? `<span class="pill live"><span class="dot"></span>${statusShort(s)}</span>` : `<span class="pill">${statusShort(s)}</span>`}</div>`
-    : `<div class="mh-time">${s.cancelled ? '–' : timeOf(s.utcTime)}</div><div class="mh-status"><span class="pill">${s.cancelled ? statusShort(s) : countdown(s.utcTime)}</span></div>`;
+    ? `<div class="board-score"><span class="${flip(0, home.score)}">${fa(home.score)}</span><span class="sep">-</span><span class="${flip(1, away.score)}">${fa(away.score)}</span></div>
+       ${live ? (minute ? `<div class="ring"><svg viewBox="0 0 52 52"><circle class="tr" cx="26" cy="26" r="22"/><circle class="pr" cx="26" cy="26" r="22" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - Math.min(minute, full) / full)}"/></svg>${statusShort(s)}</div>`
+         : `<span class="pill live"><span class="dot"></span>${statusShort(s)}</span>`) : `<span class="pill">${statusShort(s)}</span>`}`
+    : `<div class="board-time">${s.cancelled ? '–' : timeOf(s.utcTime)}</div><span class="pill">${s.cancelled ? statusShort(s) : countdown(s.utcTime)}</span>`;
   const ev = h.events || {};
   const hasGoals = Object.keys(ev.homeTeamGoals || {}).length + Object.keys(ev.awayTeamGoals || {}).length;
   const reds = (m) => Object.values(m || {}).map((e) => `<li><i class="card-r" style="display:inline-block;vertical-align:-2px"></i> <span class="ltr">${esc(e[0].lastName || e[0].nameStr || '')}</span> <span class="min-ltr">${fa(e[0].timeStr)}'</span></li>`).join('');
   const extra = [s.aggregatedStr && `مجموع دو بازی: <span class="ltr">${fa(s.aggregatedStr)}</span>`, s.whoLostOnPenalties && h.status.reason?.penalties && `پنالتی: <span class="ltr">${fa(h.status.reason.penalties.join(' - '))}</span>`]
     .filter(Boolean).join(' · ');
-  return `<div class="card mh">
-    <div class="mh-actions">${starBtn('matches', g.matchId, home.name + ' - ' + away.name)}<button class="icon-btn" id="shareBtn" title="اشتراک‌گذاری">${icon('share', 18)}</button></div>
-    <a class="mh-league" href="#/league/${g.parentLeagueId || g.leagueId}">${lgLogo(g.parentLeagueId || g.leagueId)}${esc(g.leagueName)}${g.leagueRoundName ? ` · ${/^\d+$/.test(g.leagueRoundName) ? 'هفته ' + fa(g.leagueRoundName) : esc(g.leagueRoundName)}` : ''}</a>
+  const round = g.leagueRoundName ? ` · ${/^\d+$/.test(g.leagueRoundName) ? 'هفته ' + fa(g.leagueRoundName) : esc(g.leagueRoundName)}` : '';
+  const derby = derbyName(home.id, away.id);
+  return `<section class="hero-m" style="--c1:${c1};--c2:${c2}">
+    <div class="bg"></div>${pattern ? `<div class="pat" style="${patternStyle(pattern)}"></div>` : ''}<div class="sweep"></div>${PITCH_LINES}
+    <div class="hero-top"><a class="lg-link" href="#/league/${g.parentLeagueId || g.leagueId}">${lgLogo(g.parentLeagueId || g.leagueId, '')}<span>${esc(g.leagueName)}${round}</span></a>
+      <span class="end">${starBtn('matches', g.matchId, home.name + ' - ' + away.name)}<button class="icon-btn" id="shareBtn" title="اشتراک‌گذاری">${icon('share', 18)}</button></span></div>
+    ${derby ? `<div class="derby-tag">⚡ ${derby} ⚡</div>` : ''}
     <div class="mh-grid">
-      <a class="mh-team" href="#/team/${home.id}">${crest(home.id, 'lg')}<span>${esc(home.name)}</span></a>
-      <div>${center}<div class="mh-date">${dateOf(s.utcTime, { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
-      <a class="mh-team" href="#/team/${away.id}">${crest(away.id, 'lg')}<span>${esc(away.name)}</span></a>
+      <a class="mh-team" href="#/team/${home.id}"><img src="${teamImgL(home.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(home.name)}</span>${ch ? `<small>${esc(ch.fa)}</small>` : ''}</a>
+      <div class="board">${center}<div class="mh-date">${dateOf(s.utcTime, { weekday: 'long', day: 'numeric', month: 'long' })}</div></div>
+      <a class="mh-team a" href="#/team/${away.id}"><img src="${teamImgL(away.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(away.name)}</span>${ca ? `<small>${esc(ca.fa)}</small>` : ''}</a>
     </div>
     ${hasGoals || reds(ev.homeTeamRedCards) || reds(ev.awayTeamRedCards) ? `<div class="mh-scorers">
       <div>${scorers(ev.homeTeamGoals, 'h')}<ul class="h">${reds(ev.homeTeamRedCards)}</ul></div>
@@ -59,8 +79,30 @@ function header(d) {
       <div>${scorers(ev.awayTeamGoals, 'a')}<ul class="a">${reds(ev.awayTeamRedCards)}</ul></div></div>` : ''}
     ${extra ? `<div class="mh-extra">${extra}</div>` : ''}
     ${watchable(s) ? `<button class="watch-btn" id="watchBtn">${icon('live', 18)} تماشای زنده</button>` : ''}
-  </div>`;
+  </section>`;
 }
+
+/* ---------- club stories (big clubs get a themed history section) ---------- */
+const trophyCache = {};
+export async function loadTrophies(id) {
+  if (trophyCache[id]) return trophyCache[id];
+  try {
+    const t = await api('teams', { id, ccode3: 'IRN' }, { maxAge: 36e5 });
+    trophyCache[id] = (t.history?.trophyList || []).filter((x) => +x.won > 0).sort((a, b) => b.won - a.won).slice(0, 8).map((x) => ({ name: x.name, won: +x.won }));
+  } catch { trophyCache[id] = []; }
+  return trophyCache[id];
+}
+function storyCard(id, name, full) {
+  const c = club(id);
+  if (!c) return '';
+  if (!full) {
+    return `<a class="story" href="#/team/${id}/story" style="--c1:${c.c[0]};--c2:${c.accent || c.c[1]};color:${c.ink === '#111' || c.ink === '#000' || c.ink === '#0b1b3a' ? c.ink : '#fff'}">
+      <div class="bg"></div><div class="pat" style="${patternStyle(c.pattern)}"></div>
+      <div class="story-teaser">${crest(id, 'md')}<div class="grow"><b style="font-size:15px">داستان ${esc(c.fa)}</b><div style="font-size:12px;opacity:.85">${esc(c.nick)} · از ${fa(c.founded)}</div></div>${icon('chev', 18)}</div></a>`;
+  }
+  return storyHtml(id, c);
+}
+
 // Live coverage stays on the broadcasters' own sites (rights holders); we only link out to them.
 const watchable = (s) => isLive(s) || (!s.started && !s.cancelled && new Date(s.utcTime) - Date.now() < 3 * 36e5);
 const BROADCASTERS = [
@@ -86,7 +128,9 @@ function countdown(iso) {
 }
 
 /* ---------- summary ---------- */
-function evMinute(e) { return `<span class="min-ltr">${fa(e.timeStr)}${e.overloadTime ? '+' + fa(e.overloadTime) : ''}'</span>`; }
+// timeStr is sometimes already "90 + 7"; only add overloadTime when it isn't
+const minuteText = (e) => fa(String(e.timeStr).replace(/\s+/g, '')) + (e.overloadTime && !String(e.timeStr).includes('+') ? '+' + fa(e.overloadTime) : '');
+function evMinute(e) { return `<span class="min-ltr">${minuteText(e)}'</span>`; }
 function eventRow(e) {
   const side = e.isHome ? 'h' : 'a';
   let ico = '', who = '', cls = '';
@@ -400,6 +444,8 @@ export async function matchView(el, [id, tabArg]) {
     ['table', 'جدول', !!c.table?.leagueId],
     ['h2h', 'رودررو', !!c.h2h?.matches?.length],
   ].filter((t) => t[2]);
+  const clubs = d.header.teams.filter((t) => club(t.id));
+  if (clubs.length) avail.splice(1, 0, ['story', 'داستان باشگاه', true]);
   const tab = avail.some((t) => t[0] === tabArg) ? tabArg : 'summary';
 
   const render = () => {
@@ -413,12 +459,20 @@ export async function matchView(el, [id, tabArg]) {
     else if (tab === 'lineup') body = lineupTab(d);
     else if (tab === 'players') body = playersTab(d);
     else if (tab === 'h2h') body = h2h(d);
+    else if (tab === 'story') body = clubs.map((t) => storyHtml(t.id, club(t.id), trophyCache[t.id])).join('');
+    if (tab === 'summary' && clubs.length) body = `<div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));margin-bottom:12px">${clubs.map((t) => storyCard(t.id, t.name)).join('')}</div>` + body;
     el.innerHTML = `${header(d)}
       ${tabs('#/match/' + id, avail, tab)}<div id="tabBody">${body}</div>`;
     if (tab === 'table') tableTab(d, el.querySelector('#tabBody'));
+    animateCounts(el);
+    // first paint animates; live refreshes after that stay still
+    if (!el.classList.contains('settled')) setTimeout(() => el.classList.add('settled'), 2600);
     document.title = `${home.name} ${d.header.status.started ? d.header.status.scoreStr || '' : 'vs'} ${away.name} | گل‌لایو`;
   };
   render();
+  if (tab === 'story') {
+    Promise.all(clubs.map((t) => loadTrophies(t.id))).then(() => { el.classList.remove('settled'); render(); });
+  }
 
   el.addEventListener('click', (e) => {
     const sg = e.target.closest('[data-seg] button');
@@ -443,7 +497,17 @@ export async function matchView(el, [id, tabArg]) {
   const tick = async () => {
     if (!alive) return;
     if (!document.hidden && needsPoll()) {
-      try { await load(true); if (tab !== 'table') render(); } catch {}
+      try {
+        const before = d.header.teams.map((t) => t.score);
+        await load(true);
+        const now = d.header.teams.map((t) => t.score);
+        if (now[0] + now[1] > before[0] + before[1]) {
+          const i = now[0] > before[0] ? 0 : 1, t = d.header.teams[i], o = d.header.teams[1 - i];
+          celebrate({ sub: `${d.header.teams[0].name} ${fa(now[0])} - ${fa(now[1])} ${d.header.teams[1].name}`,
+            c1: club(t.id)?.c[0] || getComputedStyle(el).getPropertyValue(i ? '--away' : '--home'), c2: club(t.id)?.c[1] || club(o.id)?.c[0] || '#fff' });
+        }
+        if (tab !== 'table') render();
+      } catch {}
     }
     timer = setTimeout(tick, REFRESH);
   };

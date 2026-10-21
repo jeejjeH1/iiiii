@@ -1,8 +1,10 @@
 import {
   esc, fa, num, ymd, parseYmd, dateOf, tz, api, store, save, icon, crest, lgLogo, face, matchRow, isLive, isFav, starBtn,
-  skeleton, empty, errorBox, seg, toast, sheet, isDark, notifySupported, notifyPermission, showNotification,
+  skeleton, empty, errorBox, seg, toast, sheet, isDark, teamImg, teamImgL, statusShort, timeOf, notifySupported, notifyPermission, showNotification, pushSupported, syncPush, testPush,
 } from './core.js';
 import { matchView } from './match.js';
+import { club, derbyName } from './clubs.js';
+import { celebrate } from './motion.js';
 import { leagueView, teamView, playerView } from './pages.js';
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -13,11 +15,10 @@ const REFRESH = 20000;
 function applyTheme() {
   if (store.theme) document.documentElement.dataset.theme = store.theme;
   else delete document.documentElement.dataset.theme;
-  $('meta[name="theme-color"]').content = isDark() ? '#0a0b0d' : '#f4f5f7';
+  $('meta[name="theme-color"]').content = isDark() ? '#05070a' : '#e9eee9';
   $('#themeBtn').innerHTML = icon(isDark() ? 'sun' : 'moon');
 }
-$('#themeBtn').onclick = () => { store.theme = isDark() ? 'light' : 'dark'; save(); applyTheme(); };
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+$('#themeBtn').onclick = () => { store.theme = isDark() ? 'light' : ''; save(); applyTheme(); };
 applyTheme();
 
 addEventListener('scroll', () => $('.top').classList.toggle('scrolled', scrollY > 4), { passive: true });
@@ -46,7 +47,8 @@ const followed = (m, l) => isFav('matches', m.id) || isFav('teams', m.home.id) |
 async function alertUser(title, body, matchId, tag) {
   beep();
   if (!document.hidden) toast(`${title} ${body}`);
-  if (store.notify) try { await showNotification(title, body, matchId, tag); } catch {}
+  // with Web Push active the server sends the system notification (even when closed); avoid doubles
+  if (store.notify && !store.push) try { await showNotification(title, body, matchId, tag); } catch {}
 }
 
 // Scorer + minute for a fresh goal, from the match details (best effort).
@@ -67,7 +69,14 @@ function detectGoals(data, notify) {
     const before = prevScore.get(m.id);
     if (before && before !== s && isLive(m.status)) {
       goalFlash.set(m.id, Date.now() + 3400);
-      if (notify && store.notifyGoals !== false && followed(m, l)) goalText(m).then((t) => alertUser('⚽ گل!', t, m.id, 'goal-' + m.id + '-' + s));
+      if (notify && store.notifyGoals !== false && followed(m, l)) {
+        const [ph, pa] = before.split(' - ').map(Number), [h, a] = s.split(' - ').map(Number);
+        if (h + a > ph + pa && !location.hash.startsWith('#/match/' + m.id)) {
+          const scorer = h > ph ? m.home : m.away, other = scorer === m.home ? m.away : m.home;
+          celebrate({ sub: `${m.home.name} ${s} ${m.away.name}`, c1: teamColor(scorer.id), c2: club(scorer.id)?.c[1] || teamColor(other.id) });
+        }
+        goalText(m).then((t) => alertUser('⚽ گل!', t, m.id, 'goal-' + m.id + '-' + s));
+      }
     }
     prevScore.set(m.id, s);
   }
@@ -120,6 +129,40 @@ async function pollToday(force) {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) pollToday(true); });
 
+/* ---------- home: ticker + big games ---------- */
+const BIG_LEAGUES = new Set([42, 47, 87, 55, 54, 53, 523, 73, 77, 50, 44, 289, 10216]);
+const hue = (id) => `hsl(${(id * 47) % 360} 55% 34%)`;
+const teamColor = (id) => club(id)?.c[0] || hue(+id);
+
+function tickerHtml(leagues) {
+  const live = leagues.flatMap((l) => l.matches.filter((m) => isLive(m.status)).map((m) => ({ m, l })))
+    .sort((a, b) => BIG_LEAGUES.has(b.l.primaryId) - BIG_LEAGUES.has(a.l.primaryId)).slice(0, 24);
+  if (!live.length) return '';
+  const item = ({ m }) => `<a href="#/match/${m.id}"><img src="${teamImg(m.home.id)}" alt="" onerror="this.remove()">${esc(m.home.shortName || m.home.name)}
+    <b>${fa(m.home.score)}-${fa(m.away.score)}</b>${esc(m.away.shortName || m.away.name)}<img src="${teamImg(m.away.id)}" alt="" onerror="this.remove()"><i>${statusShort(m.status).replace(/<[^>]+>/g, '')}</i></a>`;
+  return `<div class="ticker"><span class="ticker-tag"><span class="dot pulse"></span>LIVE</span>
+    <div class="ticker-track" style="--dur:${Math.max(20, live.length * 7)}s">${live.map(item).join('')}</div></div>`;
+}
+
+function featuredHtml(leagues) {
+  const score = ({ m, l }) => (isLive(m.status) ? 100 : 0) + (club(m.home.id) ? 30 : 0) + (club(m.away.id) ? 30 : 0) +
+    (derbyName(m.home.id, m.away.id) ? 40 : 0) + (BIG_LEAGUES.has(l.primaryId) ? 15 : 0) + (followed(m, l) ? 50 : 0) - (m.status.finished ? 20 : 0);
+  const picks = leagues.flatMap((l) => l.matches.filter((m) => !m.status.cancelled).map((m) => ({ m, l })))
+    .filter((x) => score(x) >= 30).sort((a, b) => score(b) - score(a)).slice(0, 8);
+  if (!picks.length) return '';
+  return `<div class="section-title">بازی‌های بزرگ</div><div class="featured">${picks.map(({ m, l }, i) => {
+    const s = m.status, live = isLive(s), started = s.started && !s.cancelled;
+    const mid = started ? `${score2(m)}<small>${live ? statusShort(s) : statusShort(s)}</small>` : `${timeOf(s.utcTime)}<small>${dateOf(s.utcTime, { weekday: 'short' })}</small>`;
+    return `<a class="fcard rise" href="#/match/${m.id}" style="--i:${i};--c1:${teamColor(m.home.id)};--c2:${teamColor(m.away.id)}"><span class="shine"></span>
+      <div class="tag"><span>${esc(l.name)}</span>${live ? '<span class="pill live"><span class="dot"></span>زنده</span>' : ''}</div>
+      <div class="vs"><div><img src="${teamImgL(m.home.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(m.home.name)}</span></div>
+        <div class="mid">${mid}</div>
+        <div><img src="${teamImgL(m.away.id)}" alt="" onerror="this.style.visibility='hidden'"><span>${esc(m.away.name)}</span></div></div>
+      ${derbyName(m.home.id, m.away.id) ? `<div class="derby">⚡ ${derbyName(m.home.id, m.away.id)}</div>` : ''}</a>`;
+  }).join('')}</div>`;
+}
+const score2 = (m) => `<span class="scr"><span>${fa(m.home.score)}</span><span class="sep">-</span><span>${fa(m.away.score)}</span></span>`;
+
 /* ---------- home: matches by day ---------- */
 const homeState = { filter: 'all', sort: 'league' };
 
@@ -138,6 +181,8 @@ async function homeView(el, _p, q) {
     return `<a class="date ${k === day ? 'on' : ''}" href="#/?d=${k}">${top}<b>${d.toLocaleDateString('fa-IR', { day: 'numeric', month: 'short' })}</b></a>`;
   };
   el.innerHTML = `
+    <div id="ticker"></div>
+    <div id="featured"></div>
     <div class="dates">${dates.map(label).join('')}
       <label class="date date-pick" title="انتخاب تاریخ">${icon('cal')}<input type="date" value="${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6)}"></label></div>
     <div class="toolbar"><div id="filterSeg"></div>
@@ -158,11 +203,18 @@ async function homeView(el, _p, q) {
     }
   });
 
+  let painted = false;
+  const setIfChanged = (box, html) => { if (box && box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; } };
   function render() {
     const list = $('#list', el);
     if (!list) return;
     if (!data) { list.innerHTML = error ? errorBox(error) : skeleton(6); return; }
     const leagues = (data.leagues || []).map((l) => ({ ...l, matches: l.matches || [] }));
+    setIfChanged($('#ticker', el), tickerHtml(leagues));
+    setIfChanged($('#featured', el), featuredHtml(leagues));
+    // list items animate in on the first paint only, not on every live refresh
+    let n = 0;
+    const idx = () => (painted ? undefined : n++);
     const all = leagues.flatMap((l) => l.matches);
     const liveN = all.filter((m) => isLive(m.status)).length;
     const favN = leagues.reduce((n, l) => n + l.matches.filter((m) => followed(m, l)).length, 0);
@@ -180,7 +232,8 @@ async function homeView(el, _p, q) {
       const rows = leagues.flatMap((l) => l.matches.filter((m) => keep(m, l)).map((m) => ({ m, l })))
         .sort((a, b) => (isLive(b.m.status) - isLive(a.m.status)) || (new Date(a.m.status.utcTime) - new Date(b.m.status.utcTime)));
       list.innerHTML = rows.length ? `<div class="card">${rows.map(({ m, l }) =>
-        flash(matchRow(m, { extra: `<span class="agg">${esc(l.name)}</span>` }), m)).join('')}</div>` : emptyFor();
+        flash(matchRow(m, { i: idx(), extra: `<span class="agg">${esc(l.name)}</span>` }), m)).join('')}</div>` : emptyFor();
+      painted = true;
       return;
     }
     const favL = (l) => (isFav('leagues', l.primaryId) ? 2 : 0) + (l.matches.some((m) => followed(m, l)) ? 1 : 0);
@@ -189,7 +242,7 @@ async function homeView(el, _p, q) {
     list.innerHTML = blocks.map(({ l, ms }) => {
       const coll = store.collapsed[l.id] && homeState.filter === 'all';
       const live = ms.filter((m) => isLive(m.status)).length;
-      return `<section class="card ${coll ? 'collapsed' : ''}" style="margin-top:10px">
+      return `<section class="card lg ${coll ? 'collapsed' : ''} ${painted ? '' : 'rise'}" style="--i:${painted ? 0 : n++}">
         <div class="lg-h" data-toggle="${l.id}">
           ${lgLogo(l.primaryId, '')}
           <a class="grow ellipsis" href="#/league/${l.primaryId}"><span class="name">${esc(l.name)}</span> <span class="cc">${esc(l.ccode === 'INT' ? '' : l.ccode)}</span></a>
@@ -197,8 +250,9 @@ async function homeView(el, _p, q) {
           ${starBtn('leagues', l.primaryId, l.name)}
           <span class="chev">${icon('down', 18)}</span>
         </div>
-        <div class="lg-body">${ms.map((m) => flash(matchRow(m), m)).join('')}</div></section>`;
+        <div class="lg-body">${ms.map((m) => flash(matchRow(m, { i: idx() }), m)).join('')}</div></section>`;
     }).join('') || emptyFor();
+    painted = true;
   }
   const emptyFor = () => homeState.filter === 'live' ? empty('الان بازی زنده‌ای در جریان نیست', 'live')
     : homeState.filter === 'fav' ? empty('هنوز تیم، لیگ یا بازی‌ای را دنبال نکرده‌اید. روی ستاره‌ها بزنید.', 'star') : empty('برای این روز مسابقه‌ای پیدا نشد');
@@ -344,11 +398,15 @@ function openSettings() {
   const s = sheet(`<div class="card-h" style="font-size:16px">تنظیمات<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
     <div class="settings">
       <div class="kv-h">ظاهر</div>
-      <div style="padding:0 16px 12px">${seg('theme', [['', 'خودکار'], ['light', 'روشن'], ['dark', 'تیره']], store.theme)}</div>
+      <div style="padding:0 16px 12px">${seg('theme', [['', '🌙 بازی شبانه'], ['light', '☀️ بازی روز']], store.theme === 'light' ? 'light' : '')}</div>
       <div class="kv-h">اعلان‌ها</div>
-      <div class="list-row" data-set="notify">${icon('bell')}<div class="grow"><b>اعلان‌ها</b><div class="meta">${notifOk ? 'برای تیم‌ها، لیگ‌ها و بازی‌های دنبال‌شده؛ تا وقتی سایت در مرورگر باز است (حتی در تب پس‌زمینه)' : 'مرورگر شما از اعلان پشتیبانی نمی‌کند'}</div></div>${sw(store.notify)}</div>
+      <div class="list-row" data-set="notify">${icon('bell')}<div class="grow"><b>اعلان‌ها</b><div class="meta">${!notifOk ? 'مرورگر شما از اعلان پشتیبانی نمی‌کند'
+        : pushSupported() ? 'برای تیم‌ها، لیگ‌ها و بازی‌های دنبال‌شده؛ حتی وقتی اپ بسته است'
+        : window.Capacitor ? 'در این نسخه فقط وقتی اپ باز است. برای اعلان با اپ بسته، سایت را در Chrome باز کنید و «Install app» را بزنید.' : 'برای دنبال‌شده‌ها، وقتی اپ باز است'}</div></div>${sw(store.notify)}</div>
       <div class="list-row" data-set="notifyGoals">${icon('ball')}<div class="grow"><b>گل‌ها</b><div class="meta">با نام گلزن و دقیقه</div></div>${sw(store.notifyGoals !== false)}</div>
       <div class="list-row" data-set="notifyLineups">${icon('shirt')}<div class="grow"><b>اعلام ترکیب</b><div class="meta">حدود یک ساعت قبل از بازی</div></div>${sw(store.notifyLineups !== false)}</div>
+      <div class="list-row" data-set="notifyEvents">${icon('whistle')}<div class="grow"><b>شروع و پایان بازی</b></div>${sw(store.notifyEvents !== false)}</div>
+      ${pushSupported() ? `<div class="list-row" data-set="testPush">${icon('info')}<div class="grow"><b>ارسال اعلان آزمایشی</b><div class="meta">برای اطمینان از رسیدن اعلان‌ها</div></div></div>` : ''}
       <div class="list-row" data-set="sound">${icon('live')}<div class="grow"><b>صدای گل</b></div>${sw(store.sound)}</div>
       <div class="kv-h">اپلیکیشن</div>
       <div class="list-row" data-set="install">${icon('shirt')}<div class="grow"><b>نصب گل‌لایو روی گوشی</b><div class="meta">${standalone ? 'نصب شده است' : 'مثل یک اپ، با آیکون روی صفحه اصلی و تمام‌صفحه'}</div></div></div>
@@ -363,6 +421,13 @@ function openSettings() {
     if (!r) return;
     const k = r.dataset.set;
     if (k === 'install') { s.remove(); installApp(); return; }
+    if (k === 'testPush') {
+      if (!store.notify) { toast('اول اعلان‌ها را روشن کنید'); return; }
+      toast('در حال ارسال…');
+      const ok = (await syncPush()) && (await testPush());
+      toast(ok ? 'اعلان آزمایشی ارسال شد' : 'ارسال نشد؛ اتصال یا اجازه اعلان را بررسی کنید');
+      return;
+    }
     if (k === 'clear') {
       if (confirm('همه علاقه‌مندی‌ها پاک شوند؟')) { store.teams = {}; store.leagues = {}; store.matches = {}; save(); toast('پاک شد'); route(); }
       return;
@@ -373,6 +438,7 @@ function openSettings() {
     store[k] = k.startsWith('notify') && k !== 'notify' ? store[k] === false : !store[k]; save();
     r.querySelector('.switch').classList.toggle('on', store[k] !== false && !!store[k]);
     if (k === 'notify' && store.notify) pollToday(true);
+    if (k.startsWith('notify')) syncPush().then((ok) => { if (k === 'notify' && store.notify && pushSupported()) toast(ok ? 'اعلان‌ها حتی با اپ بسته هم می‌آیند' : 'اعلان فقط وقتی اپ باز است کار می‌کند'); });
   });
 }
 
@@ -410,4 +476,6 @@ addEventListener('hashchange', route);
 route();
 pollToday(true);
 
-if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/sw.js').catch(() => {});
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
+  navigator.serviceWorker.register('/sw.js').then(() => { if (store.notify) syncPush(); }).catch(() => {});
+}

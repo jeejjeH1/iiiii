@@ -1,1 +1,1 @@
-{ "name": "goal-live", "private": true }
+{"name":"goal-live","private":true,"dependencies":{"@vercel/blob":"^2.8.2","web-push":"^3.6.7"}}
