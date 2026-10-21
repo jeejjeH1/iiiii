@@ -158,7 +158,7 @@ export function matchRow(m, { showFav = true, extra = '', date = false, i } = {}
     const [h, a] = s.scoreStr ? s.scoreStr.split(' - ') : [hs, as];
     sc = `<span>${fa(h)}</span><span class="sep">-</span><span>${fa(a)}</span>`;
   } else sc = `<span class="kick">${s.cancelled ? '–' : timeOf(s.utcTime)}</span>`;
-  const st = live ? statusShort(s) : s.finished ? statusShort(s) : s.cancelled ? statusShort(s) : '';
+  const st = (live || s.finished || s.cancelled ? statusShort(s) : '').replace('بین دو نیمه', 'نیمه');
   const hl = s.finished && hs < as ? 'lose' : '', al = s.finished && as < hs ? 'lose' : '';
   const minute = live ? parseInt(s.liveTime?.short) : NaN;
   return `<a class="m ${live ? 'live' : ''} ${s.finished ? 'fin' : ''} ${i != null ? 'rise' : ''}" ${i != null ? `style="--i:${i}"` : ''} href="#/match/${m.id}" data-mid="${m.id}">

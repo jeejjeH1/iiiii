@@ -1,9 +1,9 @@
 import {
   esc, fa, num, ymd, parseYmd, dateOf, tz, api, store, save, icon, crest, lgLogo, face, matchRow, isLive, isFav, starBtn,
-  skeleton, empty, errorBox, seg, toast, sheet, isDark, teamImg, teamImgL, statusShort, timeOf, notifySupported, notifyPermission, showNotification, pushSupported, syncPush, testPush,
+  skeleton, empty, errorBox, seg, toast, sheet, isDark, teamImg, teamImgL, statusShort, timeOf, notifySupported, notifyPermission, showNotification, pushSupported, syncPush, testPush, askNotify,
 } from './core.js';
 import { matchView } from './match.js';
-import { club, derbyName } from './clubs.js';
+import { club, derbyName, CLUBS, patternStyle } from './clubs.js';
 import { celebrate } from './motion.js';
 import { leagueView, teamView, playerView } from './pages.js';
 
@@ -182,6 +182,7 @@ async function homeView(el, _p, q) {
   };
   el.innerHTML = `
     <div id="ticker"></div>
+    <div id="myteam"></div>
     <div id="featured"></div>
     <div class="dates">${dates.map(label).join('')}
       <label class="date date-pick" title="انتخاب تاریخ">${icon('cal')}<input type="date" value="${day.slice(0, 4)}-${day.slice(4, 6)}-${day.slice(6)}"></label></div>
@@ -212,6 +213,7 @@ async function homeView(el, _p, q) {
     const leagues = (data.leagues || []).map((l) => ({ ...l, matches: l.matches || [] }));
     setIfChanged($('#ticker', el), tickerHtml(leagues));
     setIfChanged($('#featured', el), featuredHtml(leagues));
+    myTeamCard($('#myteam', el), isToday ? leagues : null);
     // list items animate in on the first paint only, not on every live refresh
     let n = 0;
     const idx = () => (painted ? undefined : n++);
@@ -376,6 +378,92 @@ async function searchView(el, _p, q) {
   run();
 }
 
+/* ---------- "my team": picks the app's accent colour and pins the team's match ---------- */
+const lum = (hex) => { const m = /^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(hex || ''); if (!m) return 0.5; const [r, g, b] = m.slice(1).map((x) => parseInt(x, 16) / 255); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+function applyTeamTheme() {
+  const root = document.documentElement.style;
+  const t = store.myTeam, c = t && club(t.id);
+  const colors = c ? [c.accent, c.c[0], c.c[1]].filter(Boolean) : t?.color ? [t.color] : [];
+  const pick = colors.find((x) => lum(x) > 0.12) || colors[0];
+  if (!pick) { ['--accent', '--accent-ink', '--accent-soft', '--accent-glow'].forEach((k) => root.removeProperty(k)); return; }
+  root.setProperty('--accent', pick);
+  root.setProperty('--accent-ink', lum(pick) > 0.55 ? '#0b0f14' : '#ffffff');
+  root.setProperty('--accent-soft', `color-mix(in srgb, ${pick} 16%, transparent)`);
+  root.setProperty('--accent-glow', `color-mix(in srgb, ${pick} 45%, transparent)`);
+}
+applyTeamTheme();
+
+function setMyTeam(id, name, color) {
+  if (!id) { store.myTeam = null; save(); applyTeamTheme(); toast('تیم من حذف شد'); route(); return; }
+  store.myTeam = { id: String(id), name, color };
+  store.teams[id] = name; // following it gives goal/lineup alerts
+  store.onboarded = true; save();
+  applyTeamTheme(); syncPush(); askNotify();
+  toast(`${club(id)?.fa || name} تیم تو شد 💪`);
+  route();
+}
+function openTeamPicker() {
+  const ids = Object.keys(CLUBS);
+  const bg = sheet(`<div class="pick-h"><div class="pick-ball">${icon('ball', 34)}</div><h2>تیم محبوبت کدومه؟</h2>
+      <p>اپ با رنگ تیمت درمیاد، بازی‌هاش همیشه بالای صفحه است و گل‌ها و ترکیبش اعلان می‌شه.</p></div>
+    <div class="search" style="margin:0 16px 10px">${icon('search')}<input id="pickQ" placeholder="جستجوی تیم‌های دیگر (انگلیسی)…" autocomplete="off"></div>
+    <div id="pickRes"></div>
+    <div class="pick-grid">${ids.map((id, i) => { const c = CLUBS[id]; return `<button class="pick rise" style="--i:${i};--c1:${c.c[0]};--c2:${c.accent || c.c[1]}" data-pick="${id}" data-name="${esc(c.fa)}">
+      <img src="${teamImgL(id)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'"><span>${esc(c.fa)}</span></button>`; }).join('')}</div>
+    <div style="display:flex;gap:8px;padding:6px 16px 20px">${store.myTeam ? `<button class="list-row" data-pick="" style="justify-content:center;border-radius:14px;border:1px solid var(--line)">بدون تیم</button>` : ''}
+      <button class="list-row" data-close style="justify-content:center;border-radius:14px;border:1px solid var(--line)">${store.myTeam ? 'بستن' : 'بعداً'}</button></div>`);
+  store.onboarded = true; save();
+  let t;
+  bg.querySelector('#pickQ').oninput = (e) => {
+    clearTimeout(t);
+    const term = e.target.value.trim();
+    t = setTimeout(async () => {
+      const box = bg.querySelector('#pickRes');
+      if (term.length < 2) { box.innerHTML = ''; return; }
+      try {
+        const d = await api('suggest', { term }, { maxAge: 6e4 });
+        const teams = d.flatMap((g) => g.suggestions).filter((x) => x.type === 'team').filter((x, i, a) => a.findIndex((y) => y.id === x.id) === i).slice(0, 6);
+        box.innerHTML = teams.length ? `<div class="card" style="margin:0 16px 10px">${teams.map((x) => `<button class="list-row" data-pick="${x.id}" data-name="${esc(x.name)}">${crest(x.id, 'md')}<div class="grow"><b>${esc(x.name)}</b><div class="meta">${esc(x.leagueName || '')}</div></div></button>`).join('')}</div>` : '';
+      } catch {}
+    }, 300);
+  };
+  bg.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-pick]');
+    if (!b) return;
+    const id = b.dataset.pick;
+    let color;
+    if (id && !club(id)) { try { const tm = await api('teams', { id, ccode3: 'IRN' }, { maxAge: 36e5 }); color = tm.overview?.teamColors?.darkMode || tm.overview?.teamColors?.color; } catch {} }
+    bg.remove();
+    setMyTeam(id, b.dataset.name, color);
+  });
+}
+
+// Pinned "my team" card on the home screen: today's match if there is one, otherwise the next fixture.
+async function myTeamCard(box, leagues) {
+  const t = store.myTeam;
+  if (!t || !box) return;
+  const c = club(t.id);
+  let m = leagues?.flatMap((l) => l.matches.map((x) => ({ ...x, league: l.name }))).find((x) => String(x.home.id) === t.id || String(x.away.id) === t.id);
+  if (!m) {
+    try {
+      const tm = await api('teams', { id: t.id, ccode3: 'IRN' }, { maxAge: 6e5 });
+      const n = tm.overview?.nextMatch;
+      if (n) m = { id: n.id, home: n.home, away: n.away, status: n.status, league: n.tournament?.name || '' };
+    } catch {}
+  }
+  const name = c?.fa || t.name;
+  if (!m) { box.innerHTML = ''; return; }
+  const s = m.status, live = isLive(s), started = s.started && !s.cancelled;
+  const html = `<a class="myteam rise" href="#/match/${m.id}" style="--c1:${c?.c[0] || t.color || 'var(--accent)'};--c2:${c?.accent || c?.c[1] || '#000'};${c && ['#111', '#000', '#0b1b3a'].includes(c.ink) ? `color:${c.ink}` : ''}">
+    ${c ? `<span class="pat" style="${patternStyle(c.pattern)}"></span>` : ''}<span class="shine"></span>
+    <div class="mt-top"><span>⭐ تیم من · ${esc(name)}</span>${live ? '<span class="pill live"><span class="dot"></span>زنده</span>' : `<span>${esc(m.league || '')}</span>`}</div>
+    <div class="mt-vs"><div>${crest(m.home.id, 'md')}<span>${esc(m.home.name)}</span></div>
+      <b>${started ? `<span class="scr"><span>${fa(m.home.score)}</span><span class="sep">-</span><span>${fa(m.away.score)}</span></span>` : timeOf(s.utcTime)}</b>
+      <div>${crest(m.away.id, 'md')}<span>${esc(m.away.name)}</span></div></div>
+    <div class="mt-foot">${live ? statusShort(s) : started ? statusShort(s) : `${dateOf(s.utcTime, { weekday: 'long', day: 'numeric', month: 'long' })}`}</div></a>`;
+  if (box.dataset.html !== html) { box.dataset.html = html; box.innerHTML = html; }
+}
+
 /* ---------- install as an app ---------- */
 let installEvt = null;
 const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone || !!window.Capacitor?.isNativePlatform?.();
@@ -397,6 +485,8 @@ function openSettings() {
   const notifOk = notifySupported();
   const s = sheet(`<div class="card-h" style="font-size:16px">تنظیمات<span class="end"><button class="icon-btn" data-close>${icon('x')}</button></span></div>
     <div class="settings">
+      <div class="kv-h">تیم من</div>
+      <div class="list-row" data-set="myteam">${store.myTeam ? crest(store.myTeam.id, 'md') : icon('star')}<div class="grow"><b>${store.myTeam ? esc(club(store.myTeam.id)?.fa || store.myTeam.name) : 'انتخاب تیم محبوب'}</b><div class="meta">رنگ اپ، بازی‌های سنجاق‌شده و اعلان‌ها</div></div>${icon('chev', 18)}</div>
       <div class="kv-h">ظاهر</div>
       <div style="padding:0 16px 12px">${seg('theme', [['', '🌙 بازی شبانه'], ['light', '☀️ بازی روز']], store.theme === 'light' ? 'light' : '')}</div>
       <div class="kv-h">اعلان‌ها</div>
@@ -421,6 +511,7 @@ function openSettings() {
     if (!r) return;
     const k = r.dataset.set;
     if (k === 'install') { s.remove(); installApp(); return; }
+    if (k === 'myteam') { s.remove(); openTeamPicker(); return; }
     if (k === 'testPush') {
       if (!store.notify) { toast('اول اعلان‌ها را روشن کنید'); return; }
       toast('در حال ارسال…');
@@ -439,6 +530,20 @@ function openSettings() {
     r.querySelector('.switch').classList.toggle('on', store[k] !== false && !!store[k]);
     if (k === 'notify' && store.notify) pollToday(true);
     if (k.startsWith('notify')) syncPush().then((ok) => { if (k === 'notify' && store.notify && pushSupported()) toast(ok ? 'اعلان‌ها حتی با اپ بسته هم می‌آیند' : 'اعلان فقط وقتی اپ باز است کار می‌کند'); });
+  });
+}
+
+/* ---------- opening intro (once per session, tap to skip) ---------- */
+function playIntro() {
+  const el = document.getElementById('intro');
+  if (!el) return Promise.resolve();
+  let seen = false;
+  try { seen = sessionStorage.getItem('intro') === '1'; sessionStorage.setItem('intro', '1'); } catch {}
+  if (seen || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.remove(); return Promise.resolve(); }
+  return new Promise((done) => {
+    const end = () => { el.classList.add('out'); setTimeout(() => { el.remove(); done(); }, 450); };
+    const t = setTimeout(end, 2300);
+    el.addEventListener('click', () => { clearTimeout(t); end(); }, { once: true });
   });
 }
 
@@ -475,6 +580,7 @@ async function route() {
 addEventListener('hashchange', route);
 route();
 pollToday(true);
+playIntro().then(() => { if (!store.onboarded && !store.myTeam) setTimeout(openTeamPicker, 500); });
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || ['localhost', '127.0.0.1'].includes(location.hostname))) {
   navigator.serviceWorker.register('/sw.js').then(() => { if (store.notify) syncPush(); }).catch(() => {});

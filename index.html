@@ -19,9 +19,16 @@
 <link rel="preconnect" href="https://images.fotmob.com">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Vazirmatn:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/assets/app.css">
-<script>try { if (JSON.parse(localStorage.getItem('goallive:v2'))?.theme === 'light') document.documentElement.dataset.theme = 'light'; } catch {}</script>
+<script>try { if (JSON.parse(localStorage.getItem('goallive:v2'))?.theme === 'light') document.documentElement.dataset.theme = 'light'; } catch {}
+try { if (sessionStorage.getItem('intro') === '1') document.documentElement.classList.add('no-intro'); } catch {}</script>
 </head>
 <body>
+<div id="intro" aria-hidden="true">
+  <div class="in-beam l"></div><div class="in-beam r"></div><div class="in-line"></div>
+  <div class="in-ball"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7l4 3-1.5 4.5h-5L8 10z"/><path d="M12 3v4M16 10l4.5-1.5M14.5 14.5l2.5 4M9.5 14.5l-2.5 4M8 10L3.5 8.5"/></svg></div>
+  <div class="in-word"><span>گل</span><span>لایو</span></div>
+  <div class="in-tag">LIVE FOOTBALL · نتایج زنده</div>
+</div>
 <div class="stadium" aria-hidden="true"><i></i><i></i></div>
 <header class="top"><div class="top-in">
   <button class="icon-btn back" id="backBtn" aria-label="بازگشت"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>

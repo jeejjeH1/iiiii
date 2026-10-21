@@ -7,6 +7,7 @@ const ENDPOINTS = {
   matches: { path: 'data/matches', params: ['date', 'timezone', 'ccode3'], ttl: 15 },
   matchDetails: { path: 'data/matchDetails', params: ['matchId'], ttl: 15 },
   tltable: { path: 'data/tltable', params: ['leagueId'], ttl: 60 },
+  ltc: { path: 'data/ltc', params: [], ttl: 15 },
   leagues: { path: 'data/leagues', params: ['id', 'season', 'ccode3'], ttl: 300 },
   teams: { path: 'data/teams', params: ['id', 'ccode3'], ttl: 300 },
   playerData: { path: 'data/playerData', params: ['id'], ttl: 600 },
@@ -44,6 +45,15 @@ module.exports = async (req, res) => {
   if (!ep) return send(res, 400, { error: 'unknown endpoint' });
 
   const q = new URLSearchParams();
+  // live commentary: build FotMob's ltc URL server-side from a match id (English is the only reliable language)
+  if (url.searchParams.get('e') === 'ltc') {
+    const id = (url.searchParams.get('matchId') || '').replace(/\D/g, '');
+    let teams = [];
+    try { teams = JSON.parse(url.searchParams.get('teams') || '[]').slice(0, 2).map((t) => String(t).slice(0, 60)); } catch {}
+    if (!id) return send(res, 400, { error: 'matchId' });
+    q.set('ltcUrl', `http://data.fotmob.com/webcl/ltc/gsm/${id}_en.json.gz`);
+    q.set('teams', JSON.stringify(teams));
+  }
   for (const p of ep.params) {
     const v = url.searchParams.get(p);
     if (v) q.set(p, v.slice(0, 80));
