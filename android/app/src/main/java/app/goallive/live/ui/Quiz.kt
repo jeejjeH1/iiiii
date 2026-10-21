@@ -61,7 +61,7 @@ suspend fun buildQuiz(day: Long): List<Question> {
         val right = "${m.home.score} - ${m.away.score}"
         val wrong = generateSequence { "${rnd.nextInt(0, 5)} - ${rnd.nextInt(0, 5)}" }.filter { it != right }.distinct().take(3).toList()
         val opts = (wrong + right).shuffled(rnd)
-        qs += Question("بازی دیروز ${m.home.name} و ${m.away.name} (${m.leagueName}) چند شد؟", opts.map { fa(it) }, opts.indexOf(right), m.home.id, "نتیجه به ترتیب میزبان - میهمان")
+        qs += Question("بازی دیروز ${m.home.name} و ${m.away.name} (${m.leagueName}) چند شد؟", opts.map { fa(it) }, opts.indexOf(right), m.home.id, "عدد سمت راست: گل‌های میزبان")
     }
     played.drop(1).take(1).forEach { m ->
         val h = m.home.score ?: 0; val a = m.away.score ?: 0
@@ -191,7 +191,8 @@ private fun QuestionCard(n: Int, q: Question, chosen: Int?, onPick: (Int) -> Uni
                         .clickable(enabled = chosen == null) { onPick(i) }.padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Ltr(o, Modifier.weight(1f), style = vz(14.sp, FontWeight.Bold), color = if (state == 3) C.mute else C.ink, maxLines = 2, align = TextAlign.Right)
+                    // right-to-left so a score reads like everywhere in the app: home goals on the right
+                    T(o, 14, FontWeight.Bold, if (state == 3) C.mute else C.ink, Modifier.weight(1f), maxLines = 2)
                     when (state) {
                         1 -> T("✓", 16, FontWeight.Black, C.win)
                         2 -> T("✗", 16, FontWeight.Black, C.loss)

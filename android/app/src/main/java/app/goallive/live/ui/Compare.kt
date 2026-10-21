@@ -85,7 +85,8 @@ fun CompareScreen(a: Int, b0: Int) {
     val la = rememberLoader(a) { Profile(a, Api.fm("playerData", mapOf("id" to a), 300_000)) }
     val lb = rememberLoader(b) { if (b > 0) Profile(b, Api.fm("playerData", mapOf("id" to b), 300_000)) else null }
     val accent = LocalAccent.current
-    val other = if (lum(accent) > 0.5f && accent.red > 0.6f && accent.green < 0.5f) C.home else C.away
+    // second player's colour: whichever of blue / orange is further from the accent
+    val other = if (accent.blue > accent.red) C.away else C.home
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
         item { T("مقایسه بازیکنان", 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)) }
         item {

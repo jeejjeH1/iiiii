@@ -234,6 +234,9 @@ private val T: Map<String, String> = hashMapOf(
     "Canc" to "لغو",
     "AW" to "اعلام نتیجه",
     "Int" to "متوقف",
+    "Headed shots" to "شوت با سر",
+    "Dribbles" to "دریبل",
+    "Tackles won" to "تکل موفق",
 )
 
 /** Persian team names for the Aparat highlight search. */

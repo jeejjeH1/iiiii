@@ -64,5 +64,7 @@ const T = {
   'Showers': 'رگبار', 'Snow': 'برفی', 'Fog': 'مه', 'Overcast': 'تمام‌ابری', 'Fair': 'صاف', 'Mostly clear': 'عمدتاً صاف', 'Thunderstorms': 'رعد و برق',
   // status
   'FT': 'پایان', 'HT': 'بین دو نیمه', 'AET': 'پس از وقت اضافه', 'Pen': 'پنالتی', 'PP': 'به تعویق افتاد', 'Ab': 'نیمه‌کاره', 'Canc': 'لغو', 'AW': 'اعلام نتیجه', 'Int': 'متوقف',
+  // player percentile titles (comparison radar)
+  'Headed shots': 'شوت با سر', 'Dribbles': 'دریبل', 'Tackles won': 'تکل موفق',
 };
 export const tr = (s) => (s == null ? '' : T[s] ?? T[String(s).trim()] ?? s);
