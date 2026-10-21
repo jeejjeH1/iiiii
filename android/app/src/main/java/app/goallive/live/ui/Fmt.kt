@@ -9,7 +9,7 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val FA = ULocale("fa_IR@calendar=persian")
+val FA = ULocale("fa_IR@calendar=persian")
 
 /** Persian digits (the app font already draws them; this is for notifications and the system UI). */
 fun fa(s: Any?): String {

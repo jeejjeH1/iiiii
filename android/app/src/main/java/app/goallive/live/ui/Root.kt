@@ -108,6 +108,11 @@ fun Root(openMatch: MutableIntState) {
                         composable("match/{id}", listOf(navArgument("id") { type = NavType.IntType })) { MatchScreen(it.arguments?.getInt("id") ?: 0) }
                         composable("team/{id}", listOf(navArgument("id") { type = NavType.IntType })) { TeamScreen(it.arguments?.getInt("id") ?: 0) }
                         composable("league/{id}", listOf(navArgument("id") { type = NavType.IntType })) { LeagueScreen(it.arguments?.getInt("id") ?: 0) }
+                        composable("compare/{a}/{b}", listOf(navArgument("a") { type = NavType.IntType }, navArgument("b") { type = NavType.IntType })) {
+                            CompareScreen(it.arguments?.getInt("a") ?: 0, it.arguments?.getInt("b") ?: 0)
+                        }
+                        composable("quiz") { QuizScreen() }
+                        composable("calendar") { CalendarScreen() }
                         composable("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
                     }
                     // after NavHost has set its graph: open the match a notification pointed at

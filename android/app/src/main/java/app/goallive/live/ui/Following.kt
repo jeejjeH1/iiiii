@@ -20,6 +20,7 @@ fun FollowingScreen() {
             return@LazyColumn
         }
         Store.myTeam?.let { t -> item { MyTeamCard(t.id, t.name) } }
+        item { FeatureTiles() }
         if (Store.teams.isNotEmpty()) item {
             SectionTitle("تیم‌ها")
             Card {

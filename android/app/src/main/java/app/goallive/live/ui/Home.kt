@@ -126,6 +126,7 @@ fun HomeScreen() {
             if (live.isNotEmpty()) item(key = "ticker") { Ticker(live.sortedByDescending { (_, b) -> if (b.primaryId in BIG) 1 else 0 }.take(24).map { it.first }) }
         }
         if (day == 0) Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name, list) } }
+        if (day == 0) item(key = "tiles") { FeatureTiles() }
         if (day == 0 && list != null) {
             val hit = list.mapNotNull { b -> Comps.get(b.primaryId)?.let { b to it } }.filter { it.first.matches.isNotEmpty() }.maxByOrNull { it.first.matches.size }
             if (hit != null) item(key = "comp") { CompNight(hit.first, hit.second) }
@@ -411,5 +412,36 @@ private fun MtTeam(id: Int, name: String, ink: Color, modifier: Modifier) {
         Crest(id, 46.dp, large = true)
         Spacer(Modifier.height(6.dp))
         Ltr(name, style = lat(15.sp, FontWeight.ExtraBold), color = ink, align = TextAlign.Center)
+    }
+}
+
+/** Two shortcuts under "my team": today's quiz and the fixtures calendar. */
+@Composable
+fun FeatureTiles() {
+    val nav = LocalNav.current
+    val accent = LocalAccent.current
+    val p = Store.prefs()
+    val key = dayKey(startOfDay(0))
+    val answered = if (p.getString("quizDay", "") == key) (p.getString("quizAns", "") ?: "").split(',').count { it.isNotEmpty() } else 0
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Tile(Modifier.weight(1f), "?", "کوئیز امروز", if (answered >= 6) "انجام شد · فردا دوباره" else if (answered > 0) "ادامه بده" else "۶ سؤال تازه", accent) { nav.quiz() }
+        Tile(Modifier.weight(1f), null, "تقویم بازی‌ها", Store.myTeam?.let { "بازی‌های " + (Clubs.get(it.id)?.fa ?: it.name) } ?: "تیم‌های دنبال‌شده", C.home) { nav.calendar() }
+    }
+}
+
+@Composable
+private fun Tile(modifier: Modifier, mark: String?, title: String, sub: String, color: Color, onClick: () -> Unit) {
+    Row(
+        modifier.clip(RoundedCornerShape(20.dp)).drawBehind { cssLinear(135f, 0f to color.copy(alpha = 0.22f), 1f to Color.Transparent) }
+            .background(C.card.copy(alpha = 0.6f)).border(1.dp, C.line, RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(color), contentAlignment = Alignment.Center) {
+            if (mark != null) T(mark, 22, FontWeight.Black, inkOn(color)) else Icon(Ic.cal, null, Modifier.size(22.dp), tint = inkOn(color))
+        }
+        Column(Modifier.weight(1f)) {
+            T(title, 14, FontWeight.Black, maxLines = 1)
+            T(sub, 11, color = C.mute, maxLines = 1)
+        }
     }
 }

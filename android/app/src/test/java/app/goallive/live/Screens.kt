@@ -78,6 +78,7 @@ class Screens {
         settle(9000); shot("01-home")
         if (match != null) {
             NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")
+            tap("زمین زنده"); settle(3000); shot("02b-match-pitch")
             tap("آمار"); settle(3000); shot("03-match-stats")
             tap("شوت‌ها"); settle(3000); shot("03b-match-shots")
             tap("ترکیب"); settle(3000); shot("04-match-lineup")
@@ -91,5 +92,9 @@ class Screens {
         NavHook.nav?.tab("leagues"); settle(7000); shot("10-leagues")
         NavHook.nav?.tab("settings"); settle(1500); shot("11-settings")
         NavHook.nav?.tab("following"); settle(4000); shot("12-following")
+        NavHook.nav?.quiz(); settle(9000); shot("13-quiz")
+        tap("۱"); tap("۲"); settle(1500); shot("13b-quiz-answered")
+        NavHook.nav?.calendar(); settle(8000); shot("14-calendar")
+        NavHook.nav?.compare(30981, 737066); settle(12000); shot("15-compare")
     }
 }

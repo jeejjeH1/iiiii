@@ -144,6 +144,7 @@ private fun MatchBody(m: MatchData) {
     val tabs = buildList {
         add("summary" to "خلاصه")
         if (m.started || m.finished) add("video" to "🎬 ویدیو")
+        if (m.started) add("pitch" to "زمین زنده")
         if (m.started) add("live" to "گزارش زنده")
         if (m.hasStats) add("stats" to "آمار")
         if (m.shots.isNotEmpty()) add("shots" to "شوت‌ها")
@@ -161,6 +162,7 @@ private fun MatchBody(m: MatchData) {
                 when (tab) {
                     "summary" -> Summary(m)
                     "video" -> Highlights(m)
+                    "pitch" -> LivePitch(m)
                     "live" -> Commentary(m)
                     "stats" -> StatsTab(m)
                     "shots" -> ShotsTab(m)

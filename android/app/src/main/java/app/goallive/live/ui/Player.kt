@@ -93,6 +93,12 @@ private fun PlayerBody(id: Int, p: JSONObject) {
                             T(listOf(pos, if (p.b("isCaptain")) "کاپیتان" else "").filter { it.isNotEmpty() }.joinToString(" · ").let { if (it.isNotEmpty()) "· $it" else "" },
                                 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f), maxLines = 1)
                         }
+                        Row(Modifier.padding(top = 10.dp).height(28.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.25f))
+                            .clickable { nav.compare(id) }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Icon(Ic.swap, null, Modifier.size(14.dp), tint = ink)
+                            T("مقایسه با بازیکن دیگر", 12, FontWeight.ExtraBold, ink)
+                        }
                     }
                 }
             }

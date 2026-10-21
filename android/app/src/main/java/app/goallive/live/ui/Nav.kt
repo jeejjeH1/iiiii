@@ -10,6 +10,9 @@ class Nav(private val c: NavHostController?) {
     fun league(id: Int) { if (id > 0) c?.navigate("league/$id") }
     fun player(id: Int) { if (id > 0) c?.navigate("player/$id") }
     fun search() { c?.navigate("search") }
+    fun compare(a: Int, b: Int = 0) { if (a > 0) c?.navigate("compare/$a/$b") }
+    fun quiz() { c?.navigate("quiz") }
+    fun calendar() { c?.navigate("calendar") }
     fun back() { c?.popBackStack() }
     fun tab(route: String) {
         val nc = c ?: return
