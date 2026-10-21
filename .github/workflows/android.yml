@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -57,6 +61,7 @@ jobs:
   # Renders every screen with live data so the app's look can be checked against the website.
   screens:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     continue-on-error: true
     defaults:
       run:

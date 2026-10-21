@@ -7,7 +7,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.core.app.ApplicationProvider
 import app.goallive.live.data.Api
 import app.goallive.live.data.Store
@@ -52,7 +53,8 @@ class Screens {
 
     private fun tap(text: String) {
         val n = rule.onAllNodesWithText(text, substring = true)
-        if (n.fetchSemanticsNodes().isNotEmpty()) runCatching { n[0].performScrollTo() }.also { n[0].performClick() }
+        // call the click action directly: tabs scrolled out of view can't be touched
+        if (n.fetchSemanticsNodes().isNotEmpty()) runCatching { n[0].performSemanticsAction(SemanticsActions.OnClick) }
     }
 
     @Test
