@@ -5,7 +5,7 @@ import {
 import { tableCard } from './pages.js';
 import { club, derbyName, patternStyle } from './clubs.js';
 import { storyHtml } from './story.js';
-import { commentaryTab, winProbability, highlightsCard, shareCard } from './extras.js';
+import { commentaryTab, winProbability, highlightsCard, loadHighlights, shareCard } from './extras.js';
 import { celebrate, animateCounts } from './motion.js';
 
 const REFRESH = 20000;
@@ -469,6 +469,7 @@ export async function matchView(el, [id, tabArg]) {
       ${tabs('#/match/' + id, avail, tab)}<div id="tabBody">${body}</div>`;
     if (tab === 'table') tableTab(d, el.querySelector('#tabBody'));
     if (tab === 'live') commentaryTab(d, el.querySelector('#tabBody'));
+    if (tab === 'summary') loadHighlights(d, el);
     animateCounts(el);
     // first paint animates; live refreshes after that stay still
     if (!el.classList.contains('settled')) setTimeout(() => el.classList.add('settled'), 2600);

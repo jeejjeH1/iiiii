@@ -1,5 +1,5 @@
 // Match extras: live commentary, win probability, highlights and the shareable result card.
-import { esc, fa, num, api, icon, isLive, statusShort, dateOf, toast, sheet, empty, errorBox, skeleton } from './core.js';
+import { esc, fa, num, api, icon, crest, isLive, statusShort, dateOf, toast, sheet, empty, errorBox, skeleton } from './core.js';
 import { club } from './clubs.js';
 
 /* ---------- live commentary (FotMob, English only) ---------- */
@@ -76,17 +76,90 @@ export function winProbability(d) {
     </svg><div class="row mute ltr" style="justify-content:space-between;font-size:11px"><span>0'</span><span>${s.finished ? 'FT' : statusShort(s).replace(/<[^>]+>/g, '')}</span></div></div></div>`;
 }
 
-/* ---------- highlights ---------- */
+/* ---------- highlights: Aparat videos played in an app-styled player ---------- */
+// Persian names help Aparat search (titles there are Persian); big clubs come from clubs.js.
+const FA_NAMES = {
+  'Foolad': 'فولاد', 'Gol Gohar': 'گل گهر', 'Malavan': 'ملوان', 'Zob Ahan': 'ذوب آهن', 'Aluminium Arak': 'آلومینیوم اراک', 'Chadormalou': 'چادرملو',
+  'Kheybar Khorramabad': 'خیبر خرم‌آباد', 'Havadar': 'هوادار', 'Mes Rafsanjan': 'مس رفسنجان', 'Esteghlal Khuzestan': 'استقلال خوزستان', 'Shams Azar': 'شمس آذر',
+  'Nassaji': 'نساجی', 'Nassaji Mazandaran': 'نساجی', 'Paykan': 'پیکان', 'Sepahan': 'سپاهان', 'Tractor': 'تراکتور', 'Persepolis': 'پرسپولیس', 'Esteghlal': 'استقلال',
+  'Mes Kerman': 'مس کرمان', 'Shahr Khodro': 'شهرخودرو', 'Sanat Naft': 'صنعت نفت', 'Zob Ahan Esfahan': 'ذوب آهن', 'Fajr Sepasi': 'فجر سپاسی', 'Iran': 'ایران',
+  'Newcastle United': 'نیوکاسل', 'Aston Villa': 'استون ویلا', 'West Ham United': 'وستهام', 'Everton': 'اورتون', 'Brighton & Hove Albion': 'برایتون', 'Fulham': 'فولام',
+  'Crystal Palace': 'کریستال پالاس', 'Brentford': 'برنتفورد', 'Wolverhampton Wanderers': 'ولورهمپتون', 'Nottingham Forest': 'ناتینگهام فارست', 'AFC Bournemouth': 'بورنموث',
+  'Leeds United': 'لیدز', 'Sunderland': 'ساندرلند', 'Burnley': 'برنلی', 'Sevilla': 'سویا', 'Villarreal': 'ویارئال', 'Real Betis': 'رئال بتیس', 'Real Sociedad': 'رئال سوسیداد',
+  'Athletic Club': 'اتلتیک بیلبائو', 'Valencia': 'والنسیا', 'Girona': 'جیرونا', 'Celta Vigo': 'سلتاویگو', 'Roma': 'رم', 'Lazio': 'لاتزیو', 'Atalanta': 'آتالانتا',
+  'Fiorentina': 'فیورنتینا', 'Bologna': 'بولونیا', 'Torino': 'تورینو', 'Como': 'کومو', 'Bayer Leverkusen': 'بایر لورکوزن', 'RB Leipzig': 'لایپزیگ', 'VfB Stuttgart': 'اشتوتگارت',
+  'Eintracht Frankfurt': 'آینتراخت فرانکفورت', 'Borussia Mönchengladbach': 'مونشن‌گلادباخ', 'VfL Wolfsburg': 'ولفسبورگ', 'Marseille': 'مارسی', 'Lyon': 'لیون',
+  'Monaco': 'موناکو', 'Lille': 'لیل', 'Benfica': 'بنفیکا', 'FC Porto': 'پورتو', 'Sporting CP': 'اسپورتینگ', 'Ajax': 'آژاکس', 'PSV Eindhoven': 'آیندهوون', 'Feyenoord': 'فاینورد',
+  'Galatasaray': 'گالاتاسرای', 'Fenerbahçe': 'فنرباغچه', 'Besiktas': 'بشیکتاش', 'Club Brugge': 'کلوب بروژ', 'Celtic': 'سلتیک', 'Shakhtar Donetsk': 'شاختار',
+  'Al-Hilal': 'الهلال', 'Al Hilal': 'الهلال', 'Al-Nassr': 'النصر', 'Al Nassr': 'النصر', 'Al-Ittihad': 'الاتحاد', 'Al Ittihad': 'الاتحاد', 'Al-Ahli': 'الاهلی', 'Al Ahli': 'الاهلی',
+  'Slavia Prague': 'اسلاویا پراگ', 'Inter Miami CF': 'اینترمیامی', 'Spain': 'اسپانیا', 'Argentina': 'آرژانتین', 'Brazil': 'برزیل', 'France': 'فرانسه', 'England': 'انگلیس',
+  'Germany': 'آلمان', 'Portugal': 'پرتغال', 'Italy': 'ایتالیا', 'Netherlands': 'هلند', 'Belgium': 'بلژیک', 'Croatia': 'کرواسی', 'Japan': 'ژاپن', 'South Korea': 'کره جنوبی',
+  'Saudi Arabia': 'عربستان', 'Qatar': 'قطر', 'Iraq': 'عراق', 'Uzbekistan': 'ازبکستان', 'United Arab Emirates': 'امارات', 'Morocco': 'مراکش',
+};
+const faName = (t) => club(t.id)?.fa || FA_NAMES[t.name] || '';
+const dur = (s) => (s ? `${fa(Math.floor(s / 60))}:${fa(String(s % 60).padStart(2, '0'))}` : '');
+
 export function highlightsCard(d) {
   const s = d.header.status;
-  if (!s.finished) return '';
-  const [h, a] = d.header.teams, hl = d.content?.matchFacts?.highlights;
-  const q = encodeURIComponent(`خلاصه بازی ${h.name} ${a.name}`), qe = encodeURIComponent(`${h.name} vs ${a.name} highlights`);
-  return `<div class="card"><div class="card-h">${icon('live', 18)} خلاصه و گل‌ها</div>
-    ${hl?.url ? `<a class="hl-main" href="${esc(hl.url)}" target="_blank" rel="noopener">${hl.image ? `<img src="${esc(hl.image)}" alt="" loading="lazy">` : ''}<span class="hl-play">▶</span><span class="hl-src">${esc(hl.source || 'ویدیو')}</span></a>` : ''}
-    <a class="list-row" href="https://www.aparat.com/search/${q}" target="_blank" rel="noopener"><span class="hl-logo" style="background:#ed145b">آ</span><div class="grow"><b>خلاصه در آپارات</b><div class="meta">جستجوی ویدیوی این بازی</div></div>${icon('chev', 18)}</a>
-    <a class="list-row" href="https://sport.aparat.com/" target="_blank" rel="noopener"><span class="hl-logo" style="background:#0e1116;border:1px solid var(--line2)">⚽</span><div class="grow"><b>آپارات اسپورت</b><div class="meta">خلاصه‌های رسمی لیگ‌ها</div></div>${icon('chev', 18)}</a>
-    <a class="list-row" href="https://www.youtube.com/results?search_query=${qe}" target="_blank" rel="noopener"><span class="hl-logo" style="background:#ff0000">▶</span><div class="grow"><b>یوتیوب</b><div class="meta">Highlights</div></div>${icon('chev', 18)}</a></div>`;
+  if (!s.finished && !isLive(s)) return '';
+  return `<div class="card hl-card" id="hlBox"><div class="card-h">${icon('live', 18)} خلاصه و گل‌ها</div><div class="hl-loading"><div class="sk" style="aspect-ratio:16/9;border-radius:18px"></div></div></div>`;
+}
+const hlCache = {};
+export async function loadHighlights(d, root) {
+  const box = root.querySelector('#hlBox');
+  if (!box) return;
+  const [h, a] = d.header.teams, id = d.general.matchId;
+  const fh = faName(h), fa2 = faName(a);
+  const q = fh || fa2 ? `خلاصه بازی ${fh || h.name} ${fa2 || a.name}` : `${h.name} ${a.name} highlights`;
+  const must = [fh || h.name, fa2 || a.name].join('|');
+  if (!hlCache[id]) {
+    try { hlCache[id] = (await (await fetch(`/api/hl?q=${encodeURIComponent(q)}&must=${encodeURIComponent(must)}`)).json()).videos || []; } catch { hlCache[id] = []; }
+  }
+  const vids = hlCache[id];
+  const fm = d.content?.matchFacts?.highlights;
+  const yt = fm?.url && /youtu/.test(fm.url) ? fm.url.match(/(?:v=|youtu\.be\/|embed\/)([\w-]{11})/)?.[1] : null;
+  if (yt) vids.push({ uid: 'yt-' + yt, title: `${fm.source || 'YouTube'} · ویدیوی رسمی`, poster: fm.image || `https://i.ytimg.com/vi/${yt}/hqdefault.jpg`, embed: `https://www.youtube-nocookie.com/embed/${yt}?autoplay=1`, channel: 'YouTube (ممکن است فیلترشکن لازم باشد)' });
+  const target = root.querySelector('#hlBox');
+  if (!target) return;
+  if (!vids.length) {
+    const qs = encodeURIComponent(q);
+    target.innerHTML = `<div class="card-h">${icon('live', 18)} خلاصه و گل‌ها</div>
+      <div class="empty" style="padding:18px 16px 8px">ویدیوی خلاصه هنوز پیدا نشد؛ معمولاً یکی دو ساعت بعد از بازی منتشر می‌شود.</div>
+      <a class="list-row" href="https://www.aparat.com/search/${qs}" target="_blank" rel="noopener"><span class="hl-logo" style="background:#ed145b">آ</span><div class="grow"><b>جستجو در آپارات</b></div>${icon('chev', 18)}</a>`;
+    return;
+  }
+  const [first, ...rest] = vids;
+  const tile = (v, big, i) => `<button class="hl-tile ${big ? 'big' : ''}" data-hl="${i}">
+      <span class="hl-poster" style="background-image:url('${esc(v.poster || '')}')"></span><span class="hl-tint"></span>
+      <span class="hl-play">${icon('play', big ? 26 : 16)}</span>${v.duration ? `<span class="hl-dur">${dur(v.duration)}</span>` : ''}
+      <span class="hl-meta"><b>${esc(v.title)}</b><small>${esc(v.channel || 'آپارات')}</small></span></button>`;
+  target.innerHTML = `<div class="card-h">${icon('live', 18)} خلاصه و گل‌ها<span class="end sub">${num(vids.length)} ویدیو</span></div>
+    <div style="padding:0 16px">${tile(first, true, 0)}</div>
+    ${rest.length ? `<div class="hl-row">${rest.map((v, i) => tile(v, false, i + 1)).join('')}</div>` : '<div style="height:14px"></div>'}`;
+  target.onclick = (e) => { const b = e.target.closest('[data-hl]'); if (b) openPlayer(d, vids, +b.dataset.hl); };
+}
+
+function openPlayer(d, vids, i) {
+  const [h, a] = d.header.teams, s = d.header.status, ev = d.header.events || {};
+  const c1 = club(h.id)?.c[0] || 'var(--home)', c2 = club(a.id)?.c[0] || 'var(--away)';
+  const goals = [...Object.values(ev.homeTeamGoals || {}).flat().map((g) => ({ ...g, team: h })), ...Object.values(ev.awayTeamGoals || {}).flat().map((g) => ({ ...g, team: a }))]
+    .sort((x, y) => x.time - y.time);
+  const bg = sheet(`<div class="player" style="--c1:${c1};--c2:${c2}">
+    <div class="player-h"><button class="icon-btn" data-close>${icon('x')}</button>
+      <div class="player-score"><span>${esc(h.name)}</span><b>${s.started ? `<span class="scr"><span>${fa(h.score)}</span><span class="sep">-</span><span>${fa(a.score)}</span></span>` : 'vs'}</b><span>${esc(a.name)}</span></div></div>
+    <div class="player-frame"><iframe allow="autoplay; fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
+    <div class="player-title"></div>
+    ${goals.length ? `<div class="kv-h">گل‌های بازی</div><div class="player-goals">${goals.map((g) => `<div class="pg">${crest(g.team.id, 'sm')}<span class="min-ltr">${fa(g.timeStr)}'</span><b class="ltr">${esc(g.nameStr || g.player?.name || '')}</b>${g.ownGoal ? '<small>گل به خودی</small>' : ''}</div>`).join('')}</div>` : ''}
+    ${vids.length > 1 ? `<div class="kv-h">ویدیوهای دیگر</div><div class="hl-row in-player">${vids.map((v, k) => `<button class="hl-tile" data-v="${k}"><span class="hl-poster" style="background-image:url('${esc(v.poster || '')}')"></span><span class="hl-tint"></span><span class="hl-play">${icon('play', 16)}</span><span class="hl-meta"><b>${esc(v.title)}</b></span></button>`).join('')}</div>` : ''}
+    <div class="player-foot">پخش از ${'آپارات'} · حق نشر ویدیو متعلق به منتشرکننده است</div></div>`);
+  const play = (k) => {
+    const v = vids[k];
+    bg.querySelector('iframe').src = v.embed;
+    bg.querySelector('.player-title').innerHTML = `<b>${esc(v.title)}</b><small>${esc(v.channel || '')}</small>`;
+    bg.querySelectorAll('[data-v]').forEach((t) => t.classList.toggle('on', +t.dataset.v === k));
+  };
+  bg.addEventListener('click', (e) => { const t = e.target.closest('[data-v]'); if (t) play(+t.dataset.v); });
+  play(i);
 }
 
 /* ---------- shareable result card (1080×1350 PNG) ---------- */
