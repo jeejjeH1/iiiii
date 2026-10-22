@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,7 +70,7 @@ import org.json.JSONObject
 @Composable
 fun TeamScreen(id: Int) {
     val l = rememberLoader(id) { Api.fm("teams", mapOf("id" to id, "ccode3" to "IRN"), 120_000) }
-    LoadBox(l) { d -> TeamBody(id, d) }
+    Refreshable(l) { LoadBox(l) { d -> TeamBody(id, d) } }
 }
 
 @Composable
@@ -143,14 +148,14 @@ private fun Overview(id: Int, d: JSONObject) {
             CardTitle(title) { Ltr(j.o("tournament").s("name") ?: "", style = vz(12.sp), color = C.mute) }
             Row(Modifier.fillMaxWidth().clickable { nav.match(m.id) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Crest(m.home.id, 34.dp); Ltr(m.home.name, style = lat(15.sp), align = TextAlign.Center)
+                    Crest(m.home.id, 34.dp); TeamText(m.home.id, m.home.name, size = 15, align = TextAlign.Center)
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     if (m.started || m.finished) ScoreText(m.home.score, m.away.score, 24) else T(timeOf(m.time), 24, FontWeight.Black)
                     T(persianDate(m.time, "EEEE d MMMM"), 12, color = C.mute)
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Crest(m.away.id, 34.dp); Ltr(m.away.name, style = lat(15.sp), align = TextAlign.Center)
+                    Crest(m.away.id, 34.dp); TeamText(m.away.id, m.away.name, size = 15, align = TextAlign.Center)
                 }
             }
         }

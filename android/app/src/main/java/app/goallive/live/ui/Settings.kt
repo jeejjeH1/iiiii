@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -68,6 +73,7 @@ import app.goallive.live.data.MyTeam
 import app.goallive.live.data.Store
 import app.goallive.live.data.path
 import app.goallive.live.data.s
+import app.goallive.live.notify.Commentary
 import app.goallive.live.notify.LiveAlerts
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -121,8 +127,23 @@ fun SettingsScreen() {
                     runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))) }
                         .onFailure { runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
                 }
+                SubHead("ظاهر")
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                    Seg(listOf("dark" to "بازی شبانه", "light" to "بازی روز", "auto" to "مثل گوشی"), Store.theme,
+                        icons = mapOf("dark" to Ic.moon, "light" to Ic.sun)) { Store.setTheme(it); Look.mode = it }
+                }
+                SetRow(Ic.shirt, "نام فارسی تیم‌ها", if (Store.faNames) "پرسپولیس، رئال مادرید…" else "Persepolis, Real Madrid…", on = Store.faNames) {
+                    Store.setFaNames(!Store.faNames)
+                }
+                SubHead("گزارش صوتی")
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    T("اگر گوشی صدای فارسی ندارد «صدای آنلاین» را انتخاب کنید؛ گزارش با صدای گوینده فارسی از اینترنت پخش می‌شود.", 12, color = C.mute)
+                    Seg(listOf("auto" to "خودکار", "online" to "صدای آنلاین", "phone" to "صدای گوشی"), Store.voice) { Store.setVoice(mode = it) }
+                    if (Store.voice != "phone") Seg(listOf("farid" to "گوینده مرد", "dilara" to "گوینده زن"), Store.voiceName) { Store.setVoice(name = it) }
+                }
+                SetRow(Ic.mic, "امتحان صدا", "یک جمله گزارش پخش می‌شود") { Commentary.test(ctx) }
                 SubHead("اپلیکیشن")
-                SetRow(Ic.cal, "ویجت صفحه اصلی", "نتیجه زنده تیم من روی صفحه اصلی گوشی", first = true, chev = true) { widgetHelp = true }
+                SetRow(Ic.cal, "ویجت‌های صفحه اصلی", "نتیجه زنده تیم من (بزرگ و کوچک) و بازی‌های امروز", first = true, chev = true) { widgetHelp = true }
                 SubHead("داده‌ها")
                 SetRow(Ic.x, "پاک کردن علاقه‌مندی‌ها", null, first = true) { confirmClear = true }
                 ListRow {
@@ -139,7 +160,7 @@ fun SettingsScreen() {
         title = { T("ویجت صفحه اصلی", 16, FontWeight.ExtraBold) },
         text = {
             T((if (Store.myTeam == null) "۰. اول از تنظیمات «تیم من» را انتخاب کنید.\n" else "") +
-                "۱. از اپ بیرون بروید و روی جای خالی صفحه اصلی گوشی انگشت را نگه دارید.\n۲. «ویجت‌ها» (Widgets) را بزنید.\n۳. «گل‌لایو» را پیدا کنید و ویجت را روی صفحه بکشید.\n\nدر بازی زنده هر حدود یک دقیقه به‌روز می‌شود. با زدن روی ویجت اپ باز می‌شود.", 14)
+                "۱. از اپ بیرون بروید و روی جای خالی صفحه اصلی گوشی انگشت را نگه دارید.\n۲. «ویجت‌ها» (Widgets) را بزنید.\n۳. «گل‌لایو» را پیدا کنید؛ سه ویجت دارد:\n• تیم من (بزرگ)\n• تیم من (کوچک، فقط نتیجه)\n• بازی‌های امروز\n۴. ویجت را روی صفحه بکشید.\n\nدر بازی زنده هر حدود یک دقیقه به‌روز می‌شود. با زدن روی ویجت اپ باز می‌شود.", 14)
         },
         confirmButton = { TextButton(onClick = { widgetHelp = false }) { T("باشه", 14, FontWeight.Bold, LocalAccent.current) } },
     )

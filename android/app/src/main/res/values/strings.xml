@@ -2,4 +2,8 @@
 <resources>
     <string name="app_name">گل‌لایو</string>
     <string name="widget_description">نتیجه زنده و بازی بعدی تیم من</string>
+    <string name="widget_mini_description">تیم من، کوچک: فقط نتیجه و دقیقه</string>
+    <string name="widget_today_description">بازی‌های امروز: تیم‌های دنبال‌شده و بازی‌های بزرگ</string>
+    <string name="widget_mini_label">گل‌لایو · تیم من (کوچک)</string>
+    <string name="widget_today_label">گل‌لایو · بازی‌های امروز</string>
 </resources>

@@ -240,7 +240,7 @@ private val T: Map<String, String> = hashMapOf(
 )
 
 /** Persian team names for the Aparat highlight search. */
-fun faTeamName(id: Int, name: String): String? = Clubs.get(id)?.fa ?: NAMES[name]
+fun faTeamName(id: Int, name: String): String? = Clubs.get(id)?.fa ?: NAMES[name] ?: TEAMS_FA[name]
 
 private val NAMES: Map<String, String> = hashMapOf(
     "Foolad" to "فولاد",

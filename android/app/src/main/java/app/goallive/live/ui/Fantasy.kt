@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -173,7 +178,14 @@ fun FantasyScreen() {
     var state by remember { mutableStateOf(FState.load()) }
     var tick by remember { mutableIntStateOf(0) }
     @Suppress("UNUSED_VARIABLE") val redraw = tick
-    if (state.league == 0) { LeaguePick { id -> state.o.put("league", id); state.save(); state = FState.load() }; return }
+    if (state.league == 0) {
+        var help by rememberTip("fantasy")
+        if (help) HowToSheet("⚽", "فوتبال فانتزی گل‌لایو", FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
+        LeaguePick { id -> state.o.put("league", id); state.save(); state = FState.load() }
+        return
+    }
+    var help by rememberTip("fantasy")
+    if (help) HowToSheet("⚽", "فوتبال فانتزی گل‌لایو", FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
     val l = rememberLoader(state.league) { loadLeague(state.league) }
     LoadBox(l, 6) { lg -> FantasyBody(lg, state, { tick++ }) { state.o.remove("league"); state.o.remove("team"); state.o.remove("captain"); state.save(); state = FState.load() } }
 }

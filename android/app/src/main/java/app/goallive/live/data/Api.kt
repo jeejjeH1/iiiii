@@ -26,6 +26,10 @@ object Api {
     private lateinit var http: OkHttpClient
     private lateinit var snapDir: File
     private val mem = ConcurrentHashMap<String, Pair<Long, Any>>()
+    /** Pull-to-refresh: anything kept in memory from before this moment is fetched again. */
+    @Volatile private var freshAfter = 0L
+
+    fun invalidate() { freshAfter = System.currentTimeMillis() }
 
     fun init(ctx: Context) {
         http = OkHttpClient.Builder()
@@ -62,7 +66,7 @@ object Api {
     }.getOrNull()
 
     suspend fun get(url: String, maxAge: Long): Any = withContext(Dispatchers.IO) {
-        mem[url]?.let { (t, v) -> if (System.currentTimeMillis() - t < maxAge) return@withContext v }
+        mem[url]?.let { (t, v) -> if (t > freshAfter && System.currentTimeMillis() - t < maxAge) return@withContext v }
         try {
             val text = fetch(url)
             val v = parse(text)

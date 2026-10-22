@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -120,14 +125,14 @@ fun HomeScreen() {
     }
 
     val list = loader.value
+    Refreshable(loader) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace)) {
         if (day == 0 && list != null) {
             val live = list.flatMap { b -> b.matches.filter { it.live }.map { it to b } }
             if (live.isNotEmpty()) item(key = "ticker") { Ticker(live.sortedByDescending { (_, b) -> if (b.primaryId in BIG) 1 else 0 }.take(24).map { it.first }) }
         }
+        if (day == 0) item(key = "stories") { StoryRow() }
         if (day == 0) Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name, list) } }
-        if (day == 0) item(key = "tiles") { FeatureTiles() }
-        if (day == 0) item(key = "tv") { StationsCard() }
         if (day == 0 && list != null) {
             val hit = list.mapNotNull { b -> Comps.get(b.primaryId)?.let { b to it } }.filter { it.first.matches.isNotEmpty() }.maxByOrNull { it.first.matches.size }
             if (hit != null) item(key = "comp") { CompNight(hit.first, hit.second) }
@@ -160,23 +165,28 @@ fun HomeScreen() {
             is Load.Err -> item { ErrorView({ loader.state = Load.Loading; loader.reload() }) }
             is Load.Ok -> {
                 val keep: (MatchItem) -> Boolean = { m -> filter == "all" || (if (filter == "live") m.live else Store.followsWithLeague(m)) }
-                val emptyText = when (filter) {
-                    "live" -> "الان بازی زنده‌ای در جریان نیست"
-                    "fav" -> "هنوز تیم یا لیگی را دنبال نکرده‌اید؛ روی ستاره بزنید"
-                    else -> "بازی‌ای در این روز نیست"
+                val empty: @Composable () -> Unit = {
+                    when {
+                        filter == "live" -> EmptyView("الان بازی زنده‌ای در جریان نیست", Ic.live, "بازی‌های امروز را ببینید؛ وقتی بازی شروع شود اینجا می‌آید.",
+                            "همه بازی‌های امروز") { filter = "all"; day = 0 }
+                        filter == "fav" && Store.teams.isEmpty() && Store.leagues.isEmpty() -> EmptyView("هنوز تیم یا لیگی را دنبال نکرده‌اید", Ic.star,
+                            "روی ستاره کنار هر تیم یا لیگ بزنید تا بازی‌هایش اینجا جمع شود.", "پیدا کردن تیم") { nav.tab("search") }
+                        filter == "fav" -> EmptyView("تیم‌های شما این روز بازی ندارند", Ic.star, null, "همه بازی‌ها") { filter = "all" }
+                        else -> EmptyView("بازی‌ای در این روز نیست", Ic.ball, null, if (day != 0) "بازی‌های امروز" else null) { day = 0 }
+                    }
                 }
                 if (byTime) {
                     val rows = s.v.flatMap { b -> b.matches.filter(keep) }.sortedWith(compareByDescending<MatchItem> { it.live }.thenBy { it.time })
-                    if (rows.isEmpty()) item { EmptyView(emptyText, Ic.ball) }
+                    if (rows.isEmpty()) item { empty() }
                     else item {
                         Card(Modifier.padding(top = 12.dp)) {
-                            rows.forEachIndexed { i, m -> MatchRow(m, { nav.match(m.id) }, sub = m.leagueName, flash = (flash[m.id] ?: 0) > 0, first = i == 0) }
+                            rows.forEachIndexed { i, m -> MatchRow(m, { nav.match(m.id) }, sub = m.leagueName, flash = (flash[m.id] ?: 0) > 0, first = i == 0, crestFly = true) }
                         }
                     }
                 } else {
                     val shown = s.v.map { b -> b to b.matches.filter(keep) }.filter { it.second.isNotEmpty() }
                         .sortedByDescending { (b, ms) -> (if (Store.isLeague(b.primaryId)) 2 else 0) + (if (ms.any { Store.follows(it) }) 1 else 0) }
-                    if (shown.isEmpty()) item { EmptyView(emptyText, Ic.ball) }
+                    if (shown.isEmpty()) item { empty() }
                     items(shown) { (b, ms) ->
                         val isCollapsed = collapsed[b.id] == true && filter == "all"
                         LeagueCard(b, ms, isCollapsed, { collapsed[b.id] = !isCollapsed }, flash)
@@ -184,6 +194,7 @@ fun HomeScreen() {
                 }
             }
         }
+    }
     }
 }
 
@@ -212,7 +223,7 @@ private fun LeagueCard(b: LeagueBlock, ms: List<MatchItem>, isCollapsed: Boolean
             }
         }
         AnimatedVisibility(!isCollapsed) {
-            Column { ms.forEach { m -> MatchRow(m, { nav.match(m.id) }, flash = (flash[m.id] ?: 0) > 0) } }
+            Column { ms.forEach { m -> MatchRow(m, { nav.match(m.id) }, flash = (flash[m.id] ?: 0) > 0, crestFly = true) } }
         }
     }
 }
@@ -231,9 +242,9 @@ private fun Ticker(live: List<MatchItem>) {
                 live.forEach { m ->
                     Row(Modifier.clickable { nav.match(m.id) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                         Crest(m.home.id, 16.dp)
-                        Text(m.home.name, color = C.ink, style = lat(13.sp), maxLines = 1)
+                        TeamText(m.home.id, m.home.name, size = 13)
                         Text("${m.home.score ?: 0}-${m.away.score ?: 0}", color = LocalAccent.current, style = vz(13.sp, FontWeight.Black))
-                        Text(m.away.name, color = C.ink, style = lat(13.sp), maxLines = 1)
+                        TeamText(m.away.id, m.away.name, size = 13)
                         Crest(m.away.id, 16.dp)
                         Text(statusText(m), color = C.live, style = vz(11.sp, FontWeight.Bold))
                     }
@@ -300,7 +311,7 @@ private fun FTeam(id: Int, name: String, modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Crest(id, 58.dp, large = true)
         Spacer(Modifier.height(6.dp))
-        Ltr(name, style = lat(15.sp, FontWeight.ExtraBold), color = Color.White, maxLines = 2, align = TextAlign.Center)
+        TeamText(id, name, size = 15, w = FontWeight.ExtraBold, color = Color.White, maxLines = 2, align = TextAlign.Center)
     }
 }
 
@@ -412,45 +423,11 @@ private fun MtTeam(id: Int, name: String, ink: Color, modifier: Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Crest(id, 46.dp, large = true)
         Spacer(Modifier.height(6.dp))
-        Ltr(name, style = lat(15.sp, FontWeight.ExtraBold), color = ink, align = TextAlign.Center)
+        TeamText(id, name, size = 15, w = FontWeight.ExtraBold, color = ink, align = TextAlign.Center)
     }
 }
 
-/** Two shortcuts under "my team": today's quiz and the fixtures calendar. */
-@Composable
-fun FeatureTiles() {
-    val nav = LocalNav.current
-    val accent = LocalAccent.current
-    val p = Store.prefs()
-    val key = dayKey(startOfDay(0))
-    val answered = if (p.getString("quizDay", "") == key) (p.getString("quizAns", "") ?: "").split(',').count { it.isNotEmpty() } else 0
-    Column {
-        Tile(Modifier.fillMaxWidth().padding(top = 10.dp), "⚽", "فوتبال فانتزی", fantasySub(), C.win) { nav.fantasy() }
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Tile(Modifier.weight(1f), "?", "کوئیز امروز", if (answered >= 6) "انجام شد · فردا دوباره" else if (answered > 0) "ادامه بده" else "۶ سؤال تازه", accent) { nav.quiz() }
-            Tile(Modifier.weight(1f), null, "تقویم بازی‌ها", Store.myTeam?.let { "بازی‌های " + (Clubs.get(it.id)?.fa ?: it.name) } ?: "تیم‌های دنبال‌شده", C.home) { nav.calendar() }
-        }
-    }
-}
-
-@Composable
-private fun Tile(modifier: Modifier, mark: String?, title: String, sub: String, color: Color, onClick: () -> Unit) {
-    Row(
-        modifier.clip(RoundedCornerShape(20.dp)).drawBehind { cssLinear(135f, 0f to color.copy(alpha = 0.22f), 1f to Color.Transparent) }
-            .background(C.card.copy(alpha = 0.6f)).border(1.dp, C.line, RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(color), contentAlignment = Alignment.Center) {
-            if (mark != null) T(mark, 22, FontWeight.Black, inkOn(color)) else Icon(Ic.cal, null, Modifier.size(22.dp), tint = inkOn(color))
-        }
-        Column(Modifier.weight(1f)) {
-            T(title, 14, FontWeight.Black, maxLines = 1)
-            T(sub, 11, color = C.mute, maxLines = 1)
-        }
-    }
-}
-
-private fun fantasySub(): String {
+internal fun fantasySub(): String {
     val o = runCatching { org.json.JSONObject(Store.prefs().getString("fantasy", "{}")!!) }.getOrNull() ?: return "تیم رویایی‌ات را بساز"
     val total = o.optJSONObject("points")?.let { p -> p.keys().asSequence().sumOf { p.optInt(it) } } ?: 0
     val n = o.optJSONArray("team")?.length() ?: 0

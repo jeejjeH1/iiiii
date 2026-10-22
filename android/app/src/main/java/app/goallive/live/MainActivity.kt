@@ -14,7 +14,11 @@ class MainActivity : ComponentActivity() {
     val openMatch = mutableIntStateOf(0)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge(statusBarStyle = SystemBarStyle.dark(0), navigationBarStyle = SystemBarStyle.dark(0xFF0B0F14.toInt()))
+        val light = app.goallive.live.ui.Look.light
+        enableEdgeToEdge(
+            statusBarStyle = if (light) SystemBarStyle.light(0, 0) else SystemBarStyle.dark(0),
+            navigationBarStyle = if (light) SystemBarStyle.light(0xFFE9EEE9.toInt(), 0) else SystemBarStyle.dark(0xFF0B0F14.toInt()),
+        )
         super.onCreate(savedInstanceState)
         handle(intent)
         setContent { Root(openMatch) }
@@ -34,5 +38,6 @@ class MainActivity : ComponentActivity() {
         super.onPause()
         // the user may have just picked "my team": let the home-screen widget catch up
         ScoreWidget.requestUpdate(this)
+        TodayWidget.requestUpdate(this)
     }
 }

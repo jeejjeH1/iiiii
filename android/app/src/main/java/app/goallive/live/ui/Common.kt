@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -71,6 +76,19 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import app.goallive.live.data.MatchItem
 import app.goallive.live.data.Store
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.runtime.compositionLocalOf
+import app.goallive.live.data.Api
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.goallive.live.data.faTeamName
 import coil.compose.AsyncImage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -90,7 +108,8 @@ fun Stadium(accent: Color) {
         drawRect(C.bg)
         val stripe = 64.dp.toPx()
         var x = 0f
-        while (x < size.width) { drawRect(Color(0x03FFFFFF), Offset(x, 0f), Size(stripe, size.height)); x += stripe * 2 }
+        val mow = if (Look.light) Color(0x080A3C19) else Color(0x03FFFFFF)
+        while (x < size.width) { drawRect(mow, Offset(x, 0f), Size(stripe, size.height)); x += stripe * 2 }
         drawRect(Brush.radialGradient(listOf(accent.copy(alpha = 0.07f), Color.Transparent), Offset(size.width / 2, -size.height * 0.1f), size.height * 0.6f))
         beam(-0.22f * size.width, -24f)
         beam(size.width * 1.22f, 24f)
@@ -105,16 +124,30 @@ private fun DrawScope.beam(cx: Float, deg: Float) {
         val p = Path().apply {
             moveTo(cx - w * 0.04f, top); lineTo(cx + w * 0.04f, top); lineTo(cx + w / 2, top + h); lineTo(cx - w / 2, top + h); close()
         }
-        drawPath(p, Brush.verticalGradient(listOf(Color(0x0AD6F0FF), Color.Transparent), top, top + h * 0.7f))
+        drawPath(p, Brush.verticalGradient(listOf(if (Look.light) Color(0x80FFFFFF) else Color(0x0AD6F0FF), Color.Transparent), top, top + h * 0.7f))
     }
 }
 
 /* ---------- images ---------- */
 
+/** Set by Root: lets a crest fly from a list row to the match page (shared element transition). */
+@OptIn(ExperimentalSharedTransitionApi::class)
+val LocalShared = compositionLocalOf<SharedTransitionScope?> { null }
+val LocalAnimScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
+
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-fun Crest(id: Int, size: Dp = 24.dp, large: Boolean = size > 40.dp) {
+fun Modifier.shared(key: String?): Modifier {
+    val s = LocalShared.current
+    val a = LocalAnimScope.current
+    if (key == null || s == null || a == null) return this
+    return with(s) { this@shared.sharedElement(rememberSharedContentState(key), a) }
+}
+
+@Composable
+fun Crest(id: Int, size: Dp = 24.dp, large: Boolean = size > 40.dp, shareKey: String? = null) {
     if (id <= 0) { Spacer(Modifier.size(size)); return }
-    AsyncImage(model = teamLogo(id, large), contentDescription = null, modifier = Modifier.size(size), contentScale = ContentScale.Fit)
+    AsyncImage(model = teamLogo(id, large), contentDescription = null, modifier = Modifier.shared(shareKey).size(size), contentScale = ContentScale.Fit)
 }
 
 @Composable
@@ -146,11 +179,23 @@ fun Ltr(
         maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
 }
 
-/** Plain text in the site's body font. */
+/** Plain text in the site's body font; never smaller than 12sp so it stays readable. */
 @Composable
 fun T(text: String, size: Int = 14, w: FontWeight = FontWeight.Normal, color: Color = C.ink, modifier: Modifier = Modifier,
       maxLines: Int = Int.MAX_VALUE, align: TextAlign? = null) {
-    Text(text, modifier, color = color, style = vz(size.sp, w), maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
+    Text(text, modifier, color = color, style = vz(size.coerceAtLeast(12).sp, w), maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
+}
+
+/** A team's name as the user wants it: Persian when we know it and the setting is on, else FotMob's English. */
+fun teamName(id: Int, name: String): String = if (Store.faNames) faTeamName(id, name) ?: name else name
+
+/** Team name: Persian in the body font, or English ([short] when given) in the broadcast font. */
+@Composable
+fun TeamText(id: Int, name: String, modifier: Modifier = Modifier, size: Int = 14, w: FontWeight = FontWeight.Bold, color: Color = C.ink,
+             maxLines: Int = 1, align: TextAlign? = null, short: String? = null) {
+    val fa = if (Store.faNames) faTeamName(id, name) else null
+    if (fa != null) T(fa, size - 1, if (w >= FontWeight.Bold) FontWeight.ExtraBold else FontWeight.Bold, color, modifier, maxLines, align)
+    else Ltr(short ?: name, modifier, lat(size.sp, w), color, maxLines = maxLines, align = align)
 }
 
 /* ---------- surfaces ---------- */
@@ -265,7 +310,7 @@ fun Seg(options: List<Pair<String, String>>, selected: String, modifier: Modifie
                 badge[k]?.takeIf { it > 0 }?.let { n ->
                     Spacer(Modifier.width(6.dp))
                     Box(Modifier.heightIn(min = 18.dp).widthIn(min = 18.dp).clip(RoundedCornerShape(50)).background(C.live).padding(horizontal = 5.dp),
-                        contentAlignment = Alignment.Center) { T("$n", 10, FontWeight.Bold, Color.White) }
+                        contentAlignment = Alignment.Center) { Text(fa(n), color = Color.White, style = vz(10.sp, FontWeight.Bold)) }
                 }
             }
         }
@@ -322,6 +367,7 @@ fun IconBtn(icon: ImageVector, desc: String?, tint: Color = C.ink, bg: Color = C
 
 /* ---------- states ---------- */
 
+/** Loading placeholder shaped like what is coming: cards of match rows (crest, name, score box), with a moving shine. */
 @Composable
 fun Skeleton(rows: Int = 6, modifier: Modifier = Modifier) {
     val t = rememberInfiniteTransition(label = "sk")
@@ -330,9 +376,36 @@ fun Skeleton(rows: Int = 6, modifier: Modifier = Modifier) {
         listOf(C.card2, C.line2, C.card2),
         start = Offset(-600f + 1400f * x, 0f), end = Offset(-200f + 1400f * x, 0f),
     )
-    Column(modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        repeat(rows) { i ->
-            Box(Modifier.fillMaxWidth().height(if (i == 0) 96.dp else 60.dp).clip(RoundedCornerShape(16.dp)).background(brush))
+    val bar = @Composable { w: Dp, h: Dp, m: Modifier -> Box(m.size(w, h).clip(RoundedCornerShape(6.dp)).background(brush)) }
+    Column(modifier.padding(vertical = 8.dp).semantics { contentDescription = "در حال بارگذاری" }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        var left = rows.coerceAtLeast(2)
+        var card = 0
+        while (left > 0) {
+            val n = minOf(left, if (card == 0) 3 else 4)
+            left -= n
+            Card {
+                // league header: logo and name
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(22.dp).clip(CircleShape).background(brush))
+                    Spacer(Modifier.width(10.dp))
+                    bar(if (card % 2 == 0) 120.dp else 92.dp, 12.dp, Modifier)
+                }
+                repeat(n) { i ->
+                    Divider()
+                    Row(Modifier.fillMaxWidth().height(58.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        bar(30.dp, 10.dp, Modifier)
+                        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Box(Modifier.size(21.dp).clip(CircleShape).background(brush)); bar(if ((i + card) % 2 == 0) 64.dp else 48.dp, 11.dp, Modifier)
+                        }
+                        Box(Modifier.size(64.dp, 34.dp).clip(RoundedCornerShape(11.dp)).background(brush))
+                        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
+                            bar(if ((i + card) % 2 == 0) 52.dp else 70.dp, 11.dp, Modifier); Box(Modifier.size(21.dp).clip(CircleShape).background(brush))
+                        }
+                    }
+                }
+            }
+            card++
         }
     }
 }
@@ -351,11 +424,25 @@ fun ErrorView(onRetry: () -> Unit, text: String = "اتصال برقرار نش�
     }
 }
 
+/** Nothing to show: a big soft icon, a friendly line, an optional hint and a button that leads somewhere useful. */
 @Composable
-fun EmptyView(text: String, icon: ImageVector? = null) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 52.dp, horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        if (icon != null) { Icon(icon, null, Modifier.size(40.dp), tint = C.faint); Spacer(Modifier.height(12.dp)) }
-        T(text, 14, color = C.mute, align = TextAlign.Center)
+fun EmptyView(text: String, icon: ImageVector? = null, hint: String? = null, action: String? = null, onAction: (() -> Unit)? = null) {
+    val accent = LocalAccent.current
+    Column(Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        if (icon != null) {
+            Box(Modifier.size(76.dp).clip(CircleShape).background(accent.copy(alpha = 0.10f)).border(1.dp, accent.copy(alpha = 0.25f), CircleShape),
+                contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(34.dp), tint = accent) }
+            Spacer(Modifier.height(14.dp))
+        }
+        T(text, 15, FontWeight.ExtraBold, align = TextAlign.Center)
+        if (hint != null) T(hint, 13, color = C.mute, align = TextAlign.Center, modifier = Modifier.padding(top = 4.dp))
+        if (action != null && onAction != null) {
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.heightIn(min = 44.dp).glow(accent.copy(alpha = 0.3f), 8.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(accent)
+                .clickable(onClick = onAction).padding(horizontal = 22.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+                T(action, 14, FontWeight.Black, LocalAccentInk.current)
+            }
+        }
     }
 }
 
@@ -370,6 +457,8 @@ sealed interface Load<out T> {
 class Loader<T> {
     var state by mutableStateOf<Load<T>>(Load.Loading)
     var tick by mutableIntStateOf(0)
+    /** Bumped after every load attempt, good or bad (ends the pull-to-refresh spinner). */
+    var attempts by mutableIntStateOf(0)
     fun reload() { tick++ }
     val value: T? get() = (state as? Load.Ok<T>)?.v
 }
@@ -392,12 +481,35 @@ fun <T> rememberLoader(vararg keys: Any?, peek: (() -> T?)? = null, poll: (T) ->
                 } catch (e: Exception) {
                     if (l.state !is Load.Ok) l.state = Load.Err(e)
                 }
+                l.attempts++
                 val v = l.value ?: break
                 delay(poll(v) ?: break)
             }
         }
     }
     return l
+}
+
+/** Pull down to fetch fresh data for [loaders] (skipping the in-memory copies). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun Refreshable(vararg loaders: Loader<*>, content: @Composable () -> Unit) {
+    var busy by remember { mutableStateOf(false) }
+    val state = rememberPullToRefreshState()
+    val accent = LocalAccent.current
+    val done = loaders.sumOf { it.attempts }
+    var startedAt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(done) { if (busy && done >= startedAt + loaders.size) busy = false }
+    LaunchedEffect(busy) { if (busy) { delay(15_000); busy = false } }
+    PullToRefreshBox(
+        isRefreshing = busy,
+        onRefresh = { busy = true; startedAt = done; Api.invalidate(); loaders.forEach { it.reload() } },
+        modifier = Modifier.fillMaxSize(), state = state,
+        indicator = {
+            PullToRefreshDefaults.Indicator(state = state, isRefreshing = busy, modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = C.cardSolid, color = accent)
+        },
+    ) { content() }
 }
 
 @Composable
@@ -422,43 +534,58 @@ fun ScoreText(h: Int?, a: Int?, size: Int = 16, color: Color = C.ink, weight: Fo
 }
 
 @Composable
-fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: String? = null, star: Boolean = true, flash: Boolean = false, first: Boolean = false) {
+fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: String? = null, star: Boolean = true, flash: Boolean = false, first: Boolean = false,
+             crestFly: Boolean = false) {
     val accent = LocalAccent.current
     if (!first) Divider()
-    Box(Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = onClick)) {
+    // one sentence for screen readers instead of a dozen small pieces
+    val hn = teamName(m.home.id, m.home.name); val an = teamName(m.away.id, m.away.name)
+    val desc = when {
+        m.cancelled -> "$hn و $an، لغو شد"
+        m.live -> "$hn ${m.home.score ?: 0}، $an ${m.away.score ?: 0}، زنده، ${statusText(m)}"
+        m.finished -> "$hn ${m.home.score ?: 0}، $an ${m.away.score ?: 0}، پایان بازی"
+        else -> "$hn و $an، ${persianDate(m.time, "EEEE d MMMM")} ساعت ${timeOf(m.time)}"
+    } + (sub?.let { "، $it" } ?: "")
+    val datePlace = showDate && !m.live && dayKey(m.time) != dayKey(System.currentTimeMillis())
+    Box(Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = onClick)
+        .semantics { contentDescription = desc }) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 16.dp else 10.dp),
+            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 18.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             // status
-            Box(Modifier.width(42.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.width(if (datePlace) 50.dp else 44.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
                 val st = statusText(m).replace("بین دو نیمه", "نیمه")
                 when {
                     m.live -> Row(verticalAlignment = Alignment.CenterVertically) {
                         LiveDot(size = 6.dp); Spacer(Modifier.width(3.dp))
-                        Ltr(st, style = vz(11.sp, FontWeight.ExtraBold), color = C.live)
+                        Ltr(st, style = vz(12.sp, FontWeight.ExtraBold), color = C.live)
                     }
-                    st.isNotEmpty() -> T(st, 11, FontWeight.ExtraBold, C.mute, maxLines = 2, align = TextAlign.Center)
-                    showDate -> T(persianDate(m.time, "d MMM"), 11, FontWeight.ExtraBold, C.mute, maxLines = 2, align = TextAlign.Center)
+                    // another day: weekday over the date, so "which day?" needs no thinking
+                    datePlace -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        T(persianDate(m.time, "EEEE"), 12, FontWeight.ExtraBold, if (m.finished) C.mute else C.ink, maxLines = 1)
+                        T(persianDate(m.time, "d MMM"), 12, FontWeight.Medium, C.mute, maxLines = 1)
+                    }
+                    st.isNotEmpty() -> T(st, 12, FontWeight.ExtraBold, C.mute, maxLines = 2, align = TextAlign.Center)
                 }
             }
             val homeLose = m.finished && (m.home.score ?: 0) < (m.away.score ?: 0)
             val awayLose = m.finished && (m.away.score ?: 0) < (m.home.score ?: 0)
             // home (right)
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Crest(m.home.id, 21.dp)
-                Ltr(m.home.name, Modifier.weight(1f, false), style = lat(14.sp, if (homeLose) FontWeight.SemiBold else FontWeight.Bold), color = if (homeLose) C.mute else C.ink)
+            Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Crest(m.home.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-h" else null)
+                TeamText(m.home.id, m.home.name, Modifier.weight(1f, false), 14, if (homeLose) FontWeight.SemiBold else FontWeight.Bold, if (homeLose) C.mute else C.ink)
             }
-            ScoreBox(m)
+            Box(Modifier.clearAndSetSemantics {}) { ScoreBox(m) }
             // away (left): crest on the outer edge
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
-                Ltr(m.away.name, Modifier.weight(1f, false), style = lat(14.sp, if (awayLose) FontWeight.SemiBold else FontWeight.Bold), color = if (awayLose) C.mute else C.ink)
-                Crest(m.away.id, 21.dp)
+            Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
+                TeamText(m.away.id, m.away.name, Modifier.weight(1f, false), 14, if (awayLose) FontWeight.SemiBold else FontWeight.Bold, if (awayLose) C.mute else C.ink)
+                Crest(m.away.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-a" else null)
             }
             if (star) StarButton(Store.follows(m), { Store.toggleMatch(m.id) }, 16.dp, box = 26.dp) else Spacer(Modifier.width(26.dp))
         }
-        if (sub != null) T(sub, 10, color = C.faint, maxLines = 1, align = TextAlign.Center,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 2.dp, start = 50.dp, end = 34.dp))
+        if (sub != null) T(sub, 12, color = C.faint, maxLines = 1, align = TextAlign.Center,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 1.dp, start = 50.dp, end = 34.dp).clearAndSetSemantics {})
         // live minute progress along the bottom edge
         val min = m.minute.substringBefore('+').filter(Char::isDigit).toIntOrNull()
         if (m.live && min != null && min > 0) Box(

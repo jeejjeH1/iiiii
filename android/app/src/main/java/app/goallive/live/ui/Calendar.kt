@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import android.content.Intent
 import android.provider.CalendarContract
 import android.icu.util.Calendar
@@ -68,7 +73,9 @@ fun CalendarScreen() {
     val teams = buildList { Store.myTeam?.let { add(it.id to it.name) }; Store.teams.forEach { (id, n) -> if (none { it.first == id }) add(id to n) } }
     if (teams.isEmpty()) {
         Column(Modifier.fillMaxSize().padding(14.dp)) {
-            EmptyView("برای دیدن تقویم، اول «تیم من» را انتخاب کنید یا تیمی را دنبال کنید.", Ic.cal)
+            var picker by remember { mutableStateOf(false) }
+            EmptyView("تقویم شما خالی است", Ic.cal, "برای دیدن تقویم، اول «تیم من» را انتخاب کنید یا تیمی را دنبال کنید.", "انتخاب تیم محبوب") { picker = true }
+            if (picker) TeamPicker { picker = false }
         }
         return
     }

@@ -48,7 +48,21 @@ public class ScoreWidget extends AppWidgetProvider {
 
     @Override
     public void onDisabled(Context ctx) {
-        alarms(ctx).cancel(refreshIntent(ctx));
+        // the big and the small "my team" widgets share one refresh alarm
+        if (ids(ctx, ScoreWidget.class).length + ids(ctx, MiniWidget.class).length == 0) alarms(ctx).cancel(refreshIntent(ctx));
+    }
+
+    static int[] ids(Context ctx, Class<?> c) {
+        return AppWidgetManager.getInstance(ctx).getAppWidgetIds(new ComponentName(ctx, c));
+    }
+
+    /** Team name in Persian when the app knows it and the user wants Persian names. */
+    static String teamName(Context ctx, JSONObject t) {
+        String name = t.optString("name");
+        boolean fa = ctx.getSharedPreferences("goallive", Context.MODE_PRIVATE).getBoolean("faNames", true);
+        if (!fa) return name;
+        String f = app.goallive.live.data.TrKt.faTeamName((int) t.optLong("id"), name);
+        return f != null ? f : name;
     }
 
     /** Ask every placed widget to refresh (used when the app goes to the background). */
@@ -74,8 +88,9 @@ public class ScoreWidget extends AppWidgetProvider {
 
     private static void render(Context ctx) throws Exception {
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
-        int[] ids = mgr.getAppWidgetIds(new ComponentName(ctx, ScoreWidget.class));
-        if (ids.length == 0) return;
+        int[] ids = ids(ctx, ScoreWidget.class);
+        int[] mini = ids(ctx, MiniWidget.class);
+        if (ids.length == 0 && mini.length == 0) return;
 
         SharedPreferences prefs = ctx.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         String raw = prefs.getString("myTeam", null);
@@ -90,11 +105,15 @@ public class ScoreWidget extends AppWidgetProvider {
         JSONObject m = data.optJSONObject("match");
 
         RemoteViews v = base(ctx, team);
+        RemoteViews s = miniBase(ctx, team);
         if (m == null) {
             v.setViewVisibility(R.id.w_match, View.GONE);
             v.setViewVisibility(R.id.w_message, View.VISIBLE);
             v.setTextViewText(R.id.w_message, "فعلاً بازی‌ای برنامه‌ریزی نشده");
+            s.setTextViewText(R.id.w_score, "–");
+            s.setTextViewText(R.id.w_status, "بازی ندارد");
             mgr.updateAppWidget(ids, v);
+            mgr.updateAppWidget(mini, s);
             schedule(ctx, 60 * 60_000L);
             return;
         }
@@ -102,27 +121,31 @@ public class ScoreWidget extends AppWidgetProvider {
         v.setViewVisibility(R.id.w_match, View.VISIBLE);
         v.setViewVisibility(R.id.w_message, View.GONE);
         v.setTextViewText(R.id.w_league, m.optString("league"));
-        v.setTextViewText(R.id.w_home, home.optString("name"));
-        v.setTextViewText(R.id.w_away, away.optString("name"));
+        v.setTextViewText(R.id.w_home, teamName(ctx, home));
+        v.setTextViewText(R.id.w_away, teamName(ctx, away));
 
         long kickoff = m.optLong("kickoff");
-        if ("upcoming".equals(state)) {
-            v.setTextViewText(R.id.w_score, fa(new SimpleDateFormat("HH:mm", Locale.US).format(new Date(kickoff))));
-            v.setTextViewText(R.id.w_status, dayLabel(kickoff));
-            v.setTextColor(R.id.w_status, Color.parseColor("#CCFFFFFF"));
-        } else {
-            // home score on the right, like the app (RTL)
-            v.setTextViewText(R.id.w_score, fa(away.optInt("score") + " - " + home.optInt("score")));
-            boolean live = "live".equals(state);
-            String minute = m.optString("minute");
-            v.setTextViewText(R.id.w_status, live ? "● زنده " + fa("HT".equals(minute) ? "بین دو نیمه" : minute) : "پایان بازی");
-            v.setTextColor(R.id.w_status, live ? Color.parseColor("#FF4D6A") : Color.parseColor("#CCFFFFFF"));
-        }
         Bitmap hb = logo(home.optLong("id")), ab = logo(away.optLong("id"));
-        if (hb != null) v.setImageViewBitmap(R.id.w_home_logo, hb);
-        if (ab != null) v.setImageViewBitmap(R.id.w_away_logo, ab);
+        // the same score, time and crests on both sizes
+        for (RemoteViews r : new RemoteViews[]{v, s}) {
+            if ("upcoming".equals(state)) {
+                r.setTextViewText(R.id.w_score, fa(new SimpleDateFormat("HH:mm", Locale.US).format(new Date(kickoff))));
+                r.setTextViewText(R.id.w_status, dayLabel(kickoff));
+                r.setTextColor(R.id.w_status, Color.parseColor("#CCFFFFFF"));
+            } else {
+                // home score on the right, like the app (RTL)
+                r.setTextViewText(R.id.w_score, fa(away.optInt("score") + " - " + home.optInt("score")));
+                boolean live = "live".equals(state);
+                String minute = m.optString("minute");
+                r.setTextViewText(R.id.w_status, live ? "● زنده " + fa("HT".equals(minute) ? "بین دو نیمه" : minute) : "پایان بازی");
+                r.setTextColor(R.id.w_status, live ? Color.parseColor("#FF4D6A") : Color.parseColor("#CCFFFFFF"));
+            }
+            if (hb != null) r.setImageViewBitmap(R.id.w_home_logo, hb);
+            if (ab != null) r.setImageViewBitmap(R.id.w_away_logo, ab);
+        }
         v.setTextViewText(R.id.w_updated, "به‌روزرسانی " + fa(new SimpleDateFormat("HH:mm", Locale.US).format(new Date())));
         mgr.updateAppWidget(ids, v);
+        mgr.updateAppWidget(mini, s);
 
         // live: every minute; about to start: every 5 minutes; otherwise every half hour
         long untilKickoff = kickoff - System.currentTimeMillis();
@@ -142,9 +165,25 @@ public class ScoreWidget extends AppWidgetProvider {
         return v;
     }
 
+    private static RemoteViews miniBase(Context ctx, JSONObject team) {
+        RemoteViews v = new RemoteViews(ctx.getPackageName(), R.layout.widget_mini);
+        v.setOnClickPendingIntent(R.id.widget_root, openApp(ctx));
+        int color = Color.parseColor("#1B2A3A");
+        try { color = Color.parseColor(team.optString("color", "#1B2A3A")); } catch (Exception ignored) {}
+        v.setInt(R.id.w_bg, "setColorFilter", color);
+        return v;
+    }
+
     private static void showMessage(Context ctx, String text) {
         AppWidgetManager mgr = AppWidgetManager.getInstance(ctx);
-        int[] ids = mgr.getAppWidgetIds(new ComponentName(ctx, ScoreWidget.class));
+        int[] mini = ids(ctx, MiniWidget.class);
+        if (mini.length > 0) {
+            RemoteViews s = miniBase(ctx, new JSONObject());
+            s.setTextViewText(R.id.w_score, "⚽");
+            s.setTextViewText(R.id.w_status, text.length() > 16 ? "تیم من؟" : text);
+            mgr.updateAppWidget(mini, s);
+        }
+        int[] ids = ids(ctx, ScoreWidget.class);
         if (ids.length == 0) return;
         String raw = ctx.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE).getString("myTeam", "{}");
         JSONObject team;
@@ -156,7 +195,7 @@ public class ScoreWidget extends AppWidgetProvider {
         mgr.updateAppWidget(ids, v);
     }
 
-    private static PendingIntent openApp(Context ctx) {
+    static PendingIntent openApp(Context ctx) {
         Intent i = new Intent(ctx, MainActivity.class).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         return PendingIntent.getActivity(ctx, 0, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
@@ -166,7 +205,7 @@ public class ScoreWidget extends AppWidgetProvider {
         return PendingIntent.getBroadcast(ctx, 1, i, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
-    private static AlarmManager alarms(Context ctx) {
+    static AlarmManager alarms(Context ctx) {
         return (AlarmManager) ctx.getSystemService(Context.ALARM_SERVICE);
     }
 
@@ -175,7 +214,7 @@ public class ScoreWidget extends AppWidgetProvider {
         alarms(ctx).setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + delayMs, refreshIntent(ctx));
     }
 
-    private static String get(String url) throws Exception {
+    static String get(String url) throws Exception {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(10_000);
         c.setReadTimeout(10_000);
@@ -186,7 +225,7 @@ public class ScoreWidget extends AppWidgetProvider {
         }
     }
 
-    private static Bitmap logo(long id) {
+    static Bitmap logo(long id) {
         if (id <= 0) return null;
         try {
             HttpURLConnection c = (HttpURLConnection) new URL("https://images.fotmob.com/image_resources/logo/teamlogo/" + id + "_small.png").openConnection();
@@ -220,7 +259,7 @@ public class ScoreWidget extends AppWidgetProvider {
         return fa(String.valueOf(Math.max(days, 2))) + " روز دیگر";
     }
 
-    private static String fa(String s) {
+    static String fa(String s) {
         StringBuilder b = new StringBuilder(s.length());
         for (char ch : s.toCharArray()) b.append(ch >= '0' && ch <= '9' ? (char) ('۰' + (ch - '0')) : ch);
         return b.toString();

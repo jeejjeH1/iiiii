@@ -8,6 +8,11 @@ const start = core.indexOf('const P = {');
 const P = eval('(' + core.slice(core.indexOf('{', start), core.indexOf('\n};', start) + 2) + ')');
 // header buttons that only live in index.html
 P.sliders = '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>';
+// app-only icons: the "more" tab, live TV, voice commentary and help
+P.grid = '<rect x="4" y="4" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="2"/>';
+P.tv = '<rect x="3" y="7" width="18" height="13" rx="3"/><path d="M8 3l4 4 4-4"/>';
+P.mic = '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>';
+P.help = '<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4v.6M12 17h.01"/>';
 const attr = (el, k) => { const m = new RegExp(`\\b${k}="([^"]*)"`).exec(el); return m ? m[1] : null; };
 const n = (el, k) => +(attr(el, k) || 0);
 function toPath(el) {

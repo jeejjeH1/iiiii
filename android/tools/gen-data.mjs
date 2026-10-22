@@ -72,7 +72,7 @@ const fs0 = ex.indexOf('const FA_NAMES = {');
 const N = eval('(' + ex.slice(ex.indexOf('{', fs0), ex.indexOf('};', fs0) + 1) + ')');
 t += `
 /** Persian team names for the Aparat highlight search. */
-fun faTeamName(id: Int, name: String): String? = Clubs.get(id)?.fa ?: NAMES[name]
+fun faTeamName(id: Int, name: String): String? = Clubs.get(id)?.fa ?: NAMES[name] ?: TEAMS_FA[name]
 
 private val NAMES: Map<String, String> = hashMapOf(
 ${Object.entries(N).map(([a, b]) => `    ${ks(a)} to ${ks(b)},`).join('\n')}

@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +17,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +45,7 @@ suspend fun search(term: String): Found {
     return Found(of("team"), of("player"), of("league"), of("match"))
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen() {
     val nav = LocalNav.current
@@ -60,11 +67,20 @@ fun SearchScreen() {
         item { SearchField(q, "تیم، بازیکن یا لیگ…", autoFocus = true) { q = it } }
         val r = res
         when {
-            q.trim().length < 2 -> item { EmptyView("نام تیم، بازیکن یا لیگ را بنویسید", Ic.search) }
+            q.trim().length < 2 -> item {
+                EmptyView("دنبال چه می‌گردید؟", Ic.search, "نام تیم، بازیکن یا لیگ را بنویسید؛ یا یکی از این‌ها:")
+                // popular searches, one tap away
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for (w in listOf("Persepolis", "Esteghlal", "Real Madrid", "Barcelona", "Messi", "Ronaldo", "Taremi", "Premier League")) Pill(w, onClick = { q = w })
+                }
+            }
             busy && r == null -> item { Skeleton(5) }
             failed -> item { ErrorView({ retry++ }) }
             r == null -> {}
-            r.teams.isEmpty() && r.players.isEmpty() && r.leagues.isEmpty() && r.matches.isEmpty() -> item { EmptyView("نتیجه‌ای پیدا نشد", Ic.search) }
+            r.teams.isEmpty() && r.players.isEmpty() && r.leagues.isEmpty() && r.matches.isEmpty() -> item {
+                EmptyView("نتیجه‌ای برای «${q.trim()}» پیدا نشد", Ic.search, "املای انگلیسی را امتحان کنید؛ مثلاً Sepahan یا Mbappe.", "پاک کردن جستجو") { q = "" }
+            }
             else -> {
                 if (r.teams.isNotEmpty()) item {
                     SectionTitle("تیم‌ها")

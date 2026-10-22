@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,20 +19,28 @@ import app.goallive.live.data.Store
 @Composable
 fun FollowingScreen() {
     val nav = LocalNav.current
+    var picker by remember { mutableStateOf(false) }
+    if (picker) TeamPicker { picker = false }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
         if (Store.teams.isEmpty() && Store.leagues.isEmpty() && Store.myTeam == null) {
-            item { EmptyView("هنوز چیزی دنبال نکرده‌اید.\nروی ستاره کنار تیم‌ها، لیگ‌ها و بازی‌ها بزنید تا اینجا جمع شوند و اعلان گل و ترکیبشان را بگیرید.", Ic.star) }
+            item {
+                EmptyView("هنوز چیزی دنبال نکرده‌اید", Ic.star,
+                    hint = "روی ستاره کنار تیم‌ها، لیگ‌ها و بازی‌ها بزنید تا اینجا جمع شوند و اعلان گل و ترکیبشان را بگیرید.",
+                    action = "انتخاب تیم محبوب") { picker = true }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    T("یا لیگ‌ها را ببینید", 13, FontWeight.Bold, LocalAccent.current, Modifier.clip(RoundedCornerShape(50)).clickable { nav.tab("leagues") }.padding(10.dp))
+                }
+            }
             return@LazyColumn
         }
         Store.myTeam?.let { t -> item { MyTeamCard(t.id, t.name) } }
-        item { FeatureTiles() }
         if (Store.teams.isNotEmpty()) item {
             SectionTitle("تیم‌ها")
             Card {
                 Store.teams.entries.forEachIndexed { i, (id, name) ->
                     ListRow(first = i == 0, onClick = { nav.team(id) }) {
                         Crest(id, 34.dp)
-                        if (Clubs.get(id) != null) T(Clubs.get(id)!!.fa, 14, FontWeight.Bold, modifier = Modifier.weight(1f)) else Ltr(name, Modifier.weight(1f))
+                        TeamText(id, name, Modifier.weight(1f), 15)
                         StarButton(true, { Store.toggleTeam(id, name) })
                     }
                 }

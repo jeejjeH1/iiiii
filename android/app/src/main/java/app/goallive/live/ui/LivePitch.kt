@@ -79,7 +79,7 @@ fun LivePitch(m: MatchData) {
         Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             if (m.live) Pill(if (m.minute == "HT") "بین دو نیمه" else "زنده · ${m.minute}", PillKind.Live, dot = true) else Pill(if (m.finished) "پایان بازی" else "شروع نشده")
             Spacer(Modifier.weight(1f))
-            Ltr("← ${m.homeName}", style = vz(12.sp, FontWeight.Bold), color = m.homeColor)
+            Ltr("← ${teamName(m.homeId, m.homeName)}", style = vz(12.sp, FontWeight.Bold), color = m.homeColor)
         }
         Box(Modifier.fillMaxWidth().aspectRatio(105f / 68f).clip(RoundedCornerShape(16.dp))) {
             Canvas(Modifier.fillMaxSize()) {

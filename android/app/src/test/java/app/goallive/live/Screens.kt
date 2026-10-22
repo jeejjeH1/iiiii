@@ -13,7 +13,9 @@ import androidx.test.core.app.ApplicationProvider
 import app.goallive.live.data.Api
 import app.goallive.live.data.Store
 import app.goallive.live.data.parseMatchList
+import app.goallive.live.ui.Look
 import app.goallive.live.ui.NavHook
+import app.goallive.live.ui.teamName
 import app.goallive.live.ui.Root
 import app.goallive.live.ui.dayKey
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -56,8 +58,8 @@ class Screens {
             .onFailure { runCatching { rule.onAllNodes(androidx.compose.ui.test.isRoot())[0].captureRoboImage("build/screens/$name.png") } }
     }
 
-    private fun tap(text: String) {
-        val n = rule.onAllNodesWithText(text, substring = true)
+    private fun tap(text: String, exact: Boolean = false) {
+        val n = rule.onAllNodesWithText(text, substring = !exact)
         // call the click action directly: tabs scrolled out of view can't be touched
         // the last match is the control further down the page (team names also appear in the hero)
         val count = n.fetchSemanticsNodes().size
@@ -85,16 +87,18 @@ class Screens {
         settle(9000); shot("01-home")
         if (match != null) {
             NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")
-            tap("زمین زنده"); settle(3000); shot("02b-match-pitch")
-            tap("آمار"); settle(3000); shot("03-match-stats")
-            tap("شوت‌ها"); settle(3000); shot("03b-match-shots")
-            tap("ترکیب"); settle(3000); shot("04-match-lineup")
-            tap(match.home.name); settle(2000); shot("04c-lineup-one-team")
+            tap("زنده", exact = true); settle(3000); shot("02b-match-pitch")
+            tap("گزارش متنی", exact = true); settle(4000); shot("02c-match-commentary")
+            tap("آمار", exact = true); settle(3000); shot("03-match-stats")
+            tap("شوت‌ها", exact = true); settle(3000); shot("03b-match-shots")
+            tap("بازیکنان", exact = true); settle(3000); shot("04b-match-players")
+            tap("ترکیب", exact = true); settle(3000); shot("04-match-lineup")
+            tap(teamName(match.home.id, match.home.name), exact = true); settle(2000); shot("04c-lineup-one-team")
             tap("فهرست"); settle(1500); shot("04d-lineup-list")
-            tap("بازیکنان"); settle(3000); shot("04b-match-players")
-            tap("مربی تو"); settle(6000); shot("04e-coach")
-            tap("رودررو"); settle(3000); shot("05-match-h2h")
-            tap("جدول"); settle(6000); shot("06-match-table")
+            tap("مربی تو"); settle(3000); shot("04e-coach-guide")
+            tap("فهمیدم"); settle(4000); shot("04e-coach")
+            tap("رودررو", exact = true); settle(3000); shot("05-match-h2h")
+            tap("جدول", exact = true); settle(6000); shot("06-match-table")
         }
         NavHook.nav?.team(8634); settle(9000); shot("07-team")
         tap("تاریخچه"); settle(2000); shot("08-team-story")
@@ -102,13 +106,21 @@ class Screens {
         NavHook.nav?.tab("leagues"); settle(7000); shot("10-leagues")
         NavHook.nav?.tab("settings"); settle(1500); shot("11-settings")
         NavHook.nav?.tab("following"); settle(4000); shot("12-following")
+        NavHook.nav?.tab("more"); settle(2000); shot("12b-more")
+        NavHook.nav?.tab("search"); settle(2000); shot("12c-search-empty")
         NavHook.nav?.quiz(); settle(9000); shot("13-quiz")
         tap("۱"); tap("۲"); settle(1500); shot("13b-quiz-answered")
         NavHook.nav?.calendar(); settle(8000); shot("14-calendar")
         NavHook.nav?.compare(30981, 737066); settle(12000); shot("15-compare")
         // fantasy: pick the Premier League and buy a few players through the picker
-        NavHook.nav?.fantasy(); settle(2000); shot("16-fantasy-start")
+        NavHook.nav?.fantasy(); settle(2000); shot("16-fantasy-guide")
+        tap("فهمیدم"); settle(1500); shot("16-fantasy-start")
         tap("لیگ برتر انگلیس"); settle(25000); shot("17-fantasy")
         tap("+ افزودن"); settle(2500); shot("18-fantasy-picker")
+        // the day look ("بازی روز")
+        Store.setTheme("light"); Look.mode = "light"
+        NavHook.nav?.tab("home"); settle(6000); shot("19-home-light")
+        if (match != null) { NavHook.nav?.match(match.id); settle(6000); shot("20-match-light") }
+        NavHook.nav?.tab("settings"); settle(1500); shot("21-settings-light")
     }
 }

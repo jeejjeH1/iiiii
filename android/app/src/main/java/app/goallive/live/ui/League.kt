@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -125,7 +130,7 @@ fun TableRows(rows: List<JSONObject>, kind: String, legend: List<JSONObject>, hi
             }
             Row(Modifier.weight(1f).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Crest(id, 24.dp)
-                Ltr(r.s("shortName") ?: r.s("name") ?: "", Modifier.weight(1f, false), style = lat(15.sp), color = if (hl) accent else C.ink)
+                TeamText(id, r.s("name") ?: "", Modifier.weight(1f, false), 15, FontWeight.Bold, if (hl) accent else C.ink, short = r.s("shortName"))
                 if (r.optBoolean("ongoing")) LiveDot()
             }
             if (xg) {
@@ -148,7 +153,7 @@ fun TableRows(rows: List<JSONObject>, kind: String, legend: List<JSONObject>, hi
 fun LeagueScreen(id: Int) {
     var season by rememberSaveable { mutableStateOf("") }
     val l = rememberLoader(id, season) { Api.fm("leagues", mapOf("id" to id, "ccode3" to "IRN", "season" to season.ifEmpty { null }), 120_000) }
-    LoadBox(l) { d -> LeagueBody(id, d) { season = it } }
+    Refreshable(l) { LoadBox(l) { d -> LeagueBody(id, d) { season = it } } }
 }
 
 @Composable

@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -124,11 +129,16 @@ fun CoachTab(m: MatchData) {
             .border(1.dp, C.line2, RoundedCornerShape(22.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        T("🧠 مربی تو هستی", 18, FontWeight.Black)
+        var help by rememberTip("coach")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T("🧠 مربی تو هستی", 18, FontWeight.Black, modifier = Modifier.weight(1f))
+            HelpButton { help = true }
+        }
+        if (help) HowToSheet("🧠", "مربی تو هستی چطور کار می‌کند؟", COACH_STEPS, onClose = { Store.markTip("coach"); help = false })
         T(if (!locked) "ترکیب و سیستم $teamName را خودت بچین. بعد از اعلام ترکیب رسمی و در طول بازی، تصمیم‌هایت با سرمربی واقعی مقایسه می‌شود."
             else "بازی شروع شده و ترکیبت قفل شد. حالا می‌توانی تعویض‌هایت را ثبت کنی.", 13, color = C.ink.copy(alpha = 0.85f))
     }
-    if (!locked && plan.xi.isEmpty()) Seg(listOf("h" to m.homeName, "a" to m.awayName), if (plan.team == m.homeId) "h" else "a") {
+    if (!locked && plan.xi.isEmpty()) Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), if (plan.team == m.homeId) "h" else "a") {
         plan = Plan(if (it == "h") m.homeId else m.awayId, plan.formation, mutableListOf(), mutableListOf()); changed()
     }
     if (!locked) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {

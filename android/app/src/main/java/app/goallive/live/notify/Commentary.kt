@@ -8,10 +8,8 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.media.AudioAttributes
 import android.os.Build
 import android.os.IBinder
-import android.speech.tts.TextToSpeech
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -41,7 +39,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.util.Locale
 import kotlin.math.abs
 import kotlin.random.Random
 
@@ -64,13 +61,20 @@ object Commentary {
         if (now.isEmpty()) ctx.stopService(i) else ContextCompat.startForegroundService(ctx, i)
     }
 
+    /** "امتحان صدا" in settings: one line with the chosen voice, outside the service. */
+    fun test(ctx: Context) {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        val sp = Speaker(ctx, scope)
+        sp.say("گل! چه گلی! این صدای گزارشگر گل‌لایو است.")
+        scope.launch { sp.awaitIdle(); delay(500); sp.close(); scope.cancel() }
+    }
+
     fun stopAll(ctx: Context) { matches = emptySet(); ctx.stopService(Intent(ctx, CommentaryService::class.java)) }
 }
 
 class CommentaryService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var tts: TextToSpeech? = null
-    private var ready = false
+    private lateinit var speaker: Speaker
     private var loop: Job? = null
     private val state = HashMap<Int, Snap>()
     private val rnd = Random(System.currentTimeMillis())
@@ -88,18 +92,7 @@ class CommentaryService : Service() {
             .createNotificationChannel(NotificationChannel(CH, "گزارش صوتی", NotificationManager.IMPORTANCE_LOW))
         val n = notification("در حال آماده‌سازی گزارشگر…")
         ServiceCompat.startForeground(this, 77, n, if (Build.VERSION.SDK_INT >= 29) ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0)
-        tts = TextToSpeech(this) { status ->
-            val t = tts ?: return@TextToSpeech
-            val r = if (status == TextToSpeech.SUCCESS) t.setLanguage(Locale("fa", "IR")) else TextToSpeech.LANG_NOT_SUPPORTED
-            if (r == TextToSpeech.LANG_MISSING_DATA || r == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Commentary.problem = "صدای فارسی روی گوشی نصب نیست"
-            } else {
-                Commentary.problem = null
-                t.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-                t.setSpeechRate(1.08f)
-                ready = true
-            }
-        }
+        speaker = Speaker(this, scope)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -110,18 +103,13 @@ class CommentaryService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
-        tts?.stop(); tts?.shutdown()
+        speaker.close()
         super.onDestroy()
     }
 
-    private fun say(text: String) {
-        if (!ready) return
-        tts?.speak(text.replace("'", ""), TextToSpeech.QUEUE_ADD, null, "c${System.nanoTime()}")
-    }
+    private fun say(text: String) = speaker.say(text)
 
     private suspend fun run() {
-        // wait a little for the voice engine
-        repeat(20) { if (!ready && Commentary.problem == null) delay(250) }
         while (scope.isActive) {
             val ids = Commentary.matches
             if (ids.isEmpty()) { stopSelf(); return }

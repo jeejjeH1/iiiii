@@ -27,6 +27,14 @@ object Store {
     var notifyLineups by mutableStateOf(true); private set
     var notifyStartEnd by mutableStateOf(true); private set
 
+    /** Team names in Persian (پرسپولیس) instead of the broadcast English (Persepolis). */
+    var faNames by mutableStateOf(true); private set
+    /** Voice for the live commentary: "auto" (phone voice when it speaks Persian, else online), "phone" or "online". */
+    var voice by mutableStateOf("auto"); private set
+    /** Online commentator: "farid" (male) or "dilara" (female). */
+    var voiceName by mutableStateOf("farid"); private set
+    var theme by mutableStateOf("dark"); private set
+
     /** Called whenever follows change, so the alert checker can start or stop. */
     var onFollowChange: (() -> Unit)? = null
 
@@ -42,7 +50,22 @@ object Store {
         notifyGoals = p.getBoolean("nGoals", true)
         notifyLineups = p.getBoolean("nLineups", true)
         notifyStartEnd = p.getBoolean("nStartEnd", true)
+        faNames = p.getBoolean("faNames", true)
+        voice = p.getString("voice", "auto")!!
+        voiceName = p.getString("voiceName", "farid")!!
+        theme = p.getString("theme", "dark")!!
     }
+
+    fun setFaNames(on: Boolean) { faNames = on; p.edit().putBoolean("faNames", on).apply() }
+    fun setVoice(mode: String = voice, name: String = voiceName) {
+        voice = mode; voiceName = name
+        p.edit().putString("voice", mode).putString("voiceName", name).apply()
+    }
+    fun setTheme(t: String) { theme = t; p.edit().putString("theme", t).apply() }
+
+    /** One-time how-to sheets. */
+    fun tipSeen(key: String) = p.getBoolean("tip_$key", false)
+    fun markTip(key: String) { p.edit().putBoolean("tip_$key", true).apply() }
 
     private fun readMap(key: String): Map<Int, String> = runCatching {
         val o = JSONObject(p.getString(key, "{}")!!)

@@ -3,9 +3,13 @@ package app.goallive.live.ui
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
@@ -18,30 +22,41 @@ import androidx.compose.ui.unit.sp
 import app.goallive.live.R
 import app.goallive.live.data.Club
 
-// The site's "floodlights" palette (assets/app.css :root).
+/** Light or dark look ("بازی روز" / "بازی شبانه"); every color in [C] follows it, so switching recomposes the whole app. */
+object Look {
+    /** "dark", "light" or "auto" (follow the phone). */
+    var mode by mutableStateOf("dark")
+    var systemDark by mutableStateOf(true)
+    val light get() = if (mode == "auto") !systemDark else mode == "light"
+}
+
+private fun pick(dark: Long, light: Long) = if (Look.light) Color(light) else Color(dark)
+
+// The site's "floodlights" palette (assets/app.css :root) and its day-match variant (:root[data-theme="light"]).
 object C {
-    val bg = Color(0xFF05070A)
-    val bg2 = Color(0xFF0A0E13)
-    val card = Color(0xFF0E1318)          // --card-solid at 92% over --bg
-    val cardSolid = Color(0xFF0F141A)
-    val card2 = Color(0x12FFFFFF)         // rgba(255,255,255,.07)
-    val ink = Color(0xFFF3F6F8)
-    val text = ink
-    val mute = Color(0xFF8D97A3)
-    val faint = Color(0xFF56606B)
-    val line = Color(0x14FFFFFF)          // .08
-    val line2 = Color(0x24FFFFFF)         // .14
+    val bg get() = pick(0xFF05070A, 0xFFE9EEE9)
+    val bg2 get() = pick(0xFF0A0E13, 0xFFF4F7F3)
+    val card get() = pick(0xFF0E1318, 0xFFFFFFFF)          // --card-solid at 92% over --bg
+    val cardSolid get() = pick(0xFF0F141A, 0xFFFFFFFF)
+    val card2 get() = pick(0x12FFFFFF, 0x0D0A1E0F)         // rgba(255,255,255,.07)
+    val ink get() = pick(0xFFF3F6F8, 0xFF0B130D)
+    val text get() = ink
+    // a little brighter than the site's greys so small text stays readable
+    val mute get() = pick(0xFF9AA4AF, 0xFF56645A)
+    val faint get() = pick(0xFF6E7883, 0xFF7E8A82)
+    val line get() = pick(0x14FFFFFF, 0x140A1E0F)          // .08
+    val line2 get() = pick(0x24FFFFFF, 0x240A1E0F)         // .14
     val live = Color(0xFFFF3358)
     val liveSoft = Color(0x24FF3358)
-    val gold = Color(0xFFFFC53D)
-    val win = Color(0xFF2FD673)
+    val gold get() = pick(0xFFFFC53D, 0xFFD99A00)
+    val win get() = pick(0xFF2FD673, 0xFF16A34A)
     val draw = Color(0xFF7D8792)
     val loss = Color(0xFFFF4D6A)
     val home = Color(0xFF4F8BFF)
     val away = Color(0xFFFF8A3D)
-    val pitch = Color(0xFF1F7A3E)
-    val pitch2 = Color(0xFF23874A)
-    val yellow = gold
+    val pitch get() = pick(0xFF1F7A3E, 0xFF2A9A52)
+    val pitch2 get() = pick(0xFF23874A, 0xFF30A85B)
+    val yellow get() = gold
     val red = live
 }
 
@@ -54,8 +69,8 @@ data class Accent(val c: Color) {
 
 val Lime = Color(0xFFC6FF3D)
 val DefaultAccent = Lime
-val LocalAccent = staticCompositionLocalOf { Lime }
-val LocalAccentInk = staticCompositionLocalOf { Color(0xFF0B1200) }
+val LocalAccent = compositionLocalOf { Lime }
+val LocalAccentInk = compositionLocalOf { Color(0xFF0B1200) }
 
 val Vazir = FontFamily(
     Font(R.font.vazir_regular, FontWeight.Normal),
@@ -95,7 +110,8 @@ private val Type = Typography(
 @Composable
 fun GoalLiveTheme(accent: Color, content: @Composable () -> Unit) {
     val a = Accent(accent)
-    val scheme = darkColorScheme(
+    val base = if (Look.light) lightColorScheme() else darkColorScheme()
+    val scheme = base.copy(
         primary = accent, onPrimary = a.ink, secondary = accent, background = C.bg, onBackground = C.ink,
         surface = C.cardSolid, onSurface = C.ink, surfaceVariant = C.cardSolid, onSurfaceVariant = C.mute, outline = C.line2,
         surfaceContainer = C.cardSolid, surfaceContainerHigh = C.cardSolid, surfaceContainerLow = C.cardSolid, error = C.live,
@@ -106,6 +122,14 @@ fun GoalLiveTheme(accent: Color, content: @Composable () -> Unit) {
             content = content,
         )
     }
+}
+
+/** The site's light theme swaps the lime default for green, and very light club colors get darker so they read on white. */
+fun accentForLook(c: Color): Color = when {
+    !Look.light -> c
+    c == Lime -> Color(0xFF16A34A)
+    lum(c) > 0.55f -> darken(c, 0.62f)
+    else -> c
 }
 
 fun lum(c: Color) = 0.2126f * c.red + 0.7152f * c.green + 0.0722f * c.blue

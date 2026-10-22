@@ -183,21 +183,3 @@ fun WebScreen(key: String) {
         )
     }
 }
-
-/** Home shortcut: the live-streaming services as one row of chips. */
-@Composable
-fun StationsCard() {
-    val nav = LocalNav.current
-    Card(Modifier.padding(top = 10.dp)) {
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LiveDot()
-            T("پخش زنده", 14, FontWeight.Black)
-            T("داخل گل‌لایو، با حساب خودتان", 11, color = C.mute, maxLines = 1)
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()).padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            STATIONS.forEach { st -> Pill(st.name, if (st.key == "namava") PillKind.Live else PillKind.Plain, onClick = { nav.web(st.key) }, icon = Ic.live) }
-        }
-    }
-}

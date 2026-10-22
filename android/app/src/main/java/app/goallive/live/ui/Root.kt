@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -64,6 +69,21 @@ import androidx.navigation.navArgument
 import app.goallive.live.data.Clubs
 import app.goallive.live.data.Store
 import kotlinx.coroutines.delay
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.navigation.NamedNavArgument
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavGraphBuilder
+import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 
 /** Room left at the bottom of every list for the floating nav bar (and the system navigation bar under it). */
 val BottomSpace: androidx.compose.ui.unit.Dp
@@ -73,16 +93,27 @@ private val TABS = listOf(
     Triple("home", "بازی‌ها", { Ic.ball }),
     Triple("leagues", "لیگ‌ها", { Ic.trophy }),
     Triple("following", "دنبال‌شده‌ها", { Ic.star }),
-    Triple("search", "جستجو", { Ic.search }),
+    Triple("more", "بیشتر", { Ic.grid }),
 )
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Root(openMatch: MutableIntState) {
     val nc = rememberNavController()
     val nav = remember(nc) { Nav(nc) }
     NavHook.nav = nav
+    Look.systemDark = isSystemInDarkTheme()
     val my = Store.myTeam
-    val accent = if (my == null) Lime else accentFor(Clubs.get(my.id), my.color)
+    val accent = accentForLook(if (my == null) Lime else accentFor(Clubs.get(my.id), my.color))
+    // status bar icons: light on the night look, dark on the day look
+    val activity = LocalContext.current as? ComponentActivity
+    val light = Look.light
+    LaunchedEffect(light) {
+        activity?.enableEdgeToEdge(
+            statusBarStyle = if (light) SystemBarStyle.light(0, 0) else SystemBarStyle.dark(0),
+            navigationBarStyle = if (light) SystemBarStyle.light(0xFFE9EEE9.toInt(), 0) else SystemBarStyle.dark(0xFF0B0F14.toInt()),
+        )
+    }
 
     GoalLiveTheme(accent) {
         CompositionLocalProvider(LocalNav provides nav) {
@@ -94,6 +125,8 @@ fun Root(openMatch: MutableIntState) {
                     // the in-app streaming browser has its own header and uses the whole screen
                     val immersive = route?.startsWith("web/") == true
                     if (!immersive) TopBar(canBack = route != null && TABS.none { it.first == route }, nav)
+                    SharedTransitionLayout(Modifier.fillMaxSize()) {
+                    CompositionLocalProvider(LocalShared provides this) {
                     NavHost(
                         nc, "home", Modifier.fillMaxSize(),
                         // the site's view transition: fade in while rising a little
@@ -102,22 +135,25 @@ fun Root(openMatch: MutableIntState) {
                         popEnterTransition = { fadeIn(tween(250)) },
                         popExitTransition = { fadeOut(tween(150)) },
                     ) {
-                        composable("home") { HomeScreen() }
-                        composable("leagues") { LeaguesScreen() }
-                        composable("following") { FollowingScreen() }
-                        composable("settings") { SettingsScreen() }
-                        composable("search") { SearchScreen() }
-                        composable("match/{id}", listOf(navArgument("id") { type = NavType.IntType })) { MatchScreen(it.arguments?.getInt("id") ?: 0) }
-                        composable("team/{id}", listOf(navArgument("id") { type = NavType.IntType })) { TeamScreen(it.arguments?.getInt("id") ?: 0) }
-                        composable("league/{id}", listOf(navArgument("id") { type = NavType.IntType })) { LeagueScreen(it.arguments?.getInt("id") ?: 0) }
-                        composable("compare/{a}/{b}", listOf(navArgument("a") { type = NavType.IntType }, navArgument("b") { type = NavType.IntType })) {
+                        screen("home") { HomeScreen() }
+                        screen("leagues") { LeaguesScreen() }
+                        screen("following") { FollowingScreen() }
+                        screen("settings") { SettingsScreen() }
+                        screen("search") { SearchScreen() }
+                        screen("more") { MoreScreen() }
+                        screen("match/{id}", listOf(navArgument("id") { type = NavType.IntType })) { MatchScreen(it.arguments?.getInt("id") ?: 0) }
+                        screen("team/{id}", listOf(navArgument("id") { type = NavType.IntType })) { TeamScreen(it.arguments?.getInt("id") ?: 0) }
+                        screen("league/{id}", listOf(navArgument("id") { type = NavType.IntType })) { LeagueScreen(it.arguments?.getInt("id") ?: 0) }
+                        screen("compare/{a}/{b}", listOf(navArgument("a") { type = NavType.IntType }, navArgument("b") { type = NavType.IntType })) {
                             CompareScreen(it.arguments?.getInt("a") ?: 0, it.arguments?.getInt("b") ?: 0)
                         }
-                        composable("quiz") { QuizScreen() }
-                        composable("fantasy") { FantasyScreen() }
-                        composable("web/{key}") { WebScreen(it.arguments?.getString("key") ?: "namava") }
-                        composable("calendar") { CalendarScreen() }
-                        composable("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
+                        screen("quiz") { QuizScreen() }
+                        screen("fantasy") { FantasyScreen() }
+                        screen("web/{key}") { WebScreen(it.arguments?.getString("key") ?: "namava") }
+                        screen("calendar") { CalendarScreen() }
+                        screen("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
+                    }
+                    }
                     }
                     // after NavHost has set its graph: open the match a notification pointed at
                     LaunchedEffect(openMatch.intValue) {
@@ -136,6 +172,10 @@ fun Root(openMatch: MutableIntState) {
         }
     }
 }
+
+/** A destination whose animation scope is handed down, so its crests can take part in shared element transitions. */
+private fun NavGraphBuilder.screen(route: String, arguments: List<NamedNavArgument> = emptyList(), content: @Composable (NavBackStackEntry) -> Unit) =
+    composable(route, arguments) { entry -> CompositionLocalProvider(LocalAnimScope provides this) { content(entry) } }
 
 /** ".top": back (on inner pages), the brand with its LIVE tag, search and settings. */
 @Composable
@@ -173,14 +213,14 @@ private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
             TABS.forEach { (r, label, icon) ->
                 val on = r == route
                 Column(
-                    Modifier.weight(1f).fillMaxHeight().then(if (on) Modifier.glow(accent.copy(alpha = 0.35f), 8.dp, RoundedCornerShape(18.dp)) else Modifier)
+                    Modifier.weight(1f).fillMaxHeight().semantics(mergeDescendants = true) { role = Role.Tab; selected = on; contentDescription = label }.then(if (on) Modifier.glow(accent.copy(alpha = 0.35f), 8.dp, RoundedCornerShape(18.dp)) else Modifier)
                         .clip(RoundedCornerShape(18.dp)).background(if (on) accent else Color.Transparent).clickable { if (!on) nav.tab(r) },
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                 ) {
                     val c = if (on) LocalAccentInk.current else C.mute
-                    Icon(icon(), null, Modifier.size(22.dp), tint = c)
-                    Spacer(Modifier.height(2.dp))
-                    T(label, 10, FontWeight.Bold, c, maxLines = 1)
+                    Icon(icon(), null, Modifier.size(21.dp), tint = c)
+                    Spacer(Modifier.height(1.dp))
+                    T(label, 12, FontWeight.Bold, c, maxLines = 1)
                 }
             }
         }

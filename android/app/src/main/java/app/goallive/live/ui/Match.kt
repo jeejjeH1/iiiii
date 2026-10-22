@@ -1,5 +1,10 @@
 package app.goallive.live.ui
 
+import androidx.compose.foundation.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.*
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.core.Animatable
@@ -68,6 +73,7 @@ import app.goallive.live.data.Api
 import app.goallive.live.data.Clubs
 import app.goallive.live.data.Comps
 import app.goallive.live.data.Store
+import app.goallive.live.data.faTeamName
 import app.goallive.live.data.a
 import app.goallive.live.data.b
 import app.goallive.live.data.cleanMinute
@@ -139,26 +145,34 @@ fun MatchScreen(id: Int) {
         peek = { (Api.peek(url) as? JSONObject)?.let(::MatchData) },
         poll = { m -> if (m.live) 20_000L else if (!m.finished && m.time - System.currentTimeMillis() < 2 * 3_600_000) 60_000L else null },
     ) { MatchData(Api.fm("matchDetails", mapOf("matchId" to id), 15_000)) }
-    LoadBox(l, 6) { m -> MatchBody(m) }
+    Box(Modifier.fillMaxSize()) {
+        Refreshable(l) { LoadBox(l, 6) { m -> MatchBody(m) } }
+        l.value?.let { m -> GoalCelebration(rememberGoal(m)) }
+    }
 }
 
 @Composable
 private fun MatchBody(m: MatchData) {
     var tab by rememberSaveable { mutableStateOf("summary") }
+    // fewer, bigger tabs: related views live together behind a small switch inside the tab
+    var liveView by rememberSaveable { mutableStateOf("pitch") }
+    var statsView by rememberSaveable { mutableStateOf("team") }
+    val statViews = buildList {
+        if (m.hasStats) add("team" to "آمار تیمی")
+        if (m.shots.isNotEmpty()) add("shots" to "شوت‌ها")
+        if (m.hasPlayers) add("players" to "بازیکنان")
+    }
     val tabs = buildList {
         add("summary" to "خلاصه")
-        if (m.started || m.finished) add("video" to "🎬 ویدیو")
-        if (m.started) add("pitch" to "زمین زنده")
-        if (m.started) add("live" to "گزارش زنده")
-        if (m.hasStats) add("stats" to "آمار")
-        if (m.shots.isNotEmpty()) add("shots" to "شوت‌ها")
+        if (m.started) add("live" to "زنده")
+        if (statViews.isNotEmpty()) add("stats" to "آمار")
         if (m.hasLineup) add("lineup" to "ترکیب")
-        if (m.hasPlayers) add("players" to "بازیکنان")
         if (!m.cancelled) add("coach" to "🧠 مربی تو")
         if (m.hasTable) add("table" to "جدول")
         if (m.hasH2h) add("h2h" to "رودررو")
     }
     if (tabs.none { it.first == tab }) tab = "summary"
+    if (statViews.none { it.first == statsView }) statsView = statViews.firstOrNull()?.first ?: "team"
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         item { Hero(m) }
         stickyTabs(tabs, tab) { tab = it }
@@ -166,13 +180,19 @@ private fun MatchBody(m: MatchData) {
             Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (tab) {
                     "summary" -> Summary(m)
-                    "video" -> Highlights(m)
-                    "pitch" -> LivePitch(m)
-                    "live" -> Commentary(m)
-                    "stats" -> StatsTab(m)
-                    "shots" -> ShotsTab(m)
+                    "live" -> {
+                        Seg(listOf("pitch" to "زمین زنده", "text" to "گزارش متنی"), liveView, icons = mapOf("pitch" to Ic.stadium, "text" to Ic.list)) { liveView = it }
+                        if (liveView == "pitch") LivePitch(m) else Commentary(m)
+                    }
+                    "stats" -> {
+                        if (statViews.size > 1) Seg(statViews, statsView) { statsView = it }
+                        when (statsView) {
+                            "shots" -> ShotsTab(m)
+                            "players" -> PlayersTab(m)
+                            else -> StatsTab(m)
+                        }
+                    }
                     "lineup" -> LineupTab(m)
-                    "players" -> PlayersTab(m)
                     "coach" -> CoachTab(m)
                     "table" -> MatchTable(m)
                     "h2h" -> H2h(m, 50)
@@ -239,7 +259,7 @@ private fun Hero(m: MatchData) {
             }
             Clubs.derby(m.homeId, m.awayId)?.let { T("⚡ $it ⚡", 13, FontWeight.Black, C.gold, Modifier.padding(top = 10.dp)) }
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                HeroTeam(m.homeId, m.homeName, ch?.fa, Modifier.weight(1f))
+                HeroTeam(m.homeId, m.homeName, ch?.fa, Modifier.weight(1f), "crest-${m.matchId}-h")
                 Column(Modifier.scale(boardIn.value), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val board = Modifier.clip(RoundedCornerShape(18.dp)).background(Color.Black.copy(alpha = 0.42f)).border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(18.dp))
                     if (m.started && !m.cancelled) {
@@ -255,7 +275,7 @@ private fun Hero(m: MatchData) {
                     }
                     T(persianDate(m.time, "EEEE d MMMM"), 12, FontWeight.Bold, Color.White.copy(alpha = 0.85f))
                 }
-                HeroTeam(m.awayId, m.awayName, ca?.fa, Modifier.weight(1f))
+                HeroTeam(m.awayId, m.awayName, ca?.fa, Modifier.weight(1f), "crest-${m.matchId}-a")
             }
             val goals = m.events.filter { it.s("type") == "Goal" }
             val reds = m.events.filter { it.s("type") == "Card" && (it.s("card") == "Red" || it.s("card") == "YellowRed") }
@@ -318,13 +338,15 @@ private fun MinuteRing(minute: String) {
 }
 
 @Composable
-private fun HeroTeam(id: Int, name: String, faName: String?, modifier: Modifier) {
+private fun HeroTeam(id: Int, name: String, faName: String?, modifier: Modifier, shareKey: String) {
     val nav = LocalNav.current
     Column(modifier.clip(RoundedCornerShape(16.dp)).clickable { nav.team(id) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Crest(id, 68.dp, large = true)
-        Ltr(name, style = lat(16.sp, FontWeight.ExtraBold), color = Color.White, maxLines = 2, align = TextAlign.Center)
-        if (faName != null) T(faName, 11, FontWeight.Bold, Color.White.copy(alpha = 0.8f), maxLines = 1)
+        Crest(id, 68.dp, large = true, shareKey = shareKey)
+        TeamText(id, name, size = 16, w = FontWeight.ExtraBold, color = Color.White, maxLines = 2, align = TextAlign.Center)
+        // the other spelling underneath
+        val other = if (Store.faNames) name.takeIf { faTeamName(id, name) != null } else faName
+        if (other != null) Ltr(other, style = vz(12.sp, FontWeight.Bold), color = Color.White.copy(alpha = 0.8f), align = TextAlign.Center)
     }
 }
 
@@ -358,7 +380,7 @@ private fun WatchDialog(m: MatchData, onClose: () -> Unit) {
         title = { T("تماشای زنده", 18, FontWeight.Black) },
         text = {
             Column {
-                T("${m.homeName} - ${m.awayName}", 12, FontWeight.ExtraBold, C.mute)
+                T("${teamName(m.homeId, m.homeName)} - ${teamName(m.awayId, m.awayName)}", 12, FontWeight.ExtraBold, C.mute)
                 STATIONS.forEachIndexed { i, st ->
                     val name = st.name; val sub = st.sub
                     ListRow(first = i == 0, onClick = { onClose(); nav.web(st.key) },
@@ -827,11 +849,11 @@ private fun ShotsTab(m: MatchData) {
     var sel by remember { mutableStateOf<Int?>(null) }
     val isH = { s: JSONObject -> s.i("teamId") == m.homeId }
     val vis = m.shots.filter { team == "all" || (team == "h") == isH(it) }
-    Seg(listOf("all" to "هر دو تیم", "h" to m.homeName, "a" to m.awayName), team) { team = it }
+    Seg(listOf("all" to "هر دو تیم", "h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), team) { team = it }
     Card(pad = PaddingValues(12.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
-            Ltr("${m.awayName} →", style = vz(12.sp, FontWeight.Bold), color = m.awayColor); Spacer(Modifier.weight(1f))
-            Ltr("← ${m.homeName}", style = vz(12.sp, FontWeight.Bold), color = m.homeColor)
+            Ltr("${teamName(m.awayId, m.awayName)} →", style = vz(12.sp, FontWeight.Bold), color = m.awayColor); Spacer(Modifier.weight(1f))
+            Ltr("← ${teamName(m.homeId, m.homeName)}", style = vz(12.sp, FontWeight.Bold), color = m.homeColor)
         }
         BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(105f / 68f).clip(RoundedCornerShape(16.dp))) {
             val w = maxWidth; val hgt = maxHeight
@@ -875,7 +897,7 @@ private fun ShotsTab(m: MatchData) {
     fun sum(arr: List<JSONObject>) = Triple(arr.sumOf { it.d("expectedGoals") ?: 0.0 }, arr.size, arr.count { it.b("isOnTarget") })
     val hs = sum(m.shots.filter(isH)); val aw = sum(m.shots.filter { !isH(it) })
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for ((big, small, col) in listOf(Triple(dec(hs.first), "xG ${m.homeName}", m.homeColor), Triple("${hs.second} / ${aw.second}", "شوت (در چارچوب ${hs.third} / ${aw.third})", C.ink), Triple(dec(aw.first), "xG ${m.awayName}", m.awayColor))) {
+        for ((big, small, col) in listOf(Triple(dec(hs.first), "xG ${teamName(m.homeId, m.homeName)}", m.homeColor), Triple("${hs.second} / ${aw.second}", "شوت (در چارچوب ${hs.third} / ${aw.third})", C.ink), Triple(dec(aw.first), "xG ${teamName(m.awayId, m.awayName)}", m.awayColor))) {
             Column(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(16.dp)).padding(10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 T(big, 18, FontWeight.Black, col); T(small, 11, color = C.mute, maxLines = 2, align = TextAlign.Center)
@@ -965,7 +987,7 @@ private fun LineupTab(m: MatchData) {
     }
     if (hasLayout) Seg(listOf("pitch" to "روی زمین", "list" to "فهرست"), view) { view = it }
     if (view == "pitch" && hasLayout) {
-        Seg(listOf("both" to "هر دو تیم", "h" to m.homeName, "a" to m.awayName), side) { side = it }
+        Seg(listOf("both" to "هر دو تیم", "h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), side) { side = it }
         TeamBar(H, m.homeColor, m.homeId)
         Pitch(H, A, m, side) { sheet = it }
         TeamBar(A, m.awayColor, m.awayId)
@@ -1261,7 +1283,7 @@ private fun PlayersTab(m: MatchData) {
         else -> { p -> statVal(p, "FotMob rating") ?: 0.0 }
     }
     val list = all.filter { team == "all" || (team == "h") == (it.i("teamId") == m.homeId) }.sortedByDescending(key)
-    Seg(listOf("all" to "همه", "h" to m.homeName, "a" to m.awayName), team) { team = it }
+    Seg(listOf("all" to "همه", "h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), team) { team = it }
     Seg(listOf("rating" to "نمره", "ga" to "گل و پاس گل", "xg" to "xG", "min" to "دقایق"), sort) { sort = it }
     Card {
         list.forEachIndexed { i, p ->
@@ -1299,7 +1321,7 @@ private fun H2h(m: MatchData, limit: Int) {
     Card {
         CardTitle("رودررو")
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 16.dp)) {
-            listOf(Triple(hw, "برد ${m.homeName}", m.homeColor), Triple(dr, "تساوی", C.ink), Triple(aw, "برد ${m.awayName}", m.awayColor)).forEach { (n, label, c) ->
+            listOf(Triple(hw, "برد ${teamName(m.homeId, m.homeName)}", m.homeColor), Triple(dr, "تساوی", C.ink), Triple(aw, "برد ${teamName(m.awayId, m.awayName)}", m.awayColor)).forEach { (n, label, c) ->
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     T("$n", 30, FontWeight.Black, c)
                     T(label, 12, color = C.mute, maxLines = 1, align = TextAlign.Center)
