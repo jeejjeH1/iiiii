@@ -27,6 +27,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -922,50 +926,127 @@ private fun ShotInfo(s: JSONObject) {
 
 /* ---------- lineup ---------- */
 
+/** One player in the line-up, read once. */
+private class LP(val p: JSONObject, val home: Boolean) {
+    val id = p.i("id") ?: 0
+    val name = p.s("name") ?: ""
+    val short = p.s("lastName") ?: name.substringAfterLast(' ')
+    val number = p.s("shirtNumber") ?: ""
+    val rating = p.path("performance").d("rating")
+    val events = p.path("performance").a("events").objs().map { it.s("type") }
+    val subs = p.path("performance").a("substitutionEvents").objs()
+    val outAt = subs.firstOrNull { it.s("type") == "subOut" }?.s("time")
+    val inAt = subs.firstOrNull { it.s("type") == "subIn" }?.s("time")
+    val captain = p.b("isCaptain") || p.b("captain")
+    val goals = events.count { it == "goal" }
+    val own = events.count { it == "ownGoal" }
+    val assists = events.count { it == "assist" }
+    val yellow = "yellowCard" in events
+    val red = "redCard" in events || "yellowRedCard" in events
+    val layout = p.o("verticalLayout")
+    val country = p.s("countryName") ?: ""
+}
+
 @Composable
 private fun LineupTab(m: MatchData) {
     val nav = LocalNav.current
     val lu = m.content.o("lineup")!!
     val H = lu.o("homeTeam")!!
     val A = lu.o("awayTeam")!!
-    if ((lu.s("lineupType") ?: "standard") != "standard") Row { Pill("ترکیب احتمالی", PillKind.Accent) }
     val hasLayout = H.a("starters").objs().any { it.o("verticalLayout") != null }
-    if (hasLayout) Pitch(H, A, m)
-    listOf(H, A).forEach { T0 ->
-        Card {
-            CardTitle(T0.s("name") ?: "", sub = T0.s("formation")) {
-                val parts = listOfNotNull(T0.d("averageStarterAge")?.let { "میانگین سن ${dec(it, 1)}" }, T0.l2("totalStarterMarketValue")?.let { "ارزش ${money(it)}" })
-                T(parts.joinToString(" · "), 12, FontWeight.Medium, C.mute, maxLines = 1)
-            }
-            T0.o("coach")?.let { c -> PersonRow(c.i("id") ?: 0, c.s("name") ?: "", "سرمربی", first = true) { nav.player(c.i("id") ?: 0) } }
-            if (!hasLayout) { SubHead("ترکیب اصلی"); T0.a("starters").objs().forEach { p -> LineupRow(p) } }
-            val subs = T0.a("subs").objs()
-            if (subs.isNotEmpty()) { SubHead("ذخیره‌ها"); subs.forEachIndexed { i, p -> LineupRow(p, i == 0) } }
-            val out = T0.a("unavailable").objs()
-            if (out.isNotEmpty()) {
-                SubHead("غایبان")
-                out.forEachIndexed { i, p ->
-                    val type = p.o("unavailability").s("type")
-                    val ret = p.o("unavailability").s("expectedReturn")?.let { " · بازگشت: " + if (it == "Doubtful") "نامشخص" else it } ?: ""
-                    PersonRow(p.i("id") ?: 0, p.s("name") ?: "", when (type) { "injury" -> "مصدوم"; "suspension" -> "محروم"; else -> "غایب" } + ret, first = i == 0,
-                        trailing = { Icon(Ic.bandage, null, tint = C.live, modifier = Modifier.size(18.dp)) }) { nav.player(p.i("id") ?: 0) }
+    var view by rememberSaveable { mutableStateOf(if (hasLayout) "pitch" else "list") }
+    var side by rememberSaveable { mutableStateOf("both") }
+    var sheet by remember { mutableStateOf<LP?>(null) }
+    if ((lu.s("lineupType") ?: "standard") != "standard") Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Pill("ترکیب احتمالی", PillKind.Accent); T("ترکیب رسمی حدود یک ساعت قبل از بازی اعلام می‌شود", 11, color = C.mute)
+    }
+    if (hasLayout) Seg(listOf("pitch" to "روی زمین", "list" to "فهرست"), view) { view = it }
+    if (view == "pitch" && hasLayout) {
+        Seg(listOf("both" to "هر دو تیم", "h" to m.homeName, "a" to m.awayName), side) { side = it }
+        TeamBar(H, m.homeColor, m.homeId)
+        Pitch(H, A, m, side) { sheet = it }
+        TeamBar(A, m.awayColor, m.awayId)
+        // benches as swipeable chips under the pitch
+        for ((team, home) in listOf(H to true, A to false)) {
+            val subs = team.a("subs").objs().map { LP(it, home) }
+            if (subs.isEmpty()) continue
+            val color = if (home) m.homeColor else m.awayColor
+            Card {
+                CardTitle("ذخیره‌های ${team.s("name") ?: ""}", sub = "${subs.count { it.inAt != null }} بازیکن وارد زمین شد")
+                androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(start = 12.dp, end = 12.dp, bottom = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(subs.sortedByDescending { if (it.inAt != null) 1000 - (it.inAt.toIntOrNull() ?: 0) else 0 }) { p -> BenchChip(p, color) { sheet = p } }
                 }
             }
         }
+        Absentees(H, A)
+    } else {
+        listOf(H to true, A to false).forEach { (T0, home) ->
+            Card {
+                CardTitle(T0.s("name") ?: "", sub = T0.s("formation")) {
+                    val parts = listOfNotNull(T0.d("averageStarterAge")?.let { "میانگین سن ${dec(it, 1)}" }, T0.l2("totalStarterMarketValue")?.let { "ارزش ${money(it)}" })
+                    T(parts.joinToString(" · "), 12, FontWeight.Medium, C.mute, maxLines = 1)
+                }
+                T0.o("coach")?.let { c -> PersonRow(c.i("id") ?: 0, c.s("name") ?: "", "سرمربی", first = true) { nav.player(c.i("id") ?: 0) } }
+                SubHead("ترکیب اصلی"); T0.a("starters").objs().forEachIndexed { i, p -> LineupRow(LP(p, home), i == 0) { sheet = it } }
+                val subs = T0.a("subs").objs()
+                if (subs.isNotEmpty()) { SubHead("ذخیره‌ها"); subs.forEachIndexed { i, p -> LineupRow(LP(p, home), i == 0) { sheet = it } } }
+            }
+        }
+        Absentees(H, A)
     }
+    sheet?.let { p -> PlayerSheet(m, p) { sheet = null } }
 }
 
 private fun JSONObject.l2(k: String): Long? = (opt(k) as? Number)?.toLong()
+
+/** Strip above/below the pitch: crest, team, coach, formation and team rating. */
+@Composable
+private fun TeamBar(t: JSONObject, color: Color, id: Int) {
+    val nav = LocalNav.current
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).drawBehind { cssLinear(270f, 0f to color.copy(alpha = 0.35f), 1f to Color.Transparent) }
+            .background(C.card.copy(alpha = 0.7f)).border(1.dp, C.line, RoundedCornerShape(18.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Crest(id, 30.dp)
+        Column(Modifier.weight(1f).clickable { nav.team(id) }) {
+            Ltr(t.s("name") ?: "", style = lat(16.sp, FontWeight.ExtraBold))
+            t.o("coach")?.s("name")?.let { T("سرمربی: $it", 11, color = C.mute, maxLines = 1) }
+        }
+        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(color).padding(horizontal = 10.dp, vertical = 4.dp)) {
+            Ltr(t.s("formation") ?: "", style = lat(15.sp, FontWeight.ExtraBold), color = inkOn(color))
+        }
+        Rating(t.d("rating"))
+    }
+}
+
+@Composable
+private fun Absentees(H: JSONObject, A: JSONObject) {
+    val nav = LocalNav.current
+    val all = H.a("unavailable").objs().map { it to (H.s("name") ?: "") } + A.a("unavailable").objs().map { it to (A.s("name") ?: "") }
+    if (all.isEmpty()) return
+    Card {
+        CardTitle("غایبان", sub = "${all.size} بازیکن")
+        all.forEachIndexed { i, (p, team) ->
+            val type = p.o("unavailability").s("type")
+            val ret = p.o("unavailability").s("expectedReturn")?.let { " · بازگشت: " + if (it == "Doubtful") "نامشخص" else it } ?: ""
+            PersonRow(p.i("id") ?: 0, p.s("name") ?: "", "$team · " + when (type) { "injury" -> "مصدوم"; "suspension" -> "محروم"; else -> "غایب" } + ret, first = i == 0,
+                trailing = { Icon(Ic.bandage, null, tint = C.live, modifier = Modifier.size(18.dp)) }) { nav.player(p.i("id") ?: 0) }
+        }
+    }
+}
 
 @Composable
 fun SubHead(text: String) = T(text, 12, FontWeight.ExtraBold, C.mute, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp))
 
 @Composable
-private fun LineupRow(p: JSONObject, first: Boolean = false) {
-    val nav = LocalNav.current
-    val subIn = p.path("performance").a("substitutionEvents").objs().firstOrNull { it.s("type") == "subIn" }
-    val meta = listOfNotNull(p.s("shirtNumber")?.let { "#$it" }, p.s("countryName"), subIn?.let { "⇅ دقیقه ${it.s("time")}" }).joinToString(" · ")
-    PersonRow(p.i("id") ?: 0, p.s("name") ?: "", meta, first = first, trailing = { Rating(p.path("performance").d("rating")) }) { nav.player(p.i("id") ?: 0) }
+private fun LineupRow(p: LP, first: Boolean, onOpen: (LP) -> Unit) {
+    val meta = listOfNotNull(p.number.takeIf { it.isNotEmpty() }?.let { "#$it" }, p.country.takeIf { it.isNotEmpty() },
+        p.inAt?.let { "⇧ ورود دقیقه $it" }, p.outAt?.let { "⇩ خروج دقیقه $it" }).joinToString(" · ")
+    PersonRow(p.id, p.name + if (p.captain) " (C)" else "", meta, first = first, trailing = {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { EventIcons(p); Rating(p.rating) }
+    }) { onOpen(p) }
 }
 
 @Composable
@@ -980,15 +1061,51 @@ fun PersonRow(id: Int, name: String, meta: String, first: Boolean = false, trail
     }
 }
 
+/** Small goal / assist / card icons for a player. */
 @Composable
-private fun Pitch(H: JSONObject, A: JSONObject, m: MatchData) {
-    val nav = LocalNav.current
+private fun EventIcons(p: LP) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
+        repeat(p.goals.coerceAtMost(3)) { Icon(Ic.ball, null, Modifier.size(13.dp), tint = C.ink) }
+        if (p.own > 0) Icon(Ic.ball, null, Modifier.size(13.dp), tint = C.live)
+        if (p.assists > 0) T("A", 11, FontWeight.Black, LocalAccent.current)
+        if (p.red) Box(Modifier.size(8.dp, 11.dp).clip(RoundedCornerShape(2.dp)).background(C.live))
+        else if (p.yellow) Box(Modifier.size(8.dp, 11.dp).clip(RoundedCornerShape(2.dp)).background(C.gold))
+    }
+}
+
+/** A face that falls back to a shirt-number disc in the team colour when there is no photo. */
+@Composable
+private fun Kit(p: LP, color: Color, size: androidx.compose.ui.unit.Dp) {
+    Box(Modifier.size(size).clip(CircleShape).background(color).border(2.dp, Color.White.copy(alpha = 0.95f), CircleShape), contentAlignment = Alignment.Center) {
+        Text(p.number, color = inkOn(color), style = lat((size.value * 0.42f).sp, FontWeight.ExtraBold))
+        coil.compose.AsyncImage(playerFace(p.id), null, Modifier.fillMaxSize().clip(CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+    }
+}
+
+@Composable
+private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
+    Column(Modifier.width(84.dp).clip(RoundedCornerShape(16.dp)).background(if (p.inAt != null) color.copy(alpha = 0.14f) else C.card2)
+        .clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box {
+            Kit(p, color, 44.dp)
+            p.rating?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(12.dp, (-6).dp), small = true) }
+        }
+        Ltr(p.short, Modifier.padding(top = 6.dp), style = lat(12.sp), align = TextAlign.Center)
+        if (p.inAt != null) Row(verticalAlignment = Alignment.CenterVertically) {
+            T("⇧", 11, FontWeight.Black, C.win); Ltr("${p.inAt}'", style = vz(11.sp, FontWeight.Bold), color = C.win)
+        } else T("#${p.number}", 11, color = C.mute)
+    }
+}
+
+@Composable
+private fun Pitch(H: JSONObject, A: JSONObject, m: MatchData, side: String, onOpen: (LP) -> Unit) {
+    // one team: its eleven spread over the whole pitch; both: each in its own half
+    val single = side != "both"
     BoxWithConstraints(
-        Modifier.fillMaxWidth().aspectRatio(68f / 112f).clip(RoundedCornerShape(20.dp)).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
+        Modifier.fillMaxWidth().aspectRatio(if (single) 68f / 92f else 68f / 112f).clip(RoundedCornerShape(20.dp)).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
             .drawBehind {
                 val n = 14
                 for (i in 0 until n) drawRect(if (i % 2 == 0) C.pitch else C.pitch2, Offset(0f, size.height * i / n), Size(size.width, size.height / n + 1))
-                // floodlight corners and a vignette
                 for ((cx, cy, a) in listOf(Triple(0f, 0f, 0.22f), Triple(1f, 0f, 0.22f), Triple(0f, 1f, 0.16f), Triple(1f, 1f, 0.16f)))
                     drawRect(Brush.radialGradient(listOf(Color(0xFFFFFFF0).copy(alpha = a), Color.Transparent), Offset(size.width * cx, size.height * cy), size.width * 0.6f))
                 drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Transparent, Color.Black.copy(alpha = 0.45f)), Offset(size.width / 2, size.height / 2), size.height * 0.62f))
@@ -1001,7 +1118,6 @@ private fun Pitch(H: JSONObject, A: JSONObject, m: MatchData) {
                 drawRect(c, Offset(24.85f * sx, 1 * sy), Size(18.3f * sx, 5.5f * sy), style = st)
                 drawRect(c, Offset(13.85f * sx, 94.5f * sy), Size(40.3f * sx, 16.5f * sy), style = st)
                 drawRect(c, Offset(24.85f * sx, 105.5f * sy), Size(18.3f * sx, 5.5f * sy), style = st)
-                // goal nets
                 val gw = size.width * 0.22f; val gh = size.height * 0.022f; val gx = (size.width - gw) / 2
                 for (top in listOf(true, false)) {
                     val y = if (top) 0f else size.height - gh
@@ -1011,43 +1127,37 @@ private fun Pitch(H: JSONObject, A: JSONObject, m: MatchData) {
             },
     ) {
         val w = maxWidth; val h = maxHeight
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).align(Alignment.TopCenter), verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Ltr(H.s("name") ?: "", style = lat(13.sp, FontWeight.ExtraBold), color = Color.White); Rating(H.d("rating"), small = true)
-            }
-            Spacer(Modifier.weight(1f))
-            Ltr(H.s("formation") ?: "", style = lat(13.sp, FontWeight.ExtraBold), color = Color.White)
-        }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).align(Alignment.BottomCenter), verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Ltr(A.s("name") ?: "", style = lat(13.sp, FontWeight.ExtraBold), color = Color.White); Rating(A.d("rating"), small = true)
-            }
-            Spacer(Modifier.weight(1f))
-            Ltr(A.s("formation") ?: "", style = lat(13.sp, FontWeight.ExtraBold), color = Color.White)
-        }
-        val chipW = 64.dp
-        for ((team, home) in listOf(H to true, A to false)) {
-            val ring = (if (home) m.homeColor else m.awayColor).copy(alpha = 0.7f)
-            team.a("starters").objs().forEach { p ->
-                val v = p.o("verticalLayout") ?: return@forEach
+        val chipW = 70.dp
+        val teams = when (side) { "h" -> listOf(H to true); "a" -> listOf(A to false); else -> listOf(H to true, A to false) }
+        for ((team, home) in teams) {
+            val color = if (home) m.homeColor else m.awayColor
+            team.a("starters").objs().map { LP(it, home) }.forEach { p ->
+                val v = p.layout ?: return@forEach
                 val x = (v.d("x") ?: 0.5).toFloat(); val y = (v.d("y") ?: 0.5).toFloat()
-                val top = if (home) 0.03f + y * 0.46f else 0.97f - y * 0.46f
-                val left = if (home) 0.06f + x * 0.88f else 0.94f - x * 0.88f
+                // single team: goalkeeper at the bottom, attackers at the top
+                val top = when { single -> 0.92f - y * 0.84f; home -> 0.04f + y * 0.44f; else -> 0.96f - y * 0.44f }
+                val left = if (home || single) 0.06f + x * 0.88f else 0.94f - x * 0.88f
                 Column(
-                    Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * left - chipW / 2, h * top - 20.dp).width(chipW).clickable { nav.player(p.i("id") ?: 0) },
+                    Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * left - chipW / 2, h * top - 24.dp).width(chipW).clickable { onOpen(p) },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box {
-                        Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White).border(3.dp, ring, CircleShape)) {
-                            coil.compose.AsyncImage(playerFace(p.i("id") ?: 0), null, Modifier.fillMaxSize().clip(CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
+                        Box(Modifier.glow(Color.Black.copy(alpha = 0.5f), 6.dp, CircleShape)) { Kit(p, color, if (single) 44.dp else 38.dp) }
+                        p.rating?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(16.dp, (-7).dp), small = true) }
+                        if (p.captain) Box(Modifier.align(Alignment.TopStart).absoluteOffset((-6).dp, (-4).dp).size(15.dp).clip(CircleShape).background(C.gold),
+                            contentAlignment = Alignment.Center) { Text("C", fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF2A1A00)) }
+                        PitchBadges(p, Modifier.align(Alignment.BottomStart).absoluteOffset((-12).dp, 4.dp))
+                        p.outAt?.let { t ->
+                            Row(Modifier.align(Alignment.BottomEnd).absoluteOffset(14.dp, 4.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 3.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Text("⇩", fontSize = 9.sp, color = C.live, fontWeight = FontWeight.Black); Text("$t'", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                            }
                         }
-                        p.path("performance").d("rating")?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(15.dp, (-7).dp), small = true) }
-                        PlayerBadges(p, Modifier.align(Alignment.BottomStart).absoluteOffset((-12).dp, 4.dp))
                     }
                     Ltr(
-                        "${p.s("shirtNumber") ?: ""} ${p.s("lastName") ?: p.s("name")?.substringAfterLast(' ') ?: ""}".trim(),
-                        Modifier.padding(top = 4.dp), style = lat(11.sp, FontWeight.Bold).copy(shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.8f), Offset(0f, 1f), 3f)),
-                        color = Color.White, align = TextAlign.Center,
+                        "${p.number} ${p.short}".trim(),
+                        Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.35f)).padding(horizontal = 4.dp),
+                        style = lat(if (single) 12.sp else 11.sp, FontWeight.Bold), color = Color.White, align = TextAlign.Center,
                     )
                 }
             }
@@ -1056,20 +1166,75 @@ private fun Pitch(H: JSONObject, A: JSONObject, m: MatchData) {
 }
 
 @Composable
-private fun PlayerBadges(p: JSONObject, modifier: Modifier) {
-    val ev = p.path("performance").a("events").objs().map { it.s("type") }
-    val goals = ev.count { it == "goal" }
-    val subOut = p.path("performance").a("substitutionEvents").objs().any { it.s("type") == "subOut" }
-    if (goals == 0 && "ownGoal" !in ev && "redCard" !in ev && "yellowCard" !in ev && !subOut && "assist" !in ev) return
+private fun PitchBadges(p: LP, modifier: Modifier) {
+    if (p.goals == 0 && p.own == 0 && !p.red && !p.yellow && p.assists == 0) return
     Row(modifier, horizontalArrangement = Arrangement.spacedBy(1.dp)) {
-        val dot = Modifier.size(15.dp).clip(CircleShape).background(Color.White)
-        if (goals > 0) Box(dot, contentAlignment = Alignment.Center) { Text(if (goals > 1) "$goals" else "⚽", fontSize = 9.sp, color = Color(0xFF111111)) }
-        if ("ownGoal" in ev) Box(dot, contentAlignment = Alignment.Center) { Text("⚽", fontSize = 9.sp, color = C.live) }
-        if ("assist" in ev) Box(dot, contentAlignment = Alignment.Center) { Text("A", fontSize = 8.sp, color = Color(0xFF111111), fontWeight = FontWeight.ExtraBold) }
-        if ("redCard" in ev) Box(dot, contentAlignment = Alignment.Center) { Box(Modifier.size(9.dp, 12.dp).clip(RoundedCornerShape(2.dp)).background(C.live)) }
-        else if ("yellowCard" in ev) Box(dot, contentAlignment = Alignment.Center) { Box(Modifier.size(9.dp, 12.dp).clip(RoundedCornerShape(2.dp)).background(C.gold)) }
-        if (subOut) Box(dot, contentAlignment = Alignment.Center) { Icon(Ic.swap, null, tint = C.live, modifier = Modifier.size(10.dp)) }
+        val dot = Modifier.size(16.dp).clip(CircleShape).background(Color.White)
+        if (p.goals > 0) Box(dot, contentAlignment = Alignment.Center) {
+            if (p.goals > 1) Text("${p.goals}", fontSize = 9.sp, color = Color(0xFF111111), fontWeight = FontWeight.Black)
+            else Icon(Ic.ball, null, Modifier.size(12.dp), tint = Color(0xFF111111))
+        }
+        if (p.own > 0) Box(dot, contentAlignment = Alignment.Center) { Icon(Ic.ball, null, Modifier.size(12.dp), tint = C.live) }
+        if (p.assists > 0) Box(dot, contentAlignment = Alignment.Center) { Text("A", fontSize = 9.sp, color = Color(0xFF111111), fontWeight = FontWeight.Black) }
+        if (p.red) Box(dot, contentAlignment = Alignment.Center) { Box(Modifier.size(8.dp, 11.dp).clip(RoundedCornerShape(2.dp)).background(C.live)) }
+        else if (p.yellow) Box(dot, contentAlignment = Alignment.Center) { Box(Modifier.size(8.dp, 11.dp).clip(RoundedCornerShape(2.dp)).background(C.gold)) }
     }
+}
+
+/** Tapping a player: their numbers in this match, without leaving the match page. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
+    val nav = LocalNav.current
+    val ps = m.content.o("playerStats")?.optJSONObject(p.id.toString())
+    val color = if (p.home) m.homeColor else m.awayColor
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, containerColor = C.cardSolid,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), dragHandle = {
+            Box(Modifier.padding(top = 10.dp).width(44.dp).height(5.dp).clip(RoundedCornerShape(5.dp)).background(C.line2))
+        }) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                Kit(p, color, 64.dp)
+                Column(Modifier.weight(1f)) {
+                    Ltr(p.name, style = lat(20.sp, FontWeight.ExtraBold), maxLines = 2)
+                    T(listOfNotNull(ps?.s("teamName"), p.number.takeIf { it.isNotEmpty() }?.let { "#$it" }, if (ps?.b("isPotm") == true) "بهترین بازیکن زمین" else null,
+                        p.inAt?.let { "ورود دقیقه $it" }, p.outAt?.let { "خروج دقیقه $it" }).joinToString(" · "), 12, color = C.mute)
+                }
+                Rating(p.rating ?: ps?.let { statOf(it, "FotMob rating") })
+            }
+            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill("پروفایل کامل", PillKind.Accent, onClick = { onClose(); nav.player(p.id) })
+                Pill("مقایسه", onClick = { onClose(); nav.compare(p.id) }, icon = Ic.swap)
+            }
+            val groups = ps?.a("stats").objs()
+            if (groups.isNullOrEmpty()) T("آمار این بازیکن در این بازی ثبت نشده", 13, color = C.mute, modifier = Modifier.fillMaxWidth().padding(24.dp), align = TextAlign.Center)
+            groups?.forEach { g ->
+                SubHead(tr(g.s("title")))
+                val st = g.o("stats") ?: return@forEach
+                st.keys().asSequence().toList().filter { it != "Shotmap" && st.optJSONObject(it)?.s("key") != null }.forEach { t ->
+                    val s = st.optJSONObject(t)?.o("stat") ?: return@forEach
+                    val v = s.d("value")
+                    val shown = when {
+                        v == null -> "–"
+                        s.s("type") == "fractionWithPercentage" -> "${v.toInt()}/${s.i("total") ?: 0} (${((v / (s.d("total") ?: 1.0).coerceAtLeast(1.0)) * 100).toInt()}٪)"
+                        s.s("type") == "double" -> dec(v)
+                        s.s("type") == "boolean" -> if (v != 0.0) "بله" else "خیر"
+                        else -> "${v.toInt()}"
+                    }
+                    Divider()
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                        T(tr(t), 13, modifier = Modifier.weight(1f))
+                        Ltr(fa(shown), style = vz(13.sp, FontWeight.ExtraBold))
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun statOf(p: JSONObject, title: String): Double? {
+    for (g in p.a("stats").objs()) g.o("stats")?.o(title)?.o("stat")?.d("value")?.let { return it }
+    return null
 }
 
 /* ---------- players ---------- */
