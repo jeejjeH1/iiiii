@@ -424,9 +424,12 @@ fun FeatureTiles() {
     val p = Store.prefs()
     val key = dayKey(startOfDay(0))
     val answered = if (p.getString("quizDay", "") == key) (p.getString("quizAns", "") ?: "").split(',').count { it.isNotEmpty() } else 0
-    Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Tile(Modifier.weight(1f), "?", "کوئیز امروز", if (answered >= 6) "انجام شد · فردا دوباره" else if (answered > 0) "ادامه بده" else "۶ سؤال تازه", accent) { nav.quiz() }
-        Tile(Modifier.weight(1f), null, "تقویم بازی‌ها", Store.myTeam?.let { "بازی‌های " + (Clubs.get(it.id)?.fa ?: it.name) } ?: "تیم‌های دنبال‌شده", C.home) { nav.calendar() }
+    Column {
+        Tile(Modifier.fillMaxWidth().padding(top = 10.dp), "⚽", "فوتبال فانتزی", fantasySub(), C.win) { nav.fantasy() }
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Tile(Modifier.weight(1f), "?", "کوئیز امروز", if (answered >= 6) "انجام شد · فردا دوباره" else if (answered > 0) "ادامه بده" else "۶ سؤال تازه", accent) { nav.quiz() }
+            Tile(Modifier.weight(1f), null, "تقویم بازی‌ها", Store.myTeam?.let { "بازی‌های " + (Clubs.get(it.id)?.fa ?: it.name) } ?: "تیم‌های دنبال‌شده", C.home) { nav.calendar() }
+        }
     }
 }
 
@@ -445,4 +448,11 @@ private fun Tile(modifier: Modifier, mark: String?, title: String, sub: String, 
             T(sub, 11, color = C.mute, maxLines = 1)
         }
     }
+}
+
+private fun fantasySub(): String {
+    val o = runCatching { org.json.JSONObject(Store.prefs().getString("fantasy", "{}")!!) }.getOrNull() ?: return "تیم رویایی‌ات را بساز"
+    val total = o.optJSONObject("points")?.let { p -> p.keys().asSequence().sumOf { p.optInt(it) } } ?: 0
+    val n = o.optJSONArray("team")?.length() ?: 0
+    return when { n == 0 -> "تیم رویایی‌ات را بساز و امتیاز بگیر"; n < 11 -> "تیمت $n/۱۱ نفر است؛ کاملش کن"; else -> "مجموع امتیاز تو: $total" }
 }

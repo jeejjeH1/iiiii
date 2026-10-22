@@ -101,5 +101,9 @@ class Screens {
         tap("۱"); tap("۲"); settle(1500); shot("13b-quiz-answered")
         NavHook.nav?.calendar(); settle(8000); shot("14-calendar")
         NavHook.nav?.compare(30981, 737066); settle(12000); shot("15-compare")
+        // fantasy: pick the Premier League and buy a few players through the picker
+        NavHook.nav?.fantasy(); settle(2000); shot("16-fantasy-start")
+        tap("لیگ برتر انگلیس"); settle(25000); shot("17-fantasy")
+        tap("+ افزودن"); settle(2500); shot("18-fantasy-picker")
     }
 }

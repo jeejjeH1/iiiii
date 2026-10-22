@@ -114,6 +114,7 @@ fun Root(openMatch: MutableIntState) {
                             CompareScreen(it.arguments?.getInt("a") ?: 0, it.arguments?.getInt("b") ?: 0)
                         }
                         composable("quiz") { QuizScreen() }
+                        composable("fantasy") { FantasyScreen() }
                         composable("web/{key}") { WebScreen(it.arguments?.getString("key") ?: "namava") }
                         composable("calendar") { CalendarScreen() }
                         composable("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
