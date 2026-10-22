@@ -49,7 +49,12 @@ class Screens {
         }
     }
 
-    private fun shot(name: String) = rule.onRoot().captureRoboImage("build/screens/$name.png")
+    // the whole screen, so bottom sheets and dialogs (their own windows) are included
+    @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
+    private fun shot(name: String) {
+        runCatching { com.github.takahirom.roborazzi.captureScreenRoboImage("build/screens/$name.png") }
+            .onFailure { runCatching { rule.onAllNodes(androidx.compose.ui.test.isRoot())[0].captureRoboImage("build/screens/$name.png") } }
+    }
 
     private fun tap(text: String) {
         val n = rule.onAllNodesWithText(text, substring = true)
