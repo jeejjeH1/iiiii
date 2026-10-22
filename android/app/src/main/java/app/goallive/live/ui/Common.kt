@@ -135,9 +135,13 @@ private fun DrawScope.beam(cx: Float, deg: Float) {
 val LocalShared = compositionLocalOf<SharedTransitionScope?> { null }
 val LocalAnimScope = compositionLocalOf<AnimatedVisibilityScope?> { null }
 
+/** Off in the screenshot run: its software canvas can't draw the transition's layers. */
+var sharedCrests = true
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun Modifier.shared(key: String?): Modifier {
+    if (!sharedCrests) return this
     val s = LocalShared.current
     val a = LocalAnimScope.current
     if (key == null || s == null || a == null) return this
