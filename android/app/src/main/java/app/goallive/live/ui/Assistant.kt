@@ -45,6 +45,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 
 /** Something the assistant can open: a match, team, player or league. */
@@ -130,6 +136,36 @@ private fun leagueFa(id: Int, name: String) = when (id) {
 private fun findLeague(q: String): Int? = LEAGUES.firstOrNull { (words, _) -> has(q, *words.toTypedArray()) }?.second
 
 /* ---------- answers ---------- */
+
+/**
+ * The smart assistant on our server (/api/ask): any question, answered from live data.
+ * null when the server has no AI key yet or can't be reached; the built-in answers below take over.
+ */
+private suspend fun askServer(q: String, history: List<Msg>): Msg? = withContext(Dispatchers.IO) {
+    runCatching {
+        val hist = JSONArray()
+        history.takeLast(8).forEach { hist.put(JSONObject().put("role", if (it.mine) "user" else "assistant").put("text", it.text)) }
+        val body = JSONObject().put("q", q).put("history", hist).toString().toRequestBody("application/json".toMediaType())
+        val call = Api.client.newBuilder().readTimeout(60, TimeUnit.SECONDS).callTimeout(70, TimeUnit.SECONDS).build()
+            .newCall(Request.Builder().url("${Api.SITE}/api/ask").post(body).build())
+        call.execute().use { r ->
+            if (!r.isSuccessful) return@use null
+            val d = JSONObject(r.body!!.string())
+            val links = d.a("links").objs().mapNotNull { l ->
+                val id = l.i("id") ?: return@mapNotNull null
+                val label = l.s("label") ?: return@mapNotNull null
+                when (l.s("type")) {
+                    "team" -> Link("صفحه ${teamName(id, label)}") { it.team(id) }
+                    "player" -> Link("صفحه $label") { it.player(id) }
+                    "league" -> Link("صفحه $label") { it.league(id) }
+                    "match" -> Link("بازی $label") { it.match(id) }
+                    else -> null
+                }
+            }
+            d.s("answer")?.let { Msg(false, it, links = links) }
+        }
+    }.getOrNull()
+}
 
 private suspend fun answer(raw: String): Msg {
     val q = norm(raw)
@@ -251,7 +287,7 @@ private suspend fun answer(raw: String): Msg {
 
 private val EXAMPLES = listOf(
     "بازی بعدی پرسپولیس کی است؟", "طارمی امسال چند گل زده؟", "استقلال چندم است؟", "آقای گل لیگ برتر انگلیس",
-    "الان چه بازی‌هایی زنده است؟", "نتیجه آخرین بازی رئال مادرید", "فرم بارسلونا", "صدر جدول لالیگا",
+    "الان چه بازی‌هایی زنده است؟", "نتیجه آخرین بازی رئال مادرید", "پرسپولیس بهتر است یا استقلال؟", "بازی امشب بارسلونا را کی می‌برد؟",
 )
 
 /** "دستیار گل‌لایو": ask in Persian (typed or spoken), get the answer from live data, hear it read out if you like. */
@@ -262,7 +298,7 @@ fun AssistantScreen() {
     val nav = LocalNav.current
     val accent = LocalAccent.current
     val scope = rememberCoroutineScope()
-    val msgs = remember { mutableStateListOf(Msg(false, "سلام! من دستیار گل‌لایو هستم ⚽\nدرباره تیم‌ها، بازیکن‌ها، جدول و بازی‌ها به فارسی بپرسید؛ با نوشتن یا با صدا.")) }
+    val msgs = remember { mutableStateListOf(Msg(false, "سلام! من دستیار گل‌لایو هستم ⚽\nهر سؤال فوتبالی دارید به فارسی بپرسید؛ نتیجه، جدول، برنامه، آمار بازیکن‌ها، مقایسه تیم‌ها و هر چیز دیگر. با نوشتن یا با صدا.")) }
     var text by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var speak by rememberSaveable { mutableStateOf(false) }
@@ -277,7 +313,8 @@ fun AssistantScreen() {
         text = ""
         busy = true
         scope.launch {
-            val a = runCatching { answer(clean) }.getOrElse { Msg(false, "اتصال برقرار نشد؛ دوباره امتحان کنید.") }
+            val before = msgs.dropLast(1).drop(1) // the conversation so far, without the greeting and this question
+            val a = askServer(clean, before) ?: runCatching { answer(clean) }.getOrElse { Msg(false, "اتصال برقرار نشد؛ دوباره امتحان کنید.") }
             msgs += a
             busy = false
             if (speak) speaker.value.say(a.text)

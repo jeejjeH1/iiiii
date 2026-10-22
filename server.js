@@ -10,6 +10,7 @@ const hl = require('./api/hl');
 const widget = require('./api/widget');
 const tts = require('./api/tts');
 const today = require('./api/today');
+const ask = require('./api/ask');
 
 const PORT = process.env.PORT || 3000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.png': 'image/png' };
@@ -23,6 +24,7 @@ http.createServer((req, res) => {
   if (url.pathname === '/api/widget') return widget(req, res);
   if (url.pathname === '/api/tts') return tts(req, res);
   if (url.pathname === '/api/today') return today(req, res);
+  if (url.pathname === '/api/ask') return ask(req, res);
   const rel = path.normalize(url.pathname === '/' ? '/index.html' : decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '');
   const file = path.join(__dirname, rel);
   if (!file.startsWith(__dirname + path.sep) || rel.startsWith('api') || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
