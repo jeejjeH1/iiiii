@@ -56,12 +56,12 @@ object Store {
         theme = p.getString("theme", "dark")!!
     }
 
-    fun setFaNames(on: Boolean) { faNames = on; p.edit().putBoolean("faNames", on).apply() }
+    fun useFaNames(on: Boolean) { faNames = on; p.edit().putBoolean("faNames", on).apply() }
     fun setVoice(mode: String = voice, name: String = voiceName) {
         voice = mode; voiceName = name
         p.edit().putString("voice", mode).putString("voiceName", name).apply()
     }
-    fun setTheme(t: String) { theme = t; p.edit().putString("theme", t).apply() }
+    fun pickTheme(t: String) { theme = t; p.edit().putString("theme", t).apply() }
 
     /** One-time how-to sheets. */
     fun tipSeen(key: String) = p.getBoolean("tip_$key", false)

@@ -130,10 +130,10 @@ fun SettingsScreen() {
                 SubHead("ظاهر")
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
                     Seg(listOf("dark" to "بازی شبانه", "light" to "بازی روز", "auto" to "مثل گوشی"), Store.theme,
-                        icons = mapOf("dark" to Ic.moon, "light" to Ic.sun)) { Store.setTheme(it); Look.mode = it }
+                        icons = mapOf("dark" to Ic.moon, "light" to Ic.sun)) { Store.pickTheme(it); Look.mode = it }
                 }
                 SetRow(Ic.shirt, "نام فارسی تیم‌ها", if (Store.faNames) "پرسپولیس، رئال مادرید…" else "Persepolis, Real Madrid…", on = Store.faNames) {
-                    Store.setFaNames(!Store.faNames)
+                    Store.useFaNames(!Store.faNames)
                 }
                 SubHead("گزارش صوتی")
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
