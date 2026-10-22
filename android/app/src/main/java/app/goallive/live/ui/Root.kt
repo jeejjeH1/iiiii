@@ -69,6 +69,9 @@ import androidx.navigation.navArgument
 import app.goallive.live.data.Clubs
 import app.goallive.live.data.Store
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import app.goallive.live.R
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.navigation.NamedNavArgument
@@ -185,10 +188,8 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (canBack) IconBtn(Ic.back, "بازگشت", size = 22.dp) { nav.back() }
         Row(Modifier.clickable { nav.tab("home") }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(34.dp).glow(accent.copy(alpha = 0.35f), 8.dp, RoundedCornerShape(11.dp)).clip(RoundedCornerShape(11.dp)).background(accent),
-                contentAlignment = Alignment.Center) {
-                Icon(Ic.ball, null, Modifier.size(18.dp), tint = LocalAccentInk.current)
-            }
+            Image(painterResource(R.drawable.logo), null, Modifier.size(34.dp).glow(accent.copy(alpha = 0.35f), 8.dp, RoundedCornerShape(11.dp))
+                .clip(RoundedCornerShape(11.dp)))
             T("گل‌لایو", 20, FontWeight.Black)
             Box(Modifier.border(1.dp, C.live, RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 1.dp)) {
                 Text("LIVE", color = C.live, style = lat(11.sp, FontWeight.Bold).copy(letterSpacing = 2.sp))
@@ -253,8 +254,8 @@ private fun Intro() {
                 drawLine(Color.White.copy(alpha = 0.15f), Offset(size.width * (0.5f - 0.5f * ball.value), size.height / 2), Offset(size.width * (0.5f + 0.5f * ball.value), size.height / 2), 2f)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(Ic.ball, null, tint = Lime, modifier = Modifier.size(84.dp)
-                    .offset(x = (-300 * (1 - ball.value)).dp).rotate(-720f * (1 - ball.value)))
+                Image(painterResource(R.drawable.logo), null, Modifier.size(96.dp)
+                    .offset(x = (-300 * (1 - ball.value)).dp).rotate(-720f * (1 - ball.value)).clip(androidx.compose.foundation.shape.CircleShape))
                 Spacer(Modifier.height(40.dp))
                 Row(Modifier.scale(0.6f + 0.4f * word.value).alpha(word.value)) {
                     Text("گل", color = Color.White, style = vz(72.sp, FontWeight.Black).copy(
