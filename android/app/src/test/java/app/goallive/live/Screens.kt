@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.core.app.ApplicationProvider
 import app.goallive.live.data.Api
@@ -70,6 +71,13 @@ class Screens {
         if (count > 0) runCatching { n[count - 1].performSemanticsAction(SemanticsActions.OnClick) }
     }
 
+    private fun askAssistant(q: String) {
+        runCatching {
+            rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performTextInput(q)
+            rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("فرستادن"))[0].performSemanticsAction(SemanticsActions.OnClick)
+        }.onFailure { System.err.println("SHOT ask failed: $it") }
+    }
+
     @Test
     fun screens() {
         val ctx = ApplicationProvider.getApplicationContext<Application>()
@@ -129,7 +137,11 @@ class Screens {
         // the assistant: one typed question through an example chip
         NavHook.nav?.assistant(); settle(2000); shot("22-assistant")
         tap("استقلال چندم است؟", exact = true); settle(9000); shot("22b-assistant-answer")
-        tap("بازی بعدی پرسپولیس کی است؟", exact = true); settle(9000); shot("22c-assistant-answer")
+        // typed questions, one screenshot per answer (the chat scrolls to the newest)
+        listOf(
+            "پرسپولیس و استقلال را مقایسه کن", "بازی بعدیش کی است؟", "گلزن برتر سپاهان کیست؟", "مصدوم های رئال مادرید",
+            "تیم چهارم لالیگا", "طارمی امسال چند گل زده؟", "مسی و رونالدو را مقایسه کن", "بازی های فردا", "افتخارات بارسا",
+        ).forEachIndexed { k, q -> askAssistant(q); settle(12000); shot("22q$k-assistant") }
         if (upcoming != null) { NavHook.nav?.match(upcoming.id); settle(20000); shot("23-match-radar") }
         // the day look ("بازی روز")
         Store.pickTheme("light"); Look.mode = "light"
