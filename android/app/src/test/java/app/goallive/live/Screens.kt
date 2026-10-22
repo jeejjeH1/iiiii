@@ -74,6 +74,7 @@ class Screens {
     private fun askAssistant(q: String) {
         runCatching {
             rule.onAllNodes(androidx.compose.ui.test.hasSetTextAction())[0].performTextInput(q)
+            settle(600) // the mic button turns into "send" once there is text
             rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("فرستادن"))[0].performSemanticsAction(SemanticsActions.OnClick)
         }.onFailure { System.err.println("SHOT ask failed: $it") }
     }

@@ -64,6 +64,12 @@ private val PLAYERS = mapOf(
     "کوبارسی" to "Pau Cubarsí", "گاوی" to "Gavi", "ترنت" to "Trent Alexander-Arnold", "کامبیاسو" to "Andrea Cambiaso",
 )
 
+/** A player's name in Persian when we know it (مسی for Lionel Messi). */
+private fun playerFa(name: String?): String {
+    val n = name ?: return ""
+    return PLAYERS.entries.filter { it.value.equals(n, true) }.maxByOrNull { it.key.length }?.key ?: n
+}
+
 private val LEAGUES = listOf(
     listOf("لیگ برتر ایران", "خلیج فارس", "لیگ ایران", "لیگ برتر خلیج") to 523,
     listOf("لیگ قهرمانان آسیا", "لیگ نخبگان آسیا", "نخبگان") to 525,
@@ -454,7 +460,7 @@ class Brain {
         val ml = d.o("mainLeague") ?: return null
         val st = ml.a("stats").objs().associate { (it.s("title") ?: "") to it.opt("value") }
         val rating = (st["Rating"] as? Number)?.toDouble()
-        return "${d.s("name")} در ${leagueFa(ml.i("leagueId") ?: 0, ml.s("leagueName") ?: "لیگ")} (فصل ${fa(ml.s("season") ?: "")}): " +
+        return "${playerFa(d.s("name"))} در ${leagueFa(ml.i("leagueId") ?: 0, ml.s("leagueName") ?: "لیگ")} (فصل ${fa(ml.s("season") ?: "")}): " +
             "${fa(st["Goals"] ?: 0)} گل و ${fa(st["Assists"] ?: 0)} پاس گل در ${fa(st["Matches"] ?: 0)} بازی" +
             (st["Minutes played"]?.let { "، ${fa(it)} دقیقه" } ?: "") + (if (rating != null && rating > 0) "، میانگین نمره ${dec(rating, 2)}" else "") + "."
     }
@@ -462,7 +468,7 @@ class Brain {
     private suspend fun player(id: Int, q: String): Msg {
         lastPlayer = id
         val d = playerData(id)
-        val name = d.s("name") ?: ""
+        val name = playerFa(d.s("name"))
         val team = d.o("primaryTeam")
         val inf = info(d)
         val links = listOfNotNull(Link("صفحه $name") { it.player(id) }, team?.i("teamId")?.let { tid -> Link("صفحه ${teamName(tid, team.s("teamName") ?: "")}") { it.team(tid) } })
@@ -502,13 +508,14 @@ class Brain {
         val a = ad.await(); val b = bd.await()
         fun st(d: JSONObject) = d.o("mainLeague").a("stats").objs().associate { (it.s("title") ?: "") to ((it.opt("value") as? Number)?.toDouble() ?: 0.0) }
         val sa = st(a); val sb = st(b)
-        val rows = listOf("Goals" to "گل", "Assists" to "پاس گل", "Matches" to "بازی", "Rating" to "نمره").map { (k, label) ->
-            "• $label: ${a.s("name")} ${fa(dec(sa[k], if (k == "Rating") 2 else 0))} | ${b.s("name")} ${fa(dec(sb[k], if (k == "Rating") 2 else 0))}"
-        }
+        val na = playerFa(a.s("name")); val nb = playerFa(b.s("name"))
+        fun line(n: String, st: Map<String, Double>) = "• $n: ${fa(dec(st["Goals"], 0))} گل، ${fa(dec(st["Assists"], 0))} پاس گل در ${fa(dec(st["Matches"], 0))} بازی" +
+            (st["Rating"]?.takeIf { it > 0 }?.let { "، نمره ${fa(dec(it, 2))}" } ?: "")
+        val rows = listOf(line(na, sa), line(nb, sb))
         val ga = (sa["Goals"] ?: 0.0) + (sa["Assists"] ?: 0.0); val gb = (sb["Goals"] ?: 0.0) + (sb["Assists"] ?: 0.0)
-        val verdict = when { ga > gb -> "${a.s("name")} این فصل در گل و پاس گل جلوتر است."; gb > ga -> "${b.s("name")} این فصل در گل و پاس گل جلوتر است."; else -> "در گل و پاس گل برابرند." }
+        val verdict = when { ga > gb -> "$na این فصل در گل و پاس گل جلوتر است."; gb > ga -> "$nb این فصل در گل و پاس گل جلوتر است."; else -> "در گل و پاس گل برابرند." }
         Msg(false, "مقایسه این فصل (لیگ اصلی هر بازیکن):\n" + rows.joinToString("\n") + "\n" + verdict,
-            links = listOf(Link("مقایسه کامل با نمودار") { it.compare(x, y) }, Link("صفحه ${a.s("name")}") { it.player(x) }, Link("صفحه ${b.s("name")}") { it.player(y) }))
+            links = listOf(Link("مقایسه کامل با نمودار") { it.compare(x, y) }, Link("صفحه $na") { it.player(x) }, Link("صفحه $nb") { it.player(y) }))
     }
 
     /* ---------- leagues ---------- */
