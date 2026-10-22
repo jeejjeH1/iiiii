@@ -91,7 +91,9 @@ fun Root(openMatch: MutableIntState) {
             Box(Modifier.fillMaxSize()) {
                 Stadium(accent)
                 Column(Modifier.fillMaxSize().statusBarsPadding()) {
-                    TopBar(canBack = route != null && TABS.none { it.first == route }, nav)
+                    // the in-app streaming browser has its own header and uses the whole screen
+                    val immersive = route?.startsWith("web/") == true
+                    if (!immersive) TopBar(canBack = route != null && TABS.none { it.first == route }, nav)
                     NavHost(
                         nc, "home", Modifier.fillMaxSize(),
                         // the site's view transition: fade in while rising a little
@@ -112,6 +114,7 @@ fun Root(openMatch: MutableIntState) {
                             CompareScreen(it.arguments?.getInt("a") ?: 0, it.arguments?.getInt("b") ?: 0)
                         }
                         composable("quiz") { QuizScreen() }
+                        composable("web/{key}") { WebScreen(it.arguments?.getString("key") ?: "namava") }
                         composable("calendar") { CalendarScreen() }
                         composable("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
                     }
@@ -121,7 +124,7 @@ fun Root(openMatch: MutableIntState) {
                         if (id > 0) { nav.match(id); openMatch.intValue = 0 }
                     }
                 }
-                BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
+                if (route?.startsWith("web/") != true) BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
             }
             AskNotifications()
             // first launch: ask for the favourite team, like the site's onboarding sheet

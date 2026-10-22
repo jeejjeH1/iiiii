@@ -127,6 +127,7 @@ fun HomeScreen() {
         }
         if (day == 0) Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name, list) } }
         if (day == 0) item(key = "tiles") { FeatureTiles() }
+        if (day == 0) item(key = "tv") { StationsCard() }
         if (day == 0 && list != null) {
             val hit = list.mapNotNull { b -> Comps.get(b.primaryId)?.let { b to it } }.filter { it.first.matches.isNotEmpty() }.maxByOrNull { it.first.matches.size }
             if (hit != null) item(key = "comp") { CompNight(hit.first, hit.second) }

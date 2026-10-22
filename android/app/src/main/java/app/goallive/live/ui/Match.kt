@@ -342,31 +342,26 @@ private fun Scorers(goals: List<JSONObject>, reds: List<JSONObject>, modifier: M
     }
 }
 
-private val BROADCASTERS = listOf(
-    Triple("آپارات اسپورت", "پخش زنده لیگ برتر ایران و رقابت‌های اروپایی", "https://sport.aparat.com/"),
-    Triple("نماوا", "پخش زنده با اشتراک نماوا", "https://www.namava.ir/"),
-    Triple("تلوبیون · شبکه ورزش", "پخش زنده شبکه ورزش صداوسیما", "https://telewebion.com/live/varzesh"),
-    Triple("تلوبیون · شبکه ۳", "پخش زنده شبکه سه", "https://telewebion.com/live/tv3"),
-)
 
 @Composable
 private fun WatchDialog(m: MatchData, onClose: () -> Unit) {
-    val ctx = LocalContext.current
+    val nav = LocalNav.current
     AlertDialog(
         onDismissRequest = onClose, containerColor = C.cardSolid,
         title = { T("تماشای زنده", 18, FontWeight.Black) },
         text = {
             Column {
                 T("${m.homeName} - ${m.awayName}", 12, FontWeight.ExtraBold, C.mute)
-                BROADCASTERS.forEachIndexed { i, (name, sub, url) ->
-                    ListRow(first = i == 0, onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }; onClose() },
+                STATIONS.forEachIndexed { i, st ->
+                    val name = st.name; val sub = st.sub
+                    ListRow(first = i == 0, onClick = { onClose(); nav.web(st.key) },
                         pad = PaddingValues(vertical = 11.dp)) {
                         Icon(Ic.live, null, Modifier.size(22.dp), tint = C.live)
                         Column(Modifier.weight(1f)) { T(name, 14, FontWeight.Bold); T(sub, 12, color = C.mute) }
                         Icon(Ic.chev, null, Modifier.size(18.dp), tint = C.mute)
                     }
                 }
-                T("پخش در سایت رسمی هر سرویس باز می‌شود. هر بازی فقط روی سرویسی پخش می‌شود که حق پخش آن را دارد.", 12, color = C.mute, modifier = Modifier.padding(top = 8.dp))
+                T("سایت رسمی هر سرویس داخل گل‌لایو باز می‌شود؛ با حساب خودتان وارد شوید. هر بازی فقط روی سرویسی پخش می‌شود که حق پخش آن را دارد.", 12, color = C.mute, modifier = Modifier.padding(top = 8.dp))
             }
         },
         confirmButton = { TextButton(onClick = onClose) { T("بستن", 14, FontWeight.Bold, LocalAccent.current) } },
