@@ -79,7 +79,7 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
         if (online) {
             val f = download(text)
             if (f != null) { Commentary.problem = null; play(f); return }
-            if (!phone) { Commentary.problem = "صدای آنلاین در دسترس نیست؛ اینترنت را بررسی کنید"; return }
+            if (!phone) { Commentary.problem = "صدای آنلاین الان جواب نداد؛ چند لحظه بعد دوباره امتحان کنید (اگر نشد، فیلترشکن را روشن کنید)"; return }
         } else if (!phone) {
             Commentary.problem = "صدای فارسی روی گوشی نصب نیست"
             return
@@ -97,6 +97,9 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
         if (f.length() > 0) return@withContext f
         // keep the cache small
         dir.listFiles()?.takeIf { it.size > 200 }?.sortedBy { it.lastModified() }?.take(100)?.forEach { it.delete() }
+        // first straight from the voice service, then through our server
+        val voice = if (Store.voiceName == "dilara") "fa-IR-DilaraNeural" else "fa-IR-FaridNeural"
+        EdgeVoice.speak(text.take(400), voice)?.let { f.writeBytes(it); return@withContext f }
         val url = "${Api.SITE}/api/tts?v=${Store.voiceName}&t=${URLEncoder.encode(text.take(400), "UTF-8")}"
         repeat(2) {
             runCatching {

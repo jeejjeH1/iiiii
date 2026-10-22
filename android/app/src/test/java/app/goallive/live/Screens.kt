@@ -88,6 +88,13 @@ class Screens {
         Store.prefs().edit().putBoolean("askedNotify", true).apply()
         Store.pickMyTeam(app.goallive.live.data.MyTeam(8634, "Barcelona", null))
         rule.mainClock.autoAdvance = false
+        // the online commentator voice, straight from the voice service
+        runBlocking {
+            for (v in listOf("fa-IR-FaridNeural", "fa-IR-DilaraNeural")) {
+                val bytes = runCatching { app.goallive.live.notify.EdgeVoice.speak("گل! چه گلی! این صدای گزارشگر گل‌لایو است.", v) }
+                System.err.println("SHOT tts $v -> ${bytes.getOrNull()?.size ?: bytes.exceptionOrNull()}")
+            }
+        }
         app.goallive.live.ui.sharedCrests = false
 
         // a finished match from a big league today (fallback: any match) for the match screens
