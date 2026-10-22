@@ -15,6 +15,7 @@ class Nav(private val c: NavHostController?) {
     fun fantasy() { c?.navigate("fantasy") }
     fun quiz() { c?.navigate("quiz") }
     fun calendar() { c?.navigate("calendar") }
+    fun assistant() { c?.navigate("assistant") }
     fun back() { c?.popBackStack() }
     /** Back to a tab's first page (tapping the tab you are already on). */
     fun root(route: String) { c?.popBackStack(route, false) }

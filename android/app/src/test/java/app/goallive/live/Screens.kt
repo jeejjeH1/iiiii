@@ -87,6 +87,10 @@ class Screens {
         val match = list.filter { it.primaryId in big }.flatMap { it.matches }.firstOrNull { it.finished }
             ?: list.flatMap { it.matches }.firstOrNull { it.finished } ?: list.flatMap { it.matches }.firstOrNull()
 
+        // an upcoming big match for the opponent radar
+        val upcoming = list.filter { it.primaryId in big }.flatMap { it.matches }.firstOrNull { !it.started && !it.cancelled }
+            ?: list.flatMap { it.matches }.firstOrNull { !it.started && !it.cancelled && it.home.id > 0 }
+
         rule.setContent { Root(mutableIntStateOf(0)) }
         settle(2500); shot("00-intro")
         settle(9000); shot("01-home")
@@ -122,6 +126,11 @@ class Screens {
         tap("فهمیدم"); settle(1500); shot("16-fantasy-start")
         tap("لیگ برتر انگلیس"); settle(25000); shot("17-fantasy")
         tap("+ افزودن"); settle(2500); shot("18-fantasy-picker")
+        // the assistant: one typed question through an example chip
+        NavHook.nav?.assistant(); settle(2000); shot("22-assistant")
+        tap("استقلال چندم است؟", exact = true); settle(9000); shot("22b-assistant-answer")
+        tap("بازی بعدی پرسپولیس کی است؟", exact = true); settle(9000); shot("22c-assistant-answer")
+        if (upcoming != null) { NavHook.nav?.match(upcoming.id); settle(20000); shot("23-match-radar") }
         // the day look ("بازی روز")
         Store.pickTheme("light"); Look.mode = "light"
         NavHook.nav?.tab("home"); settle(500); NavHook.nav?.root("home"); settle(6000); shot("19-home-light")

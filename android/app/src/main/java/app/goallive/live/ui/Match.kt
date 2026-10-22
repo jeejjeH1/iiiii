@@ -415,6 +415,8 @@ private fun Summary(m: MatchData) {
         CardTitle("خلاصه و گل‌ها")
         Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) { Highlights(m, compact = true) }
     }
+    // before kick-off (and during the match) the radar is the most useful thing on this tab
+    if (!m.finished && !m.cancelled && m.homeId > 0 && m.awayId > 0) OpponentRadar(m)
     val momentum = m.content.path("momentum.main").a("data").objs()
     if (momentum.size > 5) Card {
         CardTitle("مومنتوم بازی") { Legend(m) }

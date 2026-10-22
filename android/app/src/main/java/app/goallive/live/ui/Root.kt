@@ -154,6 +154,7 @@ fun Root(openMatch: MutableIntState) {
                         screen("fantasy") { FantasyScreen() }
                         screen("web/{key}") { WebScreen(it.arguments?.getString("key") ?: "namava") }
                         screen("calendar") { CalendarScreen() }
+                        screen("assistant") { AssistantScreen() }
                         screen("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
                     }
                     }
@@ -164,7 +165,8 @@ fun Root(openMatch: MutableIntState) {
                         if (id > 0) { nav.match(id); openMatch.intValue = 0 }
                     }
                 }
-                if (route?.startsWith("web/") != true) BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
+                // the streaming browser and the assistant's chat use the bottom of the screen themselves
+                if (route?.startsWith("web/") != true && route != "assistant") BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
             }
             AskNotifications()
             // first launch: ask for the favourite team, like the site's onboarding sheet

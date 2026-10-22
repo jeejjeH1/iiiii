@@ -41,6 +41,7 @@ private fun shortcuts(): List<Shortcut> {
     val fantasy = fantasySub()
     return listOfNotNull(
         Shortcut("tv", "پخش زنده", "نماوا، آپارات اسپورت و تلوبیون داخل اپ", Ic.tv, null, C.live, true),
+        Shortcut("ai", "دستیار", "سؤال فوتبالی بپرس، با نوشتن یا با صدا", Ic.mic, null, C.home, !Store.tipSeen("assistant")),
         Shortcut("fantasy", "فانتزی", fantasy, null, "⚽", C.win, !fantasy.startsWith("مجموع")),
         Shortcut("quiz", "کوئیز امروز", if (answered >= 6) "انجام شد · فردا دوباره" else if (answered > 0) "ادامه بده" else "۶ سؤال تازه", null, "?", accent, answered < 6),
         Shortcut("calendar", "تقویم", Store.myTeam?.let { "بازی‌های " + (Clubs.get(it.id)?.fa ?: it.name) } ?: "بازی‌های تیم‌های دنبال‌شده", Ic.cal, null, C.home, false),
@@ -53,6 +54,7 @@ private fun go(key: String, nav: Nav, tv: () -> Unit) = when (key) {
     "fantasy" -> nav.fantasy()
     "quiz" -> nav.quiz()
     "calendar" -> nav.calendar()
+    "ai" -> { Store.markTip("assistant"); nav.assistant() }
     "my" -> Store.myTeam?.let { nav.team(it.id) } ?: Unit
     else -> Unit
 }
