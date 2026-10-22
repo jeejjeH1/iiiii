@@ -55,7 +55,11 @@ class Screens {
     @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
     private fun shot(name: String) {
         runCatching { com.github.takahirom.roborazzi.captureScreenRoboImage("build/screens/$name.png") }
-            .onFailure { runCatching { rule.onAllNodes(androidx.compose.ui.test.isRoot())[0].captureRoboImage("build/screens/$name.png") } }
+            .onFailure { e ->
+                System.err.println("SHOT $name screen capture failed: $e")
+                runCatching { rule.onAllNodes(androidx.compose.ui.test.isRoot())[0].captureRoboImage("build/screens/$name.png") }
+                    .onFailure { e2 -> System.err.println("SHOT $name root capture failed: $e2"); e2.stackTrace.take(12).forEach { System.err.println("SHOT    at $it") } }
+            }
     }
 
     private fun tap(text: String, exact: Boolean = false) {

@@ -83,7 +83,7 @@ jobs:
       - name: Show test errors
         if: failure()
         run: |
-          grep -E "^e: |Exception|Error|FAILED" -A3 test.log | head -120
+          grep -E "^e: |Exception|Error|FAILED|SHOT" -A3 test.log | head -160
       - name: Publish screenshots
         if: github.ref_name == 'ccr-addbae8c-95x58c'
         uses: softprops/action-gh-release@v2

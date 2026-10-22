@@ -34,7 +34,13 @@ android {
     kotlinOptions { jvmTarget = "17" }
     buildFeatures { compose = true }
     // screenshots of every screen with live data, rendered on the build machine (Robolectric + Roborazzi)
-    testOptions { unitTests { isIncludeAndroidResources = true } }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            // the screenshot run prints why a capture failed
+            all { it.testLogging { showStandardStreams = true } }
+        }
+    }
     lint {
         checkReleaseBuilds = false
         abortOnError = false
