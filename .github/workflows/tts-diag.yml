@@ -1,0 +1,29 @@
+# Temporary: checks which Persian text-to-speech sources work from a server outside Iran.
+name: tts-diag
+on:
+  push:
+    paths: ['.github/workflows/tts-diag.yml']
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: |
+          mkdir t && cd t && npm init -y >/dev/null && npm i msedge-tts@2.1.0 >/dev/null 2>&1
+          cat > t.mjs <<'JS'
+          import { MsEdgeTTS, OUTPUT_FORMAT } from 'msedge-tts';
+          for (const v of ['fa-IR-FaridNeural', 'fa-IR-DilaraNeural']) {
+            try {
+              const tts = new MsEdgeTTS();
+              await tts.setMetadata(v, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
+              const { audioStream } = tts.toStream('گللللل! صلاح برای لیورپول، دقیقه شصت و هفت.');
+              const n = await new Promise((ok, no) => { let n = 0; audioStream.on('data', (c) => n += c.length); audioStream.on('close', () => ok(n)); audioStream.on('error', no); setTimeout(() => ok(-1), 15000); });
+              console.log('EDGE', v, n);
+              tts.close?.();
+            } catch (e) { console.log('EDGE', v, 'ERR', e.message); }
+          }
+          process.exit(0);
+          JS
+          timeout 60 node t.mjs || true
+          curl -s -o g.mp3 -w "GOOGLE %{http_code} %{size_download} %{content_type}\n" -A "Mozilla/5.0" "https://translate.google.com/translate_tts?ie=UTF-8&tl=fa&client=tw-ob&q=%DA%AF%D9%84%20%D8%A8%D8%B1%D8%A7%DB%8C%20%D9%84%DB%8C%D9%88%D8%B1%D9%BE%D9%88%D9%84"
