@@ -87,6 +87,7 @@ class Screens {
             tap(match.home.name); settle(2000); shot("04c-lineup-one-team")
             tap("فهرست"); settle(1500); shot("04d-lineup-list")
             tap("بازیکنان"); settle(3000); shot("04b-match-players")
+            tap("مربی تو"); settle(6000); shot("04e-coach")
             tap("رودررو"); settle(3000); shot("05-match-h2h")
             tap("جدول"); settle(6000); shot("06-match-table")
         }

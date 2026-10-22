@@ -154,6 +154,7 @@ private fun MatchBody(m: MatchData) {
         if (m.shots.isNotEmpty()) add("shots" to "شوت‌ها")
         if (m.hasLineup) add("lineup" to "ترکیب")
         if (m.hasPlayers) add("players" to "بازیکنان")
+        if (!m.cancelled) add("coach" to "🧠 مربی تو")
         if (m.hasTable) add("table" to "جدول")
         if (m.hasH2h) add("h2h" to "رودررو")
     }
@@ -172,6 +173,7 @@ private fun MatchBody(m: MatchData) {
                     "shots" -> ShotsTab(m)
                     "lineup" -> LineupTab(m)
                     "players" -> PlayersTab(m)
+                    "coach" -> CoachTab(m)
                     "table" -> MatchTable(m)
                     "h2h" -> H2h(m, 50)
                 }
@@ -267,8 +269,9 @@ private fun Hero(m: MatchData) {
             listOfNotNull(m.status.s("aggregatedStr")?.let { "مجموع دو بازی: $it" }).firstOrNull()?.let {
                 T(it, 12, color = Color.White.copy(alpha = 0.9f), modifier = Modifier.padding(top = 10.dp))
             }
+            if (m.live || (!m.started && !m.cancelled && m.time - System.currentTimeMillis() < 3 * 3_600_000)) VoiceButton(m)
             if (m.live || (!m.started && !m.cancelled && m.time - System.currentTimeMillis() < 3 * 3_600_000)) {
-                Row(Modifier.padding(top = 16.dp).height(44.dp).glow(C.live.copy(alpha = 0.45f), 10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50))
+                Row(Modifier.padding(top = 12.dp).height(44.dp).glow(C.live.copy(alpha = 0.45f), 10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50))
                     .background(C.live).clickable { watch = true }.padding(horizontal = 22.dp), verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(Ic.live, null, Modifier.size(18.dp), tint = Color.White)
