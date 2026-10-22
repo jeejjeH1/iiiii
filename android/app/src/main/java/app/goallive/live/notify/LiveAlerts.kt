@@ -48,9 +48,23 @@ import java.util.concurrent.TimeUnit
  * rarely otherwise), and a 15-minute WorkManager job restarts the chain if the system dropped it.
  */
 object LiveAlerts {
-    const val CH_GOALS = "goals"
-    const val CH_LINEUPS = "lineups"
-    const val CH_MATCH = "match"
+    // "_v2": channels are fixed once created, so the ones with our own sounds get new ids
+    const val CH_GOALS = "goals_v2"
+    const val CH_VAR = "var_v2"
+    const val CH_LINEUPS = "lineups_v2"
+    const val CH_KICKOFF = "kickoff_v2"
+    const val CH_FULLTIME = "fulltime_v2"
+
+    /** Each kind of alert has its own sound (res/raw, made by android/tools/gen-sounds.py). */
+    private fun sound(channel: String) = when (channel) {
+        CH_GOALS -> R.raw.notif_goal
+        CH_VAR -> R.raw.notif_var_cancel
+        CH_LINEUPS -> R.raw.notif_lineup
+        CH_KICKOFF -> R.raw.notif_kickoff
+        else -> R.raw.notif_fulltime
+    }
+
+    private fun soundUri(ctx: Context, channel: String) = android.net.Uri.parse("android.resource://${ctx.packageName}/${sound(channel)}")
     private const val ACTION = "app.goallive.live.ALERT_TICK"
     private val lock = Mutex()
 
@@ -74,9 +88,21 @@ object LiveAlerts {
     fun channels(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CH_GOALS, "گل‌ها", NotificationManager.IMPORTANCE_HIGH).apply { description = "گل تیم‌ها و بازی‌های دنبال‌شده" })
-        nm.createNotificationChannel(NotificationChannel(CH_LINEUPS, "ترکیب تیم‌ها", NotificationManager.IMPORTANCE_DEFAULT))
-        nm.createNotificationChannel(NotificationChannel(CH_MATCH, "شروع و پایان بازی", NotificationManager.IMPORTANCE_DEFAULT))
+        listOf("goals", "lineups", "match").forEach { runCatching { nm.deleteNotificationChannel(it) } }
+        val attrs = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_EVENT)
+            .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+        for ((id, name, info, importance) in listOf(
+            listOf(CH_GOALS, "گل‌ها", "گل تیم‌ها و بازی‌های دنبال‌شده؛ با صدای غرش ورزشگاه", NotificationManager.IMPORTANCE_HIGH),
+            listOf(CH_VAR, "گل مردود", "وقتی داور گلی را پس می‌گیرد", NotificationManager.IMPORTANCE_HIGH),
+            listOf(CH_LINEUPS, "ترکیب تیم‌ها", "اعلام ترکیب حدود یک ساعت قبل از بازی", NotificationManager.IMPORTANCE_DEFAULT),
+            listOf(CH_KICKOFF, "شروع بازی", "سوت شروع", NotificationManager.IMPORTANCE_DEFAULT),
+            listOf(CH_FULLTIME, "پایان بازی", "سوت پایان و نتیجه نهایی", NotificationManager.IMPORTANCE_DEFAULT),
+        )) {
+            nm.createNotificationChannel(NotificationChannel(id as String, name as String, importance as Int).apply {
+                description = info as String
+                setSound(soundUri(ctx, id as String), attrs)
+            })
+        }
     }
 
     /** Start (or restart) checking right away; called on app start, after boot and when follows change. */
@@ -131,15 +157,15 @@ object LiveAlerts {
             val cur = JSONObject().put("st", m.started).put("fi", m.finished).put("g", total).put("lu", prev?.optBoolean("lu") ?: false).put("t", m.time)
             if (prev != null) {
                 if (Store.notifyStartEnd && m.started && !prev.optBoolean("st") && !m.finished) {
-                    notify(ctx, m.id * 10 + 1, CH_MATCH, "سوت شروع بازی", "${m.home.name} - ${m.away.name}", m.id)
+                    notify(ctx, m.id * 10 + 1, CH_KICKOFF, "سوت شروع بازی", "${m.home.name} - ${m.away.name}", m.id)
                 }
                 val before = prev.optInt("g")
                 if (Store.notifyGoals && total > before) goal(ctx, m)
                 if (Store.notifyGoals && total < before && m.live) {
-                    notify(ctx, m.id * 10 + 2, CH_GOALS, "گل مردود شد", "${m.home.name} ${fa(m.home.score)} - ${fa(m.away.score)} ${m.away.name}", m.id)
+                    notify(ctx, m.id * 10 + 2, CH_VAR, "گل مردود شد", "${m.home.name} ${fa(m.home.score)} - ${fa(m.away.score)} ${m.away.name}", m.id)
                 }
                 if (Store.notifyStartEnd && m.finished && !prev.optBoolean("fi")) {
-                    notify(ctx, m.id * 10 + 3, CH_MATCH, "پایان بازی", "${m.home.name} ${fa(m.home.score)} - ${fa(m.away.score)} ${m.away.name}", m.id)
+                    notify(ctx, m.id * 10 + 3, CH_FULLTIME, "پایان بازی", "${m.home.name} ${fa(m.home.score)} - ${fa(m.away.score)} ${m.away.name}", m.id)
                 }
             }
             // line-ups come out about an hour before kick-off
@@ -200,7 +226,8 @@ object LiveAlerts {
             .setContentText(text)
             .setAutoCancel(true)
             .setContentIntent(open)
-            .setPriority(if (channel == CH_GOALS) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(if (channel == CH_GOALS || channel == CH_VAR) NotificationCompat.PRIORITY_HIGH else NotificationCompat.PRIORITY_DEFAULT)
+            .setSound(soundUri(ctx, channel)) // Android 7 and older (newer ones take the channel's sound)
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .build()
         runCatching { NotificationManagerCompat.from(ctx).notify(id, n) }
