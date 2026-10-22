@@ -25,7 +25,10 @@ FotMob has no public API; this is unofficial and may break or be restricted by t
 - **Install from the browser (PWA):** open the site, then "Install app" (Android/Chrome) or Share → "Add to Home Screen" (iOS).
 - **Android app:** `android/` is a native app (Kotlin + Jetpack Compose) that uses the same `/api` functions as the site:
   matches by day, match page (summary, video, stats, line-up pitch, table, head-to-head), leagues, teams with club themes
-  and history, players, search, following, on-device goal / line-up / kick-off alerts and the "my team" home-screen widget.
+  and history, players, search, following, on-device goal / line-up / kick-off alerts, fantasy football, coach mode,
+  spoken Persian commentary, a light and a dark look and three home-screen widgets (my team, small my team, today's matches).
+  Server pieces made for the app: `/api/tts` (Persian speech for phones without a Persian voice, via `msedge-tts`)
+  and `/api/today` (a compact list of today's matches for the widget).
   GitHub Actions (`.github/workflows/android.yml`) builds it on every change under `android/` and publishes `goallive.apk`
   to the `android-latest` release. Locally: `cd android && ./gradlew assembleRelease` (needs the Android SDK).
   `node android/tools/gen-data.mjs` regenerates the club and translation tables from `assets/`.
