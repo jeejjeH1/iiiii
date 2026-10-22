@@ -100,6 +100,8 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
         // first straight from the voice service, then through our server
         val voice = if (Store.voiceName == "dilara") "fa-IR-DilaraNeural" else "fa-IR-FaridNeural"
         EdgeVoice.speak(text.take(400), voice)?.let { f.writeBytes(it); return@withContext f }
+        // the other commentator rather than silence
+        EdgeVoice.speak(text.take(400), if (voice == "fa-IR-FaridNeural") "fa-IR-DilaraNeural" else "fa-IR-FaridNeural")?.let { f.writeBytes(it); return@withContext f }
         val url = "${Api.SITE}/api/tts?v=${Store.voiceName}&t=${URLEncoder.encode(text.take(400), "UTF-8")}"
         repeat(2) {
             runCatching {

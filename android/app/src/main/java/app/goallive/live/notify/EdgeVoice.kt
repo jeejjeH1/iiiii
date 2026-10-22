@@ -42,10 +42,10 @@ object EdgeVoice {
 
     /** MP3 bytes for [text] in [voice] ("fa-IR-FaridNeural" / "fa-IR-DilaraNeural"), or null. */
     suspend fun speak(text: String, voice: String): ByteArray? {
-        val before = clockOffset
+        // a second try covers a dropped connection or, after a refusal, a corrected clock
         once(text, voice)?.let { return it }
-        // a refusal told us the phone's clock is off: the token is now right, try once more
-        return if (clockOffset != before) once(text, voice) else null
+        kotlinx.coroutines.delay(400)
+        return once(text, voice)
     }
 
     private suspend fun once(text: String, voice: String): ByteArray? = withTimeoutOrNull(20_000) {
