@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>24h With AI</title>
+<style>
+  @font-face { font-family: Vaz; font-weight: 500; src: url(fonts/Vazirmatn-FD-Medium.ttf); }
+  @font-face { font-family: Vaz; font-weight: 700; src: url(fonts/Vazirmatn-FD-Bold.ttf); }
+  @font-face { font-family: Vaz; font-weight: 800; src: url(fonts/Vazirmatn-FD-ExtraBold.ttf); }
+  @font-face { font-family: Vaz; font-weight: 900; src: url(fonts/Vazirmatn-FD-Black.ttf); }
+  @font-face { font-family: JBM; font-weight: 500; src: url(fonts/JetBrainsMono-Medium.ttf); }
+  @font-face { font-family: JBM; font-weight: 800; src: url(fonts/JetBrainsMono-ExtraBold.ttf); }
+  html, body { margin: 0; background: #000; height: 100%; overflow: hidden; }
+  canvas { display: block; height: 100vh; width: 56.25vh; margin: auto; }
+  body.render canvas { width: 1080px; height: 1920px; }
+  #hud { position: fixed; left: 12px; bottom: 10px; color: #888; font: 12px monospace; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"></div>
+<script src="timeline.js"></script>
+<script src="motion.js"></script>
+<script>
+  // Preview mode (open in a browser): click to play with audio. Render mode: ?render
+  if (location.search.includes('render')) document.body.classList.add('render');
+  else {
+    const audio = new Audio('build/audio.wav');
+    const hud = document.getElementById('hud');
+    let start = null;
+    hud.textContent = 'click to play';
+    document.body.addEventListener('click', () => {
+      audio.currentTime = 0; audio.play().catch(() => {});
+      start = performance.now();
+    });
+    (function loop() {
+      if (start !== null && window.motionReady) {
+        const t = audio.currentTime > 0 ? audio.currentTime : (performance.now() - start) / 1000;
+        if (t < DURATION) { renderOnly(t); hud.textContent = t.toFixed(2) + 's'; }
+      }
+      requestAnimationFrame(loop);
+    })();
+  }
+</script>
+</body>
+</html>
