@@ -167,7 +167,7 @@ private fun LeagueBody(id: Int, d: JSONObject, onSeason: (String) -> Unit) {
     var pick by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         item {
-            PageHero(parseColor(det.s("leagueColor")) ?: Color(0xFF1A2A40), "dots") {
+            PageHero(parseColor(det.s("leagueColor"))?.let { if (lum(it) > 0.6f) darken(it, 0.55f) else it } ?: Color(0xFF1A2A40), "dots") {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     LeagueLogo(id, 76.dp)
                     Column(Modifier.weight(1f)) {

@@ -76,7 +76,7 @@ private fun PlayerBody(id: Int, p: JSONObject) {
     val teamId = team.i("teamId") ?: 0
     val club = Clubs.get(teamId)
     val color = club?.let { Color(it.c1) } ?: parseColor(team.path("teamColors").s("color")) ?: Color(0xFF1A2A40)
-    val ink = club?.let { if (lum(Color(it.ink)) < 0.3f) Color(it.ink) else Color.White } ?: Color.White
+    val ink = club?.let { if (lum(Color(it.ink)) < 0.3f) Color(it.ink) else Color.White } ?: if (lum(color) > 0.6f) Color(0xFF0B1B3A) else Color.White
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             PageHero(color, club?.pattern ?: "dots") {

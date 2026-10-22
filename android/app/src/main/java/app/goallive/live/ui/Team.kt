@@ -74,7 +74,7 @@ private fun TeamBody(id: Int, d: JSONObject) {
     val name = det.s("name") ?: ""
     val club = Clubs.get(id)
     val color = club?.let { Color(it.c1) } ?: parseColor(d.path("overview.teamColors").s("darkMode")) ?: parseColor(d.path("overview.teamColors").s("color")) ?: Color(0xFF1A2A40)
-    val ink = club?.let { if (lum(Color(it.ink)) < 0.3f) Color(it.ink) else Color.White } ?: Color.White
+    val ink = club?.let { if (lum(Color(it.ink)) < 0.3f) Color(it.ink) else Color.White } ?: if (lum(color) > 0.6f) Color(0xFF0B1B3A) else Color.White
     val league = d.a("table")?.optJSONObject(0)?.o("data")
     val tabs = buildList {
         add("overview" to "نمای کلی")
