@@ -156,6 +156,7 @@ fun MoreScreen() {
                 MoreRow(Ic.sliders, "تنظیمات", "ظاهر، اعلان‌ها، گزارش صوتی و نام فارسی تیم‌ها") { nav.tab("settings") }
             }
         }
+        item { MadeBy() }
     }
     if (tv) StationsSheet { tv = false }
     if (widgetHelp) AlertDialog(

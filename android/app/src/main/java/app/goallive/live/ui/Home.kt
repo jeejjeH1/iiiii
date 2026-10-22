@@ -194,6 +194,7 @@ fun HomeScreen() {
                 }
             }
         }
+        item(key = "madeby") { MadeBy() }
     }
     }
 }

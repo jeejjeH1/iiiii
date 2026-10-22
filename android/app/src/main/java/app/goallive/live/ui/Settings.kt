@@ -153,6 +153,7 @@ fun SettingsScreen() {
                 }
             }
         }
+        item { MadeBy() }
     }
     if (picker) TeamPicker { picker = false }
     if (widgetHelp) AlertDialog(
