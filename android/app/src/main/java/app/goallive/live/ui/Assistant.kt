@@ -121,6 +121,12 @@ private suspend fun findPlayer(q: String, latin: Boolean = false): JSONObject? {
     return runCatching { search(en).players.firstOrNull() }.getOrNull()
 }
 
+/** League names in Persian for the big ones. */
+private fun leagueFa(id: Int, name: String) = when (id) {
+    523 -> "لیگ برتر ایران"; 47 -> "لیگ برتر انگلیس"; 87 -> "لالیگا"; 55 -> "سری آ"; 54 -> "بوندسلیگا"; 53 -> "لوشامپیونه"
+    42 -> "لیگ قهرمانان اروپا"; 73 -> "لیگ اروپا"; else -> name
+}
+
 private fun findLeague(q: String): Int? = LEAGUES.firstOrNull { (words, _) -> has(q, *words.toTypedArray()) }?.second
 
 /* ---------- answers ---------- */
@@ -164,7 +170,7 @@ private suspend fun answer(raw: String): Msg {
         val lg = findLeague(q)
         if (lg != null) {
             val d = Api.fm("leagues", mapOf("id" to lg, "ccode3" to "IRN"), 600_000)
-            val lname = d.o("details").s("name") ?: ""
+            val lname = leagueFa(lg, d.o("details").s("name") ?: "")
             if (has(q, "آقای گل", "گلزن", "بهترین گلزن", "گل زن")) {
                 val top = d.o("stats").a("players").objs().firstOrNull { it.s("header") == "Top scorer" }?.a("topThree").objs()
                 if (top.isNullOrEmpty()) return Msg(false, "آمار گلزنان $lname هنوز منتشر نشده.")
@@ -193,8 +199,9 @@ private suspend fun answer(raw: String): Msg {
     val rows = d.a("table").objs().flatMap { t -> listOfNotNull(t.path("data.table")) + t.o("data").a("tables").objs().mapNotNull { it.o("table") } }
     val table = rows.firstOrNull { tb -> tb.a("all").objs().any { it.i("id") == id } }
     val row = table?.a("all").objs().firstOrNull { it.i("id") == id }
-    val leagueName = d.a("table").objs().firstOrNull()?.o("data")?.s("leagueName") ?: "لیگ"
-    val position = row?.let { "$fname در $leagueName ${fa(it.i("idx") ?: 0)}م است با ${fa(it.i("pts") ?: 0)} امتیاز از ${fa(it.i("played") ?: 0)} بازی (${fa(it.i("wins") ?: 0)} برد، ${fa(it.i("draws") ?: 0)} مساوی، ${fa(it.i("losses") ?: 0)} باخت)." }
+    val tdata = d.a("table").objs().firstOrNull()?.o("data")
+    val leagueName = leagueFa(tdata.i("leagueId") ?: 0, tdata.s("leagueName") ?: "لیگ")
+    val position = row?.let { "$fname در $leagueName رتبه ${fa(it.i("idx") ?: 0)} را دارد با ${fa(it.i("pts") ?: 0)} امتیاز از ${fa(it.i("played") ?: 0)} بازی (${fa(it.i("wins") ?: 0)} برد، ${fa(it.i("draws") ?: 0)} مساوی، ${fa(it.i("losses") ?: 0)} باخت)." }
 
     fun describe(m: MatchItem): String {
         val opp = if (m.home.id == id) teamName(m.away.id, m.away.name) else teamName(m.home.id, m.home.name)
