@@ -124,7 +124,7 @@ class Screens {
         tap("+ افزودن"); settle(2500); shot("18-fantasy-picker")
         // the day look ("بازی روز")
         Store.pickTheme("light"); Look.mode = "light"
-        NavHook.nav?.tab("home"); NavHook.nav?.tab("home"); settle(6000); shot("19-home-light")
+        NavHook.nav?.tab("home"); settle(500); NavHook.nav?.root("home"); settle(6000); shot("19-home-light")
         if (match != null) { NavHook.nav?.match(match.id); settle(6000); shot("20-match-light") }
         NavHook.nav?.tab("settings"); settle(1500); shot("21-settings-light")
     }
