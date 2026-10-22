@@ -1,5 +1,6 @@
 // Synthesizes the soundtrack (128 BPM future-house track + every SFX) from timeline.js.
-// Output: build/audio.wav (music + SFX) and build/sfx.wav (SFX only, for using a trending track).
+// Output: build/audio.wav (music + SFX + voice), build/sfx.wav (SFX + voice, for adding a trending
+// track in Instagram) and build/novoice.wav (music + SFX).
 require('./timeline.js');
 const fs = require('fs');
 const path = require('path');
@@ -60,7 +61,7 @@ function put(B, t0, len, gen, { gain = 1, pan = 0, rev = 0, dly = 0 } = {}) {
 // F minor: Fm  Db  Ab  Eb  (three chord tones + bass root)
 const CHORDS = [[53, 56, 60, 41], [49, 53, 56, 37], [48, 51, 56, 44], [51, 55, 58, 39]];
 const chordAt = (t) => CHORDS[Math.floor(t / BAR) % 4];
-const DROP = T(2), BREAK0 = T(12), BREAK1 = T(13), END = T(15);
+const DROP = T(2), BREAK0 = T(12), BREAK1 = T(14), END = T(17);
 const isDrop = (t) => (t >= DROP && t < BREAK0) || (t >= BREAK1 && t < END);
 const isBreak = (t) => t >= BREAK0 && t < BREAK1;
 const isBuild = (t) => t >= BAR && t < DROP;
@@ -101,6 +102,7 @@ for (let b = 0; b * BEAT < END; b++) {
     hat(t + BEAT / 2, 1, true);
     hat(t + BEAT / 4, 0.45, false, -0.3); hat(t + 3 * BEAT / 4, 0.45, false, -0.3);
   } else if (isBreak(t)) {
+    if (t >= T(13)) kick(t, 0.55);                // second bar of the breakdown builds back up
     if (b % 2 === 1) clap(t, 0.7);
     hat(t + BEAT / 2, 0.6);
   }
@@ -109,10 +111,10 @@ for (let b = 0; b * BEAT < END; b++) {
 for (let i = 0; i < 4; i++) snare(BAR + i * BEAT / 2, 0.3 + i * 0.05);
 for (let i = 0; i < 8; i++) snare(BAR + 2 * BEAT + i * BEAT / 4, 0.5 + i * 0.06);
 // short roll at the end of the breakdown
-for (let i = 0; i < 8; i++) snare(T(12, 2) + i * BEAT / 4, 0.35 + i * 0.08);
+for (let i = 0; i < 8; i++) snare(T(13, 2) + i * BEAT / 4, 0.35 + i * 0.08);
 // one-beat fills at the end of every connector
 for (let k = 0; k < 4; k++) for (let i = 0; i < 4; i++) snare(T(3 + 2 * k, 3) + i * BEAT / 4, 0.25 + i * 0.1);
-[DROP, BREAK1, T(14)].forEach((t) => crash(t));
+[DROP, BREAK1, T(16)].forEach((t) => crash(t));
 crash(END, 0.7);
 kick(END, 1);
 
@@ -163,7 +165,7 @@ kick(END, 1);
     const ch = chordAt(Math.min(t, END - 0.01));
     let v = 0;
     for (const vo of voices) v += vo.s.p(mtof(ch[vo.k]) * vo.det);
-    const open = isBreak(t) ? 900 + 2200 * (t - BREAK0) / BAR : isBuild(t) ? 700 + 2000 * (t - BAR) / BAR : 1100;
+    const open = isBreak(t) ? 900 + 2200 * (t - BREAK0) / (BREAK1 - BREAK0) : isBuild(t) ? 700 + 2000 * (t - BAR) / BAR : 1100;
     lp.set(open, 0.8);
     const side = isDrop(t) ? 0.25 + 0.75 * clamp((t % BEAT) / 0.3) : 1;
     const g = isBreak(t) ? 1.8 : isDrop(t) ? 0.7 : 1;
@@ -185,7 +187,7 @@ kick(END, 1);
     const idx = pattern[step % 8];
     const n = (idx === 3 ? ch[0] + 12 : ch[idx]) + 24;
     const f = mtof(n);
-    const cut = intro ? 800 + 2400 * clamp(t / DROP) : isBreak(t) ? 1500 + 3000 * (t - BREAK0) / BAR : 3600;
+    const cut = intro ? 800 + 2400 * clamp(t / DROP) : isBreak(t) ? 1500 + 3000 * (t - BREAK0) / (BREAK1 - BREAK0) : 3600;
     lp.set(cut, 1.3);
     const g = intro ? 0.55 : isBreak(t) ? 1.4 : 0.75;
     return lp.p(a.p(f) - b.p(f)) * Math.exp(-st * 24) * g;
@@ -267,7 +269,64 @@ function fxBus(B) {
     for (let i = 0; i < N; i++) out[i] += acc[i] * 0.09;
   }
 }
-fxBus(MUS); fxBus(FXB);
+// ---------------------------------------------------------------- voiceover
+// Phrases from voice/vo (made by voice/tts.py), each placed on its beat from voice/lines.json.
+const VO = mk();
+function readWav(file) {
+  const b = fs.readFileSync(file);
+  let o = 12, fmt = null;
+  while (o < b.length) {
+    const id = b.toString('ascii', o, o + 4), len = b.readUInt32LE(o + 4);
+    if (id === 'fmt ') fmt = { ch: b.readUInt16LE(o + 10), sr: b.readUInt32LE(o + 12), bits: b.readUInt16LE(o + 22) };
+    if (id === 'data') {
+      if (!fmt || fmt.sr !== SR || fmt.bits !== 16) throw new Error(`${file}: expected ${SR} Hz 16-bit PCM`);
+      const n = len / 2 / fmt.ch, out = new Float32Array(n);
+      for (let i = 0; i < n; i++) out[i] = b.readInt16LE(o + 8 + i * 2 * fmt.ch) / 32768;
+      return out;
+    }
+    o += 8 + len + (len & 1);
+  }
+  throw new Error(`${file}: no data chunk`);
+}
+const VO_DIR = path.join(__dirname, 'voice', 'vo');
+const hasVoice = fs.existsSync(VO_DIR);
+if (hasVoice) {
+  const sceneStart = (id) => {
+    const m = /^conn(\d)$/.exec(id);
+    const sc = TL.SCENES.find((x) => (m ? x.id === 'conn' && x.k === +m[1] : x.id === id));
+    return sc;
+  };
+  for (const line of JSON.parse(fs.readFileSync(path.join(__dirname, 'voice', 'lines.json'), 'utf8'))) {
+    const sc = sceneStart(line.scene);
+    let prevEnd = 0;
+    line.segs.forEach((seg, i) => {
+      const x = readWav(path.join(VO_DIR, `${line.scene}_${i}.wav`));
+      const t0 = Math.max(sc.t0 + seg.at * BEAT, prevEnd + 0.06);
+      prevEnd = t0 + x.length / SR;
+      if (prevEnd > sc.t1) console.warn(`voice ${line.scene}_${i} runs ${(prevEnd - sc.t1).toFixed(2)}s past its scene`);
+      put(VO, t0, x.length / SR, (_, k) => x[k], { rev: 0.12 });
+    });
+  }
+}
+fxBus(MUS); fxBus(FXB); fxBus(VO);
+
+// voice sits ~3 dB over the music, and music/SFX duck under it
+if (hasVoice) {
+  const rms = (B, active) => { let s = 0, n = 0; for (let i = 0; i < N; i++) if (!active || Math.abs(B.L[i]) > 0.01) { s += B.L[i] * B.L[i] + B.R[i] * B.R[i]; n += 2; } return Math.sqrt(s / Math.max(n, 1)); };
+  const voRms = rms(VO, true);
+  const g = (1.4 * rms(MUS, false)) / voRms;
+  const thr = 0.5 * voRms * g; // envelope level that counts as full ducking
+  let env = 0;
+  const att = Math.exp(-1 / (0.005 * SR)), rel = Math.exp(-1 / (0.22 * SR));
+  for (let i = 0; i < N; i++) {
+    VO.L[i] *= g; VO.R[i] *= g;
+    const a = Math.abs(VO.L[i]);
+    env = a > env ? att * env + (1 - att) * a : rel * env + (1 - rel) * a;
+    const d = clamp(env / thr);
+    MUS.L[i] *= 1 - 0.55 * d; MUS.R[i] *= 1 - 0.55 * d;
+    FXB.L[i] *= 1 - 0.3 * d; FXB.R[i] *= 1 - 0.3 * d;
+  }
+}
 
 function write(file, buses) {
   const L = new Float32Array(N), R = new Float32Array(N);
@@ -291,5 +350,6 @@ function write(file, buses) {
 }
 const BUILD = path.join(__dirname, 'build');
 fs.mkdirSync(BUILD, { recursive: true });
-write(path.join(BUILD, 'audio.wav'), [[MUS, 0.85], [FXB, 0.75]]);
-write(path.join(BUILD, 'sfx.wav'), [[FXB, 1.0]]);
+write(path.join(BUILD, 'audio.wav'), [[MUS, 0.85], [FXB, 0.75], [VO, 0.85]]);
+write(path.join(BUILD, 'sfx.wav'), [[FXB, 0.75], [VO, 0.85]]);
+write(path.join(BUILD, 'novoice.wav'), [[MUS, 0.85], [FXB, 0.75]]);

@@ -409,14 +409,14 @@ function cursor(c, x, y, s = 1) {
   c.restore();
 }
 function sceneHow(c, t, u) {
-  slamTxt(c, 'چطوری وصلش کنم؟', W / 2, 600, t, t - u, { size: 100, weight: 900 });
+  slamTxt(c, 'چطوری وصلش کنی؟', W / 2, 600, t, t - u, { size: 100, weight: 900 });
   const steps = ['Settings', 'Connectors', 'Connect'];
   const ys = [840, 1010, 1180];
   steps.forEach((s, i) => {
-    const a = (1 + i) * BEAT - 0.12;
+    const a = (2 + 2 * i) * BEAT - 0.12;
     const sp = pop(u, a, 0.3);
     if (sp <= 0) return;
-    const clicked = u >= (1 + i) * BEAT;
+    const clicked = u >= (2 + 2 * i) * BEAT;
     c.save(); c.translate(W / 2, ys[i]); c.scale(sp, sp);
     const w = 520, h = 112;
     shadowCard(c, -w / 2, -h / 2, w, h, 30, clicked && i === 2 ? { fill: C.coral, border: null } : {});
@@ -428,15 +428,15 @@ function sceneHow(c, t, u) {
       c.save(); c.globalAlpha = sp; c.strokeStyle = C.muted; c.lineWidth = 6; c.lineCap = 'round'; c.lineJoin = 'round';
       c.beginPath(); c.moveTo(W / 2 - 16, yy - 6); c.lineTo(W / 2, yy + 8); c.lineTo(W / 2 + 16, yy - 6); c.stroke(); c.restore();
     }
-    burst(c, W / 2 + 160, ys[i] + 10, P(u, (1 + i) * BEAT, 0.35), { n: 8, r0: 10, r1: 70, w: 6 });
+    burst(c, W / 2 + 160, ys[i] + 10, P(u, (2 + 2 * i) * BEAT, 0.35), { n: 8, r0: 10, r1: 70, w: 6 });
   });
   // cursor hops between the three steps
   let cy = ys[0], cx = W / 2 + 250;
   for (let i = 0; i < 3; i++) {
-    const a = (1 + i) * BEAT;
+    const a = (2 + 2 * i) * BEAT;
     if (u >= a - 0.3) { const q = E.inOut(P(u, a - 0.3, 0.26)); cy = lerp(i ? ys[i - 1] : 1500, ys[i], q); cx = W / 2 + 150; }
   }
-  if (u > BEAT - 0.35) cursor(c, cx, cy, 1.25 * (1 - 0.15 * Math.exp(-((u % BEAT)) * 12)));
+  if (u > 2 * BEAT - 0.35) cursor(c, cx, cy, 1.25 * (1 - 0.15 * Math.exp(-((u % (2 * BEAT))) * 12)));
   txt(c, 'روی claude.ai یا اپ Claude', W / 2, 1360, { size: 44, weight: 700, color: C.muted, alpha: P(u, 0.2, 0.3) });
 }
 
@@ -451,8 +451,8 @@ function sceneAsk(c, t, u) {
     const hop = Math.max(0, Math.sin((u - a) * Math.PI / BEAT)) * 26 * (u > a + 0.3);
     logoTile(c, k.logo, x, 1080 - hop, 150, { scale: sp });
   });
-  txt(c, 'تو کامنت بگو', W / 2, 1290, { size: 62, weight: 900, alpha: P(u, 2 * BEAT, 0.2) });
-  const a = P(u, 2.3 * BEAT, 0.2);
+  txt(c, 'تو کامنت بگو', W / 2, 1290, { size: 62, weight: 900, alpha: P(u, 3.5 * BEAT, 0.2) });
+  const a = P(u, 3.8 * BEAT, 0.2);
   const y = 1390 + Math.abs(Math.sin(t * 6.7)) * 16;
   c.save(); c.globalAlpha = a; c.strokeStyle = C.coral; c.lineWidth = 9; c.lineCap = 'round'; c.lineJoin = 'round';
   c.beginPath(); c.moveTo(W / 2, y - 42); c.lineTo(W / 2, y + 18); c.moveTo(W / 2 - 26, y - 8); c.lineTo(W / 2, y + 18); c.lineTo(W / 2 + 26, y - 8); c.stroke();

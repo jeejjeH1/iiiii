@@ -32,10 +32,10 @@
 
   const SCENES = [{ id: 'hook', t0: 0, t1: T(2) }];
   CONNECTORS.forEach((c, i) => SCENES.push({ id: 'conn', k: i, t0: T(2 + 2 * i), t1: T(4 + 2 * i) }));
-  SCENES.push({ id: 'how', t0: T(12), t1: T(13) });
-  SCENES.push({ id: 'ask', t0: T(13), t1: T(14) });
-  SCENES.push({ id: 'save', t0: T(14), t1: T(15) + 0.5 });
-  const DURATION = T(15) + 0.5;
+  SCENES.push({ id: 'how', t0: T(12), t1: T(14) });
+  SCENES.push({ id: 'ask', t0: T(14), t1: T(16) });
+  SCENES.push({ id: 'save', t0: T(16), t1: T(17) + 0.5 });
+  const DURATION = T(17) + 0.5;
 
   // inside a connector scene (in beats from its start)
   const CB = { panelOut: 1, tileIn: 1, plug: 2, title: 2, benefit: 2.5, ask: 4, think: 5.5, reply: 6 };
@@ -77,21 +77,22 @@
     if (i < 4) { s(b(7) - 0.05, 'riser', { dur: BEAT + 0.05, v: 0.5 }); }
   });
 
-  // how-to: title slam + three clicks
+  // how-to: title slam + three clicks, one per spoken step (beats 2, 4, 6)
   hit(T(12), 0.9);
-  for (let i = 0; i < 3; i++) { s(T(12, 1 + i), 'click', { v: 0.8 }); s(T(12, 1 + i) + 0.03, 'pop', { v: 0.45, f: 600 + i * 150 }); }
-  s(T(12, 3), 'riser', { dur: BEAT, v: 0.6 });
+  for (let i = 0; i < 3; i++) { s(T(12, 2 + 2 * i), 'click', { v: 0.8 }); s(T(12, 2 + 2 * i) + 0.03, 'pop', { v: 0.45, f: 600 + i * 150 }); }
+  s(T(13, 2), 'riser', { dur: 2 * BEAT, v: 0.6 });
 
   // ask: question slam, logos bounce on each beat
-  boom(T(13), 0.9);
-  for (let i = 0; i < 5; i++) s(T(13, 1) + i * BEAT * 0.5, 'pop', { v: 0.45, f: 500 + i * 120 });
-  s(T(13, 3) + BEAT * 0.5, 'whoosh', { dur: 0.3, v: 0.6 });
+  boom(T(14), 0.9);
+  for (let i = 0; i < 5; i++) s(T(14, 1) + i * BEAT * 0.5, 'pop', { v: 0.45, f: 500 + i * 120 });
+  s(T(14, 3.5), 'pop', { v: 0.5, f: 900 });
+  s(T(15, 3) + BEAT * 0.5, 'whoosh', { dur: 0.3, v: 0.6 });
 
   // save
-  boom(T(14), 1);
-  s(T(14, 1), 'pop', { v: 0.9, f: 650 });
-  s(T(14, 1) + 0.15, 'sparkle', { v: 0.7 });
-  hit(T(14, 2), 0.6);
+  boom(T(16), 1);
+  s(T(16, 1), 'pop', { v: 0.9, f: 650 });
+  s(T(16, 1) + 0.15, 'sparkle', { v: 0.7 });
+  hit(T(16, 2), 0.6);
 
   G.TL = { BPM, BEAT, BAR, T, DURATION, SCENES, CONNECTORS, CB, SFX, FX };
 })(typeof window !== 'undefined' ? window : globalThis);
