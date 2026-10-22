@@ -98,6 +98,16 @@ private val NICKS = mapOf(
     "اینتر میلان" to "Inter", "لیور" to "Liverpool", "آرسنال" to "Arsenal", "چلسی" to "Chelsea", "تاتنهام" to "Tottenham",
 )
 
+/** FotMob's English return dates ("Early January 2027", "Back in training") in Persian. */
+private fun returnFa(s: String): String {
+    var t = s
+    listOf("Back in training" to "به تمرین برگشته", "Doubtful" to "مشکوک به بازی", "Unknown" to "نامشخص", "Early" to "اوایل", "Mid" to "اواسط",
+        "Late" to "اواخر", "January" to "ژانویه", "February" to "فوریه", "March" to "مارس", "April" to "آوریل", "May" to "مه", "June" to "ژوئن",
+        "July" to "ژوئیه", "August" to "اوت", "September" to "سپتامبر", "October" to "اکتبر", "November" to "نوامبر", "December" to "دسامبر",
+    ).forEach { (en, f) -> t = t.replace(en, f, ignoreCase = true) }
+    return fa(t)
+}
+
 private val BIG = setOf(42, 47, 87, 55, 54, 53, 73, 523, 77, 50, 525, 10216)
 
 /** "امروز / فردا / دیروز …" as a day offset, or null when no day is named. */
@@ -233,7 +243,14 @@ class Brain {
         val leagueName get() = d.a("table").objs().firstOrNull()?.o("data").let { leagueFa(it.i("leagueId") ?: 0, it.s("leagueName") ?: "لیگ") }
         val fixtures get() = d.path("fixtures.allFixtures").a("fixtures").objs()
         val form get() = ov.a("teamForm").objs().takeLast(5).mapNotNull { it.s("resultString") }
-        fun stat(header: String) = d.o("stats").a("players").objs().firstOrNull { it.s("header") == header }?.o("participant")
+        /** Season leader; when FotMob has no stats page for the league (e.g. Iran), counted from the squad list. */
+        fun stat(header: String): JSONObject? {
+            d.o("stats").a("players").objs().firstOrNull { it.s("header") == header }?.o("participant")?.let { return it }
+            val key = when (header) { "Top scorer" -> "goals"; "Assists" -> "assists"; "FotMob rating" -> "rating"; else -> return null }
+            val best = d.o("squad").a("squad").objs().flatMap { it.a("members").objs() }.maxByOrNull { it.d(key) ?: 0.0 } ?: return null
+            if ((best.d(key) ?: 0.0) <= 0.0) return null
+            return JSONObject().put("id", best.i("id")).put("name", best.s("name")).put("value", best.d(key))
+        }
         fun rank(header: String) = d.o("stats").a("teams").objs().firstOrNull { it.s("header") == header }?.o("participant")
         val ppg: Double get() = row?.let { (it.i("pts") ?: 0).toDouble() / (it.i("played") ?: 1).coerceAtLeast(1) } ?: 1.2
     }
@@ -322,7 +339,7 @@ class Brain {
                 if (hurt.isEmpty()) Msg(false, "طبق FotMob، $name الان بازیکن مصدومی ندارد.", links = links)
                 else Msg(false, "مصدوم‌های $name:\n" + hurt.joinToString("\n") { p ->
                     val inj = p.o("injury")
-                    "• ${p.s("name")}" + (inj.s("expectedReturn")?.let { " (بازگشت: ${tr(it)})" } ?: "")
+                    "• ${p.s("name")}" + (inj.s("expectedReturn")?.let { " (بازگشت: ${returnFa(it)})" } ?: "")
                 }, links = links)
             }
             has(q, "سرمربی", "مربی") -> {
@@ -330,12 +347,12 @@ class Brain {
                 Msg(false, coach?.let { "سرمربی $name: $it" } ?: "نام سرمربی $name پیدا نشد.", links = links)
             }
             has(q, "پاس گل", "پاسور", "پاس") -> td.stat("Assists")?.let { p ->
-                Msg(false, "بهترین پاسور $name این فصل ${p.s("name")} است با ${fa(p.i("value") ?: 0)} پاس گل.", links = listOf(Link("صفحه ${p.s("name")}") { it.player(p.i("id") ?: 0) }) + links)
+                Msg(false, "بهترین پاسور $name این فصل ${p.s("name")} است با ${fa(dec(p.d("value"), 0))} پاس گل.", links = listOf(Link("صفحه ${p.s("name")}") { it.player(p.i("id") ?: 0) }) + links)
             } ?: Msg(false, "آمار پاس گل $name در دسترس نیست.", links = links)
             has(q, "گلزن", "آقای گل", "گل زن", "بهترین بازیکن", "ستاره", "نمره") -> {
                 val top = td.stat("Top scorer"); val rated = td.stat("FotMob rating")
                 val lines = listOfNotNull(
-                    top?.let { "بهترین گلزن $name این فصل ${it.s("name")} است با ${fa(it.i("value") ?: 0)} گل." },
+                    top?.let { "بهترین گلزن $name این فصل ${it.s("name")} است با ${fa(dec(it.d("value"), 0))} گل." },
                     rated?.let { "بهترین نمره را ${it.s("name")} گرفته (${dec(it.d("value"), 2)})." },
                 )
                 Msg(false, lines.joinToString("\n").ifEmpty { "آمار بازیکنان $name در دسترس نیست." },
@@ -475,7 +492,7 @@ class Brain {
         val teamTxt = team?.s("teamName")?.let { teamName(team.i("teamId") ?: 0, it) }
         return when {
             has(q, "مصدوم", "آسیب") -> Msg(false, d.o("injuryInformation")?.let { "$name مصدوم است" + (it.s("name")?.let { n -> " (${tr(n)})" } ?: "") +
-                (it.o("expectedReturn")?.s("fallback")?.let { r -> "؛ بازگشت: $r" } ?: "") + "." } ?: "$name طبق FotMob مصدوم نیست.", links = links)
+                (it.o("expectedReturn")?.s("fallback")?.let { r -> "؛ بازگشت: ${returnFa(r)}" } ?: "") + "." } ?: "$name طبق FotMob مصدوم نیست.", links = links)
             has(q, "آخرین بازی", "بازی قبلی", "بازی آخر", "دیشب") -> {
                 val m = d.a("recentMatches").objs().firstOrNull()
                 Msg(false, m?.let {
