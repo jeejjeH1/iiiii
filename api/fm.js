@@ -25,7 +25,12 @@ const TRIM = {
     return d;
   },
   teams: (d) => {
-    omit(d, ['transfers', 'QAData', 'seostr', 'stats']);
+    omit(d, ['transfers', 'QAData', 'seostr']);
+    // season leaders and team ranks (radar, assistant): keep only the leader of each list
+    if (d.stats) {
+      const slim = (list) => (list || []).map((s) => ({ header: s.header, participant: s.participant }));
+      d.stats = { players: slim(d.stats.players), teams: slim(d.stats.teams) };
+    }
     if (d.overview) omit(d.overview, ['table', 'transfers', 'squad', 'overviewFixtures', 'newsSummary', 'featuredArticle']);
     return d;
   },
