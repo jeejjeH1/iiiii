@@ -65,7 +65,10 @@ private fun norm(s: String) = buildString {
             else -> ch
         },
     )
-}.replace(Regex("\\s+"), " ").trim()
+}.replace(Regex("[؟?!.,،:;«»\"()]"), " ").replace(Regex("\\s+"), " ").trim()
+
+/** Whole-word match, so a short name like "کین" is not found inside another word. */
+private fun word(q: String, w: String) = " ${norm(q)} ".contains(" ${norm(w)} ")
 
 private fun has(q: String, vararg words: String) = words.any { q.contains(norm(it)) }
 
@@ -101,8 +104,8 @@ private val LEAGUES = listOf(
 private suspend fun findTeam(q: String): Pair<Int, String>? {
     // longest names first, so "استقلال خوزستان" wins over "استقلال"
     Clubs.ids.mapNotNull { id -> Clubs.get(id)?.let { id to it.fa } }.sortedByDescending { it.second.length }
-        .firstOrNull { (_, fa) -> norm(q).contains(norm(fa)) }?.let { return it.first to (Clubs.get(it.first)?.fa ?: "") }
-    val en = TEAMS_FA.entries.sortedByDescending { it.value.length }.firstOrNull { norm(q).contains(norm(it.value)) }?.key
+        .firstOrNull { (_, fa) -> word(q, fa) }?.let { return it.first to (Clubs.get(it.first)?.fa ?: "") }
+    val en = TEAMS_FA.entries.sortedByDescending { it.value.length }.firstOrNull { word(q, it.value) }?.key
     val latin = Regex("[A-Za-z][A-Za-z .'-]{2,}").find(q)?.value?.trim()
     val term = en ?: latin ?: return null
     val t = runCatching { search(term).teams.firstOrNull() }.getOrNull() ?: return null
@@ -110,9 +113,10 @@ private suspend fun findTeam(q: String): Pair<Int, String>? {
     return id to (faTeamName(id, t.s("name") ?: term) ?: t.s("name") ?: term)
 }
 
-private suspend fun findPlayer(q: String): JSONObject? {
-    val en = PLAYERS.entries.sortedByDescending { it.key.length }.firstOrNull { norm(q).contains(norm(it.key)) }?.value
-        ?: Regex("[A-Za-z][A-Za-z .'-]{2,}").find(q)?.value?.trim() ?: return null
+/** A player named in Persian from the list, or (with [latin]) any player written in English. */
+private suspend fun findPlayer(q: String, latin: Boolean = false): JSONObject? {
+    val en = PLAYERS.entries.sortedByDescending { it.key.length }.firstOrNull { word(q, it.key) }?.value
+        ?: (if (latin) Regex("[A-Za-z][A-Za-z .'-]{2,}").find(q)?.value?.trim() else null) ?: return null
     return runCatching { search(en).players.firstOrNull() }.getOrNull()
 }
 
@@ -125,16 +129,8 @@ private suspend fun answer(raw: String): Msg {
     suspend fun today() = parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(System.currentTimeMillis())), 20_000))
     val bigLeagues = setOf(42, 47, 87, 55, 54, 53, 73, 523, 77, 50)
 
-    // what is on now / today
-    if (has(q, "زنده", "الان") && !has(q, "گل زده", "چند گل")) {
-        val live = today().flatMap { b -> b.matches.filter { it.live }.map { it to b.primaryId } }
-            .sortedByDescending { (_, l) -> if (l in bigLeagues) 1 else 0 }.map { it.first }
-        return if (live.isEmpty()) Msg(false, "الان هیچ بازی زنده‌ای در جریان نیست.")
-        else Msg(false, "${fa(live.size)} بازی الان زنده است؛ مهم‌ترین‌ها:", live.take(6))
-    }
-
-    findPlayer(raw)?.let { p ->
-        val id = p.s("id")?.toIntOrNull() ?: return@let
+    suspend fun playerAnswer(p: JSONObject): Msg? {
+        val id = p.s("id")?.toIntOrNull() ?: return null
         val d = Api.fm("playerData", mapOf("id" to id), 600_000)
         val name = d.s("name") ?: p.s("name") ?: ""
         val ml = d.o("mainLeague")
@@ -151,9 +147,19 @@ private suspend fun answer(raw: String): Msg {
         }
         return Msg(false, text, links = listOf(Link("صفحه $name") { it.player(id) }))
     }
+    findPlayer(raw)?.let { p -> playerAnswer(p)?.let { return it } }
 
     val team = findTeam(raw)
+    // an English name that is not a team: maybe a player ("Salah")
+    if (team == null) findPlayer(raw, latin = true)?.let { p -> playerAnswer(p)?.let { return it } }
     if (team == null) {
+        // what is on now / today
+        if (has(q, "زنده", "الان") && !has(q, "گل زده", "چند گل")) {
+            val live = today().flatMap { b -> b.matches.filter { it.live }.map { it to b.primaryId } }
+                .sortedByDescending { (_, l) -> if (l in bigLeagues) 1 else 0 }.map { it.first }
+            return if (live.isEmpty()) Msg(false, "الان هیچ بازی زنده‌ای در جریان نیست.")
+            else Msg(false, "${fa(live.size)} بازی الان زنده است؛ مهم‌ترین‌ها:", live.take(6))
+        }
         val lg = findLeague(q)
         if (lg != null) {
             val d = Api.fm("leagues", mapOf("id" to lg, "ccode3" to "IRN"), 600_000)
