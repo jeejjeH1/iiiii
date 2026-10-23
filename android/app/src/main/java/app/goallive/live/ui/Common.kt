@@ -198,6 +198,10 @@ fun T(text: String, size: Int = 14, w: FontWeight = FontWeight.Normal, color: Co
 fun personName(n: String): String = if (app.goallive.live.Lang.en) n else app.goallive.live.data.FaNames.of(n)
 
 /** A team's name as the user wants it: Persian when we know it and the setting is on, else FotMob's English. */
+/** A league's name in the app's language, written the same way as in the league lists. */
+@Suppress("UNUSED_PARAMETER")
+fun leagueName(id: Int, name: String): String = if (app.goallive.live.Lang.en) name else app.goallive.live.data.FaNames.of(name)
+
 fun teamName(id: Int, name: String): String = if (Store.faNames) faTeamName(id, name) ?: app.goallive.live.data.FaNames.of(name) else name
 
 /** Team name: Persian in the body font, or English ([short] when given) in the broadcast font. */

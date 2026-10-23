@@ -75,7 +75,6 @@ import app.goallive.live.data.Api
 import app.goallive.live.data.Clubs
 import app.goallive.live.data.Comps
 import app.goallive.live.data.Store
-import app.goallive.live.data.faTeamName
 import app.goallive.live.data.a
 import app.goallive.live.data.b
 import app.goallive.live.data.cleanMinute
@@ -247,7 +246,7 @@ private fun Hero(m: MatchData) {
                     .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(50)).clickable { nav.league(m.leagueId) }
                     .padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     LeagueLogo(m.leagueId, 16.dp)
-                    T((m.general.s("leagueName") ?: "") + (round?.let { if (it.all(Char::isDigit)) L(" · هفته {0}", it) else " · $it" } ?: ""), 12, FontWeight.ExtraBold, Color.White, maxLines = 1)
+                    T(leagueName(m.leagueId, m.general.s("leagueName") ?: "") + (round?.let { if (it.all(Char::isDigit)) L(" · هفته {0}", fa(it)) else " · " + tr(it) } ?: ""), 12, FontWeight.ExtraBold, Color.White, maxLines = 1)
                 }
                 Spacer(Modifier.weight(1f))
                 StarButton(m.matchId in Store.matches, { Store.toggleMatch(m.matchId) }, 18.dp, Color.White, 40.dp)
@@ -355,9 +354,6 @@ private fun HeroTeam(id: Int, name: String, faName: String?, modifier: Modifier,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Crest(id, 68.dp, large = true, shareKey = shareKey)
         TeamText(id, name, size = 16, w = FontWeight.ExtraBold, color = Color.White, maxLines = 2, align = TextAlign.Center)
-        // the other spelling underneath
-        val other = if (app.goallive.live.Lang.en) null else name.takeIf { faTeamName(id, name) != null }
-        if (other != null) Ltr(other, style = vz(12.sp, FontWeight.Bold), color = Color.White.copy(alpha = 0.8f), align = TextAlign.Center, raw = true)
     }
 }
 
@@ -497,7 +493,7 @@ private fun Summary(m: MatchData) {
     if (form != null && form.length() == 2) Card {
         CardTitle(L("فرم ۵ بازی اخیر"))
         listOf(m.homeId to m.homeName, m.awayId to m.awayName).forEachIndexed { i, (id, name) ->
-            ListRow(first = i == 0) { Crest(id); T(name, 14, FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1); FormChips(form.optJSONArray(i)) }
+            ListRow(first = i == 0) { Crest(id); T(teamName(id, name), 14, FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1); FormChips(form.optJSONArray(i)) }
         }
     }
     InfoCard(m)
@@ -633,7 +629,7 @@ private fun InfoCard(m: MatchData) {
         add(Triple(Ic.cal, L("زمان"), "${persianDate(m.time, "EEEE d MMMM yyyy")} · ${timeOf(m.time)}"))
         ib.o("Tournament")?.let { t ->
             val r = t.s("roundName")
-            add(Triple(Ic.trophy, L("رقابت"), (t.s("leagueName") ?: "") + (r?.let { if (it.all(Char::isDigit)) L(" · هفته {0}", it) else " · $it" } ?: "")))
+            add(Triple(Ic.trophy, L("رقابت"), leagueName(t.i("id") ?: m.leagueId, t.s("leagueName") ?: "") + (r?.let { if (it.all(Char::isDigit)) L(" · هفته {0}", fa(it)) else " · " + tr(it) } ?: "")))
         }
         ib.o("Stadium")?.let { s ->
             add(Triple(Ic.stadium, L("ورزشگاه"), listOfNotNull(s.s("name"), s.s("city")).joinToString(L("، ")) + (s.i("capacity")?.let { L(" · ظرفیت {0}", "%,d".format(it)) } ?: "") +

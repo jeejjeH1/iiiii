@@ -16,6 +16,7 @@ import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
@@ -70,7 +71,9 @@ internal suspend fun drawCard(ctx: Context, m: MatchData): Bitmap {
     val en = Lang.en
     val black = if (en) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else ResourcesCompat.getFont(ctx, R.font.vazir_black) ?: Typeface.DEFAULT_BOLD
     val bold = if (en) Typeface.DEFAULT_BOLD else ResourcesCompat.getFont(ctx, R.font.vazir_bold) ?: Typeface.DEFAULT_BOLD
-    val hc = m.homeColor.toArgb(); val ac = m.awayColor.toArgb()
+    // white writing sits on the team colours, so a light kit colour is taken down to a mid tone first
+    fun deep(c: androidx.compose.ui.graphics.Color) = (if (c.luminance() > 0.45f) androidx.compose.ui.graphics.lerp(c, androidx.compose.ui.graphics.Color.Black, 0.55f) else c).toArgb()
+    val hc = deep(m.homeColor); val ac = deep(m.awayColor)
     // home on the reading start side: right in Persian, left in English
     val homeX = if (en) 270f else 810f
     val awayX = W - homeX
