@@ -80,6 +80,11 @@ import kotlin.math.sin
 
 private val BIG = setOf(42, 47, 87, 55, 54, 53, 523, 73, 77, 50, 44, 289, 10216)
 
+/** Order of the league blocks: the user's leagues and teams, then Iran's competitions, then the big ones; FotMob's own order after that. */
+private fun leagueWeight(b: LeagueBlock, ms: List<MatchItem>): Int =
+    (if (Store.isLeague(b.primaryId)) 8 else 0) + (if (ms.any { Store.follows(it) }) 4 else 0) +
+        (if (b.ccode == "IRN" || b.primaryId == 523) 2 else 0) + (if (b.primaryId in BIG) 1 else 0)
+
 /** Club color for a team: its theme, else a stable hue (site: teamColor). */
 fun teamColor(id: Int): Color = Clubs.get(id)?.let { Color(it.c1) } ?: hueColor(id)
 
@@ -140,7 +145,7 @@ fun HomeScreen() {
         if (list != null) {
             val picks = featured(list)
             if (picks.isNotEmpty()) {
-                item(key = "featT") { SectionTitle("بازی‌های بزرگ") }
+                item(key = "featT") { SectionTitle(L("بازی‌های بزرگ")) }
                 item(key = "feat") { Featured(picks) }
             }
         }
@@ -151,12 +156,12 @@ fun HomeScreen() {
             val favN = list?.sumOf { b -> b.matches.count { Store.followsWithLeague(it) } } ?: 0
             Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Seg(
-                    listOf("all" to "همه ${all.size}", "live" to "زنده", "fav" to "دنبال‌شده‌ها" + if (favN > 0) " $favN" else ""),
+                    listOf("all" to L("همه {0}", all.size), "live" to L("زنده"), "fav" to L("دنبال‌شده‌ها") + if (favN > 0) " $favN" else ""),
                     filter, Modifier.weight(1f), badge = mapOf("live" to liveN), icons = mapOf("fav" to Ic.star),
                 ) { filter = it }
                 Box(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(13.dp))
                     .clickable { byTime = !byTime }, contentAlignment = Alignment.Center) {
-                    Icon(if (byTime) Ic.list else Ic.trophy, if (byTime) "مرتب‌سازی بر اساس لیگ" else "مرتب‌سازی بر اساس زمان", Modifier.size(20.dp), tint = C.ink)
+                    Icon(if (byTime) Ic.list else Ic.trophy, if (byTime) L("مرتب‌سازی بر اساس لیگ") else L("مرتب‌سازی بر اساس زمان"), Modifier.size(20.dp), tint = C.ink)
                 }
             }
         }
@@ -167,12 +172,12 @@ fun HomeScreen() {
                 val keep: (MatchItem) -> Boolean = { m -> filter == "all" || (if (filter == "live") m.live else Store.followsWithLeague(m)) }
                 val empty: @Composable () -> Unit = {
                     when {
-                        filter == "live" -> EmptyView("الان بازی زنده‌ای در جریان نیست", Ic.live, "بازی‌های امروز را ببینید؛ وقتی بازی شروع شود اینجا می‌آید.",
-                            "همه بازی‌های امروز") { filter = "all"; day = 0 }
-                        filter == "fav" && Store.teams.isEmpty() && Store.leagues.isEmpty() -> EmptyView("هنوز تیم یا لیگی را دنبال نکرده‌اید", Ic.star,
-                            "روی ستاره کنار هر تیم یا لیگ بزنید تا بازی‌هایش اینجا جمع شود.", "پیدا کردن تیم") { nav.tab("search") }
-                        filter == "fav" -> EmptyView("تیم‌های شما این روز بازی ندارند", Ic.star, null, "همه بازی‌ها") { filter = "all" }
-                        else -> EmptyView("بازی‌ای در این روز نیست", Ic.ball, null, if (day != 0) "بازی‌های امروز" else null) { day = 0 }
+                        filter == "live" -> EmptyView(L("الان بازی زنده‌ای در جریان نیست"), Ic.live, L("بازی‌های امروز را ببینید؛ وقتی بازی شروع شود اینجا می‌آید."),
+                            L("همه بازی‌های امروز")) { filter = "all"; day = 0 }
+                        filter == "fav" && Store.teams.isEmpty() && Store.leagues.isEmpty() -> EmptyView(L("هنوز تیم یا لیگی را دنبال نکرده‌اید"), Ic.star,
+                            L("روی ستاره کنار هر تیم یا لیگ بزنید تا بازی‌هایش اینجا جمع شود."), L("پیدا کردن تیم")) { nav.tab("search") }
+                        filter == "fav" -> EmptyView(L("تیم‌های شما این روز بازی ندارند"), Ic.star, null, L("همه بازی‌ها")) { filter = "all" }
+                        else -> EmptyView(L("بازی‌ای در این روز نیست"), Ic.ball, null, if (day != 0) L("بازی‌های امروز") else null) { day = 0 }
                     }
                 }
                 if (byTime) {
@@ -185,7 +190,7 @@ fun HomeScreen() {
                     }
                 } else {
                     val shown = s.v.map { b -> b to b.matches.filter(keep) }.filter { it.second.isNotEmpty() }
-                        .sortedByDescending { (b, ms) -> (if (Store.isLeague(b.primaryId)) 2 else 0) + (if (ms.any { Store.follows(it) }) 1 else 0) }
+                        .sortedByDescending { (b, ms) -> leagueWeight(b, ms) }
                     if (shown.isEmpty()) item { empty() }
                     items(shown) { (b, ms) ->
                         val isCollapsed = collapsed[b.id] == true && filter == "all"
@@ -286,7 +291,7 @@ private fun Featured(picks: List<MatchItem>) {
                 }.clickable { nav.match(m.id) }) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                         Ltr(m.leagueName, Modifier.weight(1f), style = vz(11.sp, FontWeight.ExtraBold), color = Color.White.copy(alpha = 0.92f))
-                        if (m.live) Pill("زنده", PillKind.Live, dot = true)
+                        if (m.live) Pill(L("زنده"), PillKind.Live, dot = true)
                     }
                     Row(Modifier.fillMaxWidth().align(Alignment.Center).padding(horizontal = 12.dp).offset(y = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                         FTeam(m.home.id, m.home.name, Modifier.weight(1f))
@@ -336,7 +341,7 @@ private fun CompNight(b: LeagueBlock, c: app.goallive.live.data.Comp) {
         Icon(Ic.starOn, null, Modifier.size(40.dp), tint = accent)
         Column(Modifier.weight(1f)) {
             T(c.tag, 17, FontWeight.Black, Color.White)
-            T("${b.matches.size} بازی امروز" + if (live > 0) " · $live بازی زنده" else "", 12, color = Color.White.copy(alpha = 0.85f))
+            T(L("{0} بازی امروز", b.matches.size) + if (live > 0) L(" · {0} بازی زنده", live) else "", 12, color = Color.White.copy(alpha = 0.85f))
         }
         Icon(Ic.chev, null, Modifier.size(20.dp), tint = Color.White)
     }
@@ -406,8 +411,8 @@ fun MyTeamCard(teamId: Int, name: String, today: List<LeagueBlock>? = null) {
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                T("⭐ تیم من · ${club?.fa ?: name}", 12, FontWeight.Black, ink, Modifier.weight(1f), maxLines = 1)
-                if (m.live) Pill("زنده", PillKind.Live, dot = true) else Ltr(m.leagueName, style = vz(12.sp, FontWeight.Black), color = ink)
+                T(L("⭐ تیم من · {0}", club?.fa ?: name), 12, FontWeight.Black, ink, Modifier.weight(1f), maxLines = 1)
+                if (m.live) Pill(L("زنده"), PillKind.Live, dot = true) else Ltr(m.leagueName, style = vz(12.sp, FontWeight.Black), color = ink)
             }
             Row(Modifier.padding(top = 12.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 MtTeam(m.home.id, m.home.name, ink, Modifier.weight(1f))
@@ -431,8 +436,8 @@ private fun MtTeam(id: Int, name: String, ink: Color, modifier: Modifier) {
 }
 
 internal fun fantasySub(): String {
-    val o = runCatching { org.json.JSONObject(Store.prefs().getString("fantasy", "{}")!!) }.getOrNull() ?: return "تیم رویایی‌ات را بساز"
+    val o = runCatching { org.json.JSONObject(Store.prefs().getString("fantasy", "{}")!!) }.getOrNull() ?: return L("تیم رویایی‌ات را بساز")
     val total = o.optJSONObject("points")?.let { p -> p.keys().asSequence().sumOf { p.optInt(it) } } ?: 0
     val n = o.optJSONArray("team")?.length() ?: 0
-    return when { n == 0 -> "تیم رویایی‌ات را بساز و امتیاز بگیر"; n < 11 -> "تیمت $n/۱۱ نفر است؛ کاملش کن"; else -> "مجموع امتیاز تو: $total" }
+    return when { n == 0 -> L("تیم رویایی‌ات را بساز و امتیاز بگیر"); n < 11 -> L("تیمت {0}/۱۱ نفر است؛ کاملش کن", n); else -> L("مجموع امتیاز تو: {0}", total) }
 }

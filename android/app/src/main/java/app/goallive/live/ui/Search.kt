@@ -64,11 +64,11 @@ fun SearchScreen() {
         busy = false
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
-        item { SearchField(q, "تیم، بازیکن یا لیگ…", autoFocus = true) { q = it } }
+        item { SearchField(q, L("تیم، بازیکن یا لیگ…"), autoFocus = true) { q = it } }
         val r = res
         when {
             q.trim().length < 2 -> item {
-                EmptyView("دنبال چه می‌گردید؟", Ic.search, "نام تیم، بازیکن یا لیگ را بنویسید؛ یا یکی از این‌ها:")
+                EmptyView(L("دنبال چه می‌گردید؟"), Ic.search, L("نام تیم، بازیکن یا لیگ را بنویسید؛ یا یکی از این‌ها:"))
                 // popular searches, one tap away
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -79,11 +79,11 @@ fun SearchScreen() {
             failed -> item { ErrorView({ retry++ }) }
             r == null -> {}
             r.teams.isEmpty() && r.players.isEmpty() && r.leagues.isEmpty() && r.matches.isEmpty() -> item {
-                EmptyView("نتیجه‌ای برای «${q.trim()}» پیدا نشد", Ic.search, "املای انگلیسی را امتحان کنید؛ مثلاً Sepahan یا Mbappe.", "پاک کردن جستجو") { q = "" }
+                EmptyView(L("نتیجه‌ای برای «{0}» پیدا نشد", q.trim()), Ic.search, L("املای انگلیسی را امتحان کنید؛ مثلاً Sepahan یا Mbappe."), L("پاک کردن جستجو")) { q = "" }
             }
             else -> {
                 if (r.teams.isNotEmpty()) item {
-                    SectionTitle("تیم‌ها")
+                    SectionTitle(L("تیم‌ها"))
                     Card {
                         r.teams.forEachIndexed { i, t ->
                             val id = t.s("id")?.toIntOrNull() ?: 0
@@ -96,16 +96,16 @@ fun SearchScreen() {
                     }
                 }
                 if (r.players.isNotEmpty()) item {
-                    SectionTitle("بازیکنان")
+                    SectionTitle(L("بازیکنان"))
                     Card {
                         r.players.forEachIndexed { i, p ->
                             val id = p.s("id")?.toIntOrNull() ?: 0
-                            PersonRow(id, p.s("name") ?: "", (p.s("teamName") ?: "") + if (p.b("isCoach")) " · مربی" else "", first = i == 0) { nav.player(id) }
+                            PersonRow(id, p.s("name") ?: "", (p.s("teamName") ?: "") + if (p.b("isCoach")) L(" · مربی") else "", first = i == 0) { nav.player(id) }
                         }
                     }
                 }
                 if (r.leagues.isNotEmpty()) item {
-                    SectionTitle("لیگ‌ها")
+                    SectionTitle(L("لیگ‌ها"))
                     Card {
                         r.leagues.forEachIndexed { i, lg ->
                             val id = lg.s("id")?.toIntOrNull() ?: 0
@@ -118,7 +118,7 @@ fun SearchScreen() {
                     }
                 }
                 if (r.matches.isNotEmpty()) item {
-                    SectionTitle("بازی‌ها")
+                    SectionTitle(L("بازی‌ها"))
                     Card {
                         r.matches.forEachIndexed { i, s ->
                             val st = s.o("status")

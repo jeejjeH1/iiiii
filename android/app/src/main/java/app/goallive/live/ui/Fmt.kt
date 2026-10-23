@@ -9,11 +9,13 @@ import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
 
-val FA = ULocale("fa_IR@calendar=persian")
+/** Dates in the app's language: the Persian calendar, or the Gregorian one in English. */
+val FA: ULocale get() = if (app.goallive.live.Lang.en) ULocale("en_GB@calendar=gregorian") else ULocale("fa_IR@calendar=persian")
 
 /** Persian digits (the app font already draws them; this is for notifications and the system UI). */
 fun fa(s: Any?): String {
     val str = s?.toString() ?: return ""
+    if (app.goallive.live.Lang.en) return str
     val b = StringBuilder(str.length)
     for (ch in str) b.append(if (ch in '0'..'9') '۰' + (ch - '0') else if (ch == '.') '٫' else ch)
     return b.toString()
@@ -33,37 +35,37 @@ fun startOfDay(offset: Int): Long = Calendar.getInstance().apply {
 fun dayName(ms: Long): String {
     val k = dayKey(ms)
     return when (k) {
-        dayKey(startOfDay(0)) -> "امروز"
-        dayKey(startOfDay(-1)) -> "دیروز"
-        dayKey(startOfDay(1)) -> "فردا"
+        dayKey(startOfDay(0)) -> L("امروز")
+        dayKey(startOfDay(-1)) -> L("دیروز")
+        dayKey(startOfDay(1)) -> L("فردا")
         else -> persianDate(ms, "EEEE")
     }
 }
 
 fun shortDate(ms: Long): String = when (dayKey(ms)) {
-    dayKey(startOfDay(0)) -> "امروز"
-    dayKey(startOfDay(-1)) -> "دیروز"
-    dayKey(startOfDay(1)) -> "فردا"
+    dayKey(startOfDay(0)) -> L("امروز")
+    dayKey(startOfDay(-1)) -> L("دیروز")
+    dayKey(startOfDay(1)) -> L("فردا")
     else -> persianDate(ms, "d MMMM")
 }
 
 fun countdown(ms: Long): String {
     val d = ms - System.currentTimeMillis()
-    if (d <= 0) return "به‌زودی"
+    if (d <= 0) return L("به‌زودی")
     val h = (d / 3_600_000).toInt()
     val m = ((d % 3_600_000) / 60_000).toInt()
     return when {
-        h >= 48 -> "${h / 24} روز دیگر"
-        h > 0 -> "$h ساعت و $m دقیقه دیگر"
-        else -> "$m دقیقه دیگر"
+        h >= 48 -> L("{0} روز دیگر", h / 24)
+        h > 0 -> L("{0} ساعت و {1} دقیقه دیگر", h, m)
+        else -> L("{0} دقیقه دیگر", m)
     }
 }
 
 /** Short status for a list row: minute when live, FT/HT etc. when not. */
 fun statusText(m: MatchItem): String = when {
-    m.cancelled -> tr(m.reason).ifEmpty { "لغو" }
+    m.cancelled -> tr(m.reason).ifEmpty { L("لغو") }
     m.finished -> tr(m.reason.ifEmpty { "FT" })
-    m.live -> if (m.minute == "HT") "بین دو نیمه" else m.minute
+    m.live -> if (m.minute == "HT") L("بین دو نیمه") else m.minute
     else -> ""
 }
 
@@ -81,3 +83,6 @@ fun money(v: Long?): String {
         else -> "€$v"
     }
 }
+
+/** A Latin name inside a Persian sentence, isolated so the sentence's word order survives (Unicode FSI…PDI). */
+fun iso(s: String) = "⁨$s⁩"

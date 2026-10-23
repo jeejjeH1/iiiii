@@ -74,7 +74,7 @@ fun CalendarScreen() {
     if (teams.isEmpty()) {
         Column(Modifier.fillMaxSize().padding(14.dp)) {
             var picker by remember { mutableStateOf(false) }
-            EmptyView("تقویم شما خالی است", Ic.cal, "برای دیدن تقویم، اول «تیم من» را انتخاب کنید یا تیمی را دنبال کنید.", "انتخاب تیم محبوب") { picker = true }
+            EmptyView(L("تقویم شما خالی است"), Ic.cal, L("برای دیدن تقویم، اول «تیم من» را انتخاب کنید یا تیمی را دنبال کنید."), L("انتخاب تیم محبوب")) { picker = true }
             if (picker) TeamPicker { picker = false }
         }
         return
@@ -87,7 +87,7 @@ fun CalendarScreen() {
     }
     val accent = LocalAccent.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
-        item { T("تقویم بازی‌ها", 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)) }
+        item { T(L("تقویم بازی‌ها"), 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)) }
         if (teams.size > 1) item {
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 teams.forEach { (id, name) ->
@@ -113,12 +113,12 @@ fun CalendarScreen() {
         item {
             Card {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconBtn(Ic.back, "ماه قبل", size = 18.dp) { monthOffset--; selected = null }
+                    IconBtn(Ic.back, L("ماه قبل"), size = 18.dp) { monthOffset--; selected = null }
                     T(android.icu.text.SimpleDateFormat("MMMM yyyy", FA).format(Date(monthMs)), 15, FontWeight.Black, modifier = Modifier.weight(1f), align = TextAlign.Center)
-                    IconBtn(Ic.chev, "ماه بعد", size = 18.dp) { monthOffset++; selected = null }
+                    IconBtn(Ic.chev, L("ماه بعد"), size = 18.dp) { monthOffset++; selected = null }
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
-                    listOf("ش", "ی", "د", "س", "چ", "پ", "ج").forEach { T(it, 12, FontWeight.Bold, C.mute, Modifier.weight(1f), align = TextAlign.Center) }
+                    listOf(L("ش"), L("ی"), L("د"), L("س"), L("چ"), L("پ"), L("ج")).forEach { T(it, 12, FontWeight.Bold, C.mute, Modifier.weight(1f), align = TextAlign.Center) }
                 }
                 val today = pKey(System.currentTimeMillis())
                 val cells = List(lead) { null } + (1..days).toList()
@@ -155,21 +155,21 @@ fun CalendarScreen() {
                     }
                 }
                 Row(Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterHorizontally)) {
-                    for ((c, t) in listOf(C.win to "برد", C.draw to "تساوی", C.loss to "باخت")) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    for ((c, t) in listOf(C.win to L("برد"), C.draw to L("تساوی"), C.loss to L("باخت"))) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                         Box(Modifier.size(8.dp).clip(CircleShape).background(c)); T(t, 11, color = C.mute)
                     }
                 }
             }
         }
         val list = (selected?.let { byDay[it] } ?: inMonth).sortedBy { it.time }
-        item { SectionTitle(if (selected != null) persianDate(list.firstOrNull()?.time ?: 0, "EEEE d MMMM") else "بازی‌های این ماه") }
+        item { SectionTitle(if (selected != null) persianDate(list.firstOrNull()?.time ?: 0, "EEEE d MMMM") else L("بازی‌های این ماه")) }
         item {
-            if (list.isEmpty()) EmptyView("در این ماه بازی‌ای ثبت نشده", Ic.cal)
+            if (list.isEmpty()) EmptyView(L("در این ماه بازی‌ای ثبت نشده"), Ic.cal)
             else Card {
                 list.forEachIndexed { i, m ->
                     MatchRow(m, { nav.match(m.id) }, showDate = true, sub = m.leagueName, star = false, first = i == 0)
                     if (!m.started && !m.cancelled && m.time > System.currentTimeMillis()) Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) {
-                        Pill("افزودن به تقویم گوشی", PillKind.Accent, icon = Ic.cal, onClick = {
+                        Pill(L("افزودن به تقویم گوشی"), PillKind.Accent, icon = Ic.cal, onClick = {
                             runCatching { ctx.startActivity(addEvent(m)) }
                         })
                     }
@@ -179,13 +179,13 @@ fun CalendarScreen() {
         val upcoming = all.filter { !it.started && !it.cancelled && it.time > System.currentTimeMillis() }
         if (upcoming.size > 1) item {
             Box(Modifier.fillMaxWidth().padding(top = 14.dp), contentAlignment = Alignment.Center) {
-                Pill("افزودن همه ${upcoming.size} بازی پیش رو به تقویم", PillKind.Accent, icon = Ic.cal, onClick = {
+                Pill(L("افزودن همه {0} بازی پیش رو به تقویم", upcoming.size), PillKind.Accent, icon = Ic.cal, onClick = {
                     runCatching {
                         val dir = File(ctx.cacheDir, "ics").apply { mkdirs() }
                         val f = File(dir, "goallive-$team.ics").apply { writeText(ics(upcoming)) }
                         val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
                         val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, "text/calendar").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        ctx.startActivity(Intent.createChooser(view, "افزودن به تقویم"))
+                        ctx.startActivity(Intent.createChooser(view, L("افزودن به تقویم")))
                     }
                 })
             }

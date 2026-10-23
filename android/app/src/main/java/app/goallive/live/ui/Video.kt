@@ -74,7 +74,7 @@ fun Highlights(m: MatchData, compact: Boolean = false) {
     val ctx = LocalContext.current
     val fh = faTeamName(m.homeId, m.homeName)
     val fa2 = faTeamName(m.awayId, m.awayName)
-    val q = if (fh != null || fa2 != null) "خلاصه بازی ${fh ?: m.homeName} ${fa2 ?: m.awayName}" else "${m.homeName} ${m.awayName} highlights"
+    val q = if (fh != null || fa2 != null) L("خلاصه بازی {0} {1}", fh ?: m.homeName, fa2 ?: m.awayName) else "${m.homeName} ${m.awayName} highlights"
     val must = "${fh ?: m.homeName}|${fa2 ?: m.awayName}"
     val enc = { s: String -> URLEncoder.encode(s, "UTF-8") }
     val l = rememberLoader(m.matchId, "hl") {
@@ -86,19 +86,19 @@ fun Highlights(m: MatchData, compact: Boolean = false) {
         // FotMob's official clip, when it is a YouTube link
         val fm = m.facts.o("highlights")
         val yt = fm.s("url")?.let { Regex("(?:v=|youtu\\.be/|embed/)([\\w-]{11})").find(it)?.groupValues?.get(1) }
-        if (yt != null) list.add(Video("${fm.s("source") ?: "YouTube"} · ویدیوی رسمی", fm.s("image") ?: "https://i.ytimg.com/vi/$yt/hqdefault.jpg",
-            "YouTube (ممکن است فیلترشکن لازم باشد)", 0, "https://www.youtube-nocookie.com/embed/$yt?autoplay=1"))
+        if (yt != null) list.add(Video(L("{0} · ویدیوی رسمی", fm.s("source") ?: "YouTube"), fm.s("image") ?: "https://i.ytimg.com/vi/$yt/hqdefault.jpg",
+            L("YouTube (ممکن است فیلترشکن لازم باشد)"), 0, "https://www.youtube-nocookie.com/embed/$yt?autoplay=1"))
         list
     }
     var playing by remember { mutableStateOf<Video?>(null) }
     LoadBox(l, if (compact) 1 else 3) { vids ->
         if (vids.isEmpty()) {
             val body: @Composable () -> Unit = {
-                T("ویدیوی خلاصه هنوز پیدا نشد؛ معمولاً یکی دو ساعت بعد از بازی منتشر می‌شود.", 14, color = C.mute,
+                T(L("ویدیوی خلاصه هنوز پیدا نشد؛ معمولاً یکی دو ساعت بعد از بازی منتشر می‌شود."), 14, color = C.mute,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp), align = androidx.compose.ui.text.style.TextAlign.Center)
                 ListRow(onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.aparat.com/search/${enc(q)}"))) } }) {
-                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Color(0xFFED145B)), contentAlignment = Alignment.Center) { T("آ", 15, FontWeight.Black, Color.White) }
-                    T("جستجو در آپارات", 14, FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Color(0xFFED145B)), contentAlignment = Alignment.Center) { T(L("آ"), 15, FontWeight.Black, Color.White) }
+                    T(L("جستجو در آپارات"), 14, FontWeight.Bold, modifier = Modifier.weight(1f))
                     Icon(Ic.chev, null, Modifier.size(18.dp), tint = C.mute)
                 }
             }
@@ -155,7 +155,7 @@ private fun Player(v: Video, m: MatchData, onClose: () -> Unit) {
         Column(Modifier.fillMaxSize().background(C.cardSolid).statusBarsPadding().verticalScroll(rememberScrollState())) {
             Row(Modifier.fillMaxWidth().drawBehind { cssLinear(242f, 0f to c1, 0.5f to darken(c1, 0.3f), 1f to c2) }.padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                IconBtn(Ic.x, "بستن", Color.White, Color.Black.copy(alpha = 0.25f)) { onClose() }
+                IconBtn(Ic.x, L("بستن"), Color.White, Color.Black.copy(alpha = 0.25f)) { onClose() }
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                         Crest(m.homeId, 24.dp); Ltr(m.homeName, style = lat(15.sp, FontWeight.ExtraBold), color = Color.White)
@@ -214,7 +214,7 @@ private fun Player(v: Video, m: MatchData, onClose: () -> Unit) {
                     }
                 }
             }
-            T("ویدیو از آپارات پخش می‌شود", 11, color = C.faint, modifier = Modifier.fillMaxWidth().padding(16.dp), align = androidx.compose.ui.text.style.TextAlign.Center)
+            T(L("ویدیو از آپارات پخش می‌شود"), 11, color = C.faint, modifier = Modifier.fillMaxWidth().padding(16.dp), align = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }

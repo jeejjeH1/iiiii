@@ -1,7 +1,7 @@
 // Generated from assets/fa.js — English FotMob titles to Persian.
 package app.goallive.live.data
 
-fun tr(s: String?): String = if (s == null) "" else T[s] ?: T[s.trim()] ?: s
+fun tr(s: String?): String = if (s == null) "" else if (app.goallive.live.Lang.en) s else T[s] ?: T[s.trim()] ?: s
 
 private val T: Map<String, String> = hashMapOf(
     "Top stats" to "آمار کلیدی",

@@ -59,7 +59,7 @@ public class TodayWidget extends AppWidgetProvider {
             try {
                 render(app);
             } catch (Exception e) {
-                message(app, "اتصال برقرار نشد · برای تلاش دوباره بزنید");
+                message(app, I18n.L("اتصال برقرار نشد · برای تلاش دوباره بزنید"));
                 schedule(app, 5 * 60_000L);
             } finally {
                 pending.finish();
@@ -114,7 +114,7 @@ public class TodayWidget extends AppWidgetProvider {
             v.setOnClickPendingIntent(ROW[i], openMatch(ctx, m.optInt("id"), i));
         }
         v.setViewVisibility(R.id.t_message, n == 0 ? View.VISIBLE : View.GONE);
-        if (n == 0) v.setTextViewText(R.id.t_message, "امروز بازی مهمی نیست");
+        if (n == 0) v.setTextViewText(R.id.t_message, I18n.L("امروز بازی مهمی نیست"));
         v.setTextViewText(R.id.t_updated, ScoreWidget.fa(new SimpleDateFormat("HH:mm", Locale.US).format(new Date())));
         AppWidgetManager.getInstance(ctx).updateAppWidget(ids, v);
         long untilNext = nextKickoff - System.currentTimeMillis();

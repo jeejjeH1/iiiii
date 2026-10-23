@@ -1,0 +1,780 @@
+0|Couldn't connect · tap to retry
+1|Open the app and pick "My team"
+2|No match scheduled yet
+3|No match
+4|● LIVE
+5|Half-time
+6|Full time
+7|Updated
+8|My team?
+9|Today
+10|Tomorrow
+11| days left
+12|No big matches today
+13|Champions League
+14|Champions League night
+15|Europa League
+16|Europa League night
+17|Conference League
+18|Conference League night
+19|World Cup
+20|Club World Cup
+21|Euro
+22|Copa América
+23|AFC Champions League Elite
+24|Asian night
+25|AFC Champions League Two
+26|AFC Asian Cup
+27|Goal! What a goal! This is the GoalLive commentator.
+28|Audio commentary
+29|Getting the commentator ready…
+30|From {0} vs {1}:
+31|{0} vs {1} is over. Final score: {2} {3}, {4} {5}.
+32|The GoalLive commentator is ready. {0} vs {1} hasn't started yet; commentary begins with the kick-off whistle.
+33|Hello! Live commentary of {0} vs {1}. Minute {2}, score: {3} {4}, {5} {6}.
+34|And we're under way!
+35|Kick-off! {0} and {1} are out on the pitch.
+36|It's now {0} {1}, {2} {3}
+37|Own goal! {0} puts it into his own net. Minute {1}. {2}
+38|Penalty… and it's in! {0} scores for {1}. Minute {2}. {3}
+39|GOOOAL! {0} for {1}! Minute {2}.
+40|Goal! What a goal! {0} breaks the deadlock, minute {1}.
+41|It's in the net! {0} scores for {1}!
+42| Assisted by {0}.
+43|Red card! {0} of {1} is sent off. {2} are down to ten men!
+44|Second yellow and he's off! {0} has to leave the pitch.
+45|Yellow card for {0} of {1}.
+46|Substitution for {0}: {1} replaces {2}.
+47|Goal disallowed! After a VAR review the referee rules it out. Score: {0} {1}, {2} {3}.
+48|Ooh! {0}'s shot hits the woodwork!
+49|Great chance for {0}… saved by the keeper!
+50|{0} gets it on target, but the keeper was ready.
+51|What a chance! {0} misses it.
+52|Half-time. Score: {0} {1}, {2} {3}.
+53|The second half is under way.
+54|Full time! Final score: {0} {1}, {2} {3}.
+55|{0} win this one.
+56|The match ends in a draw.
+57|{0} are pushing forward, attack after attack.
+58|{0} have been piling on the pressure.
+59|Minute {0}, score {1} {2}, {3} {4}.
+60| Possession: {0} {1} percent, {2} {3} percent.
+61| Shots: {0} {1}, {2} {3}.
+62|🎙️ GoalLive live commentary
+63|Stop commentary
+64|Goals
+65|Goals of followed teams and matches, with a stadium roar
+66|Goal disallowed
+67|When the referee takes a goal back
+68|Line-ups
+69|Line-ups about an hour before kick-off
+70|Kick-off
+71|Kick-off whistle
+72|Final whistle and result
+73|Kick-off whistle
+74|Goal disallowed
+75|Line-ups announced
+76| (own goal)
+77| (penalty)
+78|⚽ Goal! {0} {1} - {2} {3}
+79|The online voice didn't answer; try again in a moment (if it still fails, turn on a VPN)
+80|No voice for this language is installed on this phone
+81|Hi! I'm the GoalLive assistant ⚽\nAsk about teams, players, leagues and matches, by typing or by voice. Type "help" to see everything I can do.
+82|Couldn't connect; please try again.
+83|Ask your question
+84|Speech recognition isn't available on this phone; please type your question.
+85|🤖 GoalLive assistant
+86|Voice replies: on
+87|Voice replies: off
+88|For example, ask:
+89|Type your question…
+90|Send
+91|Ask by voice
+92|Persian Gulf Pro League
+93|Premier League
+94|LaLiga
+95|Serie A
+96|Bundesliga
+97|Ligue 1
+98|UEFA Conference League
+99|Yesterday
+100|The day after tomorrow
+101|The day before yesterday
+102|Here's what I can answer:\n• Team: next match, last result, results and fixtures, league position, form, top scorer and assister, coach, squad, injuries, stadium, trophies, attack and defence stats, home and away record\n• Two teams: comparison, head-to-head, and who the numbers favour when they meet\n• Player: goals, assists and rating this season, age, height and value, last match, previous clubs, comparing two players\n• League: top and bottom of the table, the team in nth place, top scorer, top assister, next round's matches\n• Days: today's, tomorrow's, yesterday's and live matches\nExamples: "compare Persepolis and Esteghlal", "Sepahan top scorer", "4th in LaLiga", "tomorrow's matches"
+103|When is Persepolis's next match?
+104|How many goals has Taremi scored this season?
+105|Where is Esteghlal in the table?
+106|Premier League top scorer
+107|Compare Persepolis and Esteghlal
+108|Tomorrow's matches
+109|Real Madrid injuries
+110|Help
+111|Type your question.
+112|I didn't get that 🤔 Type a team, player or league name, or tap "Help" to see what I can answer.
+113|League
+114|,
+115|Win
+116|Loss
+117|Draw
+118|at home
+119|away
+120|{0} are playing {1} right now: {2}-{3}, {4}.
+121|drew
+122|{0} {1} {2} against {3} {4}-{5} {6}.
+123|{0}'s next match is against {1}, {2} at {3}, {4}
+124|Goals:
+125| (o.g.)
+126|{0} page
+127|{0} are {2} in {1} with {3} points from {4} matches
+128|({0} W, {1} D, {2} L, goals {3}).
+129|{0}: {1} have no match.
+130|{0}'s next match hasn't been announced yet.
+131|{0}'s upcoming fixtures haven't been announced yet.
+132|{1}'s next {0} matches:
+133|{0}'s recent results (form: {1}):
+134|No recent matches found for {0}.
+135|{0} aren't playing right now.
+136|According to FotMob, {0} have no injured players right now.
+137|{0} injuries:\n
+138| (back: {0})
+139|{0} coach: {1}
+140|Couldn't find {0}'s coach.
+141|{0}'s top assister this season is {1} with {2} assists.
+142|Assist stats for {0} aren't available.
+143|{0}'s top scorer this season is {1} with {2} goals.
+144|Best rating: {0} ({1}).
+145|Player stats for {0} aren't available.
+146|Goalkeepers
+147|Defenders
+148|Midfielders
+149|Forwards
+150|{0} squad:\n
+151|{0} stadium: {1}
+152|, {0}
+153|, capacity {0}
+154|, opened {0}
+155|Couldn't find {0}'s stadium.
+156|FotMob has no trophies listed for {0}.
+157|{0} trophies:\n
+158|• {0}: {1} titles
+159| (last in {0})
+160|{0} W, {1} D, {2} L (goals {3})
+161|{0} at home: {1}
+162|{0} away: {1}
+163|{0}'s home and away record isn't available.
+164|Goals scored per match
+165|Goals conceded per match
+166|Average possession %
+167|Clean sheets
+168|Expected goals (xG)
+169|Big chances
+170|• {0}: {1} (ranked {2} in the league)
+171|Season stats:
+172|{0} stats aren't available.
+173|{0}'s recent form isn't available.
+174|{0}'s last five matches (oldest first): {1}.
+175|\nAround {0} in the table:\n
+176|{0}. {1}: {2} pts
+177|{0} wasn't found in a league table.
+178|Recent form: {0}.
+179|Nothing found for {0}.
+180|There aren't enough stats on the opponent for a prediction.
+181|By the numbers the two teams are about level; a draw is quite likely.
+182|By the numbers (points per match, form and home advantage) {0} have the better chance; about {1}%.
+183| (This is a statistical estimate, not a certainty.)
+184|Head-to-head: {0} {1} wins, {2} {3} wins, {4} draws.
+185|{0} in {1}, {2} pts from {3} matches, goals {4}
+186|; form: {0}
+187|; top scorer: {0} ({1})
+188|{0} have had the better season.
+189|The two teams have had similar seasons.
+190|{0} in {1} ({2} season):
+191|{0} goals and {1} assists in {2} matches
+192|, {0} minutes
+193|, average rating {0}
+194|{0} is injured
+195|; back: {0}
+196|According to FotMob, {0} isn't injured.
+197|{0}'s last match: {1} {2}-{3} {4}
+198| ({0}); {1} minutes, {2} goals, {3} assists
+199|, rating {0}
+200|Couldn't find {0}'s club history.
+201|{0}'s clubs:\n
+202|• {0} ({1}-{2}): {3} matches, {4} goals
+203|, {0} player
+204|, position: {0}
+205|Age: {0}
+206|Height: {0}
+207|Preferred foot: {0}
+208|Shirt number: {0}
+209|Country: {0}
+210|Market value: {0}
+211|Contract until: {0}
+212|Current team: {0}.
+213|Age: {0}.
+214|No stats found for {0}.
+215|• {0}: {1} goals, {2} assists in {3} matches
+216|{0} is ahead this season in goals and assists.
+217|They're level on goals and assists.
+218|This season compared (each player's main league):\n
+219|Full comparison with chart
+220|{0}. {1}: {2} pts from {3} matches
+221|{0} {1} matches:
+222|No upcoming match listed for {0}.
+223|{0} upcoming matches:
+224|{0} assist stats aren't out yet.
+225|{0} top assisters:\n
+226|{0}. {1} ({2}) {3} assists
+227|{0} scorer stats aren't out yet.
+228|{0} top scorers:\n
+229|{0}. {1} ({2}) {3} goals
+230|The {0} table isn't available.
+231|Bottom of {0}:\n
+232|{1} position {0}:
+233|{0} only has {1} teams.
+234|Top of {0}:\n
+235|\nTop scorer: {0} with {1} goals
+236|No live matches right now.
+237|{0} matches are live; the biggest:
+238|No matches in the major leagues {0}.
+239|Big matches {0} ({1} in total):
+240|Your calendar is empty
+241|To see the calendar, pick "My team" or follow a team first.
+242|Pick your favourite team
+243|Match calendar
+244|Previous month
+245|Next month
+246|S
+247|S
+248|M
+249|T
+250|W
+251|T
+252|F
+253|Draw
+254|This month's matches
+255|No matches this month
+256|Add to phone calendar
+257|Add all {0} upcoming matches to the calendar
+258|Add to calendar
+259|Goal for {0}! {1} minute {2}. Score {3}
+260|Goal!
+261|{0}  ·  minute {1}
+262|🧠 You're the manager
+263|How does "You're the manager" work?
+264|Pick {0}'s line-up and formation yourself. Once the official line-up is out and during the match, your choices are compared with the real manager's.
+265|The match has started and your line-up is locked. You can make your substitutions now.
+266|Compared with the {0} line-up
+267|{0} of 11
+268|players in common
+269|Manager's formation
+270|Your formation
+271|The manager played these, you didn't:
+272|Final manager rating
+273|Rating so far
+274|You
+275|vs
+276|Real manager
+277|You beat {0}'s manager tonight! 🧠
+278|The manager won this time; get him next match
+279|Almost level with the manager!
+280|Players who didn't play get their season average rating (estimated).
+281|Share
+282|I managed {0} vs {1}: my rating {2} vs the manager's {3} 🧠⚽\nGoalLive
+283|Your substitutions
+284|Pick 11: {0}/11
+285|Clear
+286|You haven't picked a goalkeeper!
+287|There's more than one goalkeeper in the line-up.
+288|{0} picked
+289|{0}/5
+290|+ Substitution
+291|Like a real manager you have up to 5 substitutions. Each one is made at the current minute of the match.
+292|Who comes off?
+293|Who comes on?
+294|Cancel
+295|Your managing record
+296|Matches
+297|Beat the manager
+298|Average rating
+299|Unfollow
+300|Follow
+301|Loading
+302|Couldn't connect
+303|Try again
+304|{0} vs {1}, cancelled
+305|{0} {1}, {2} {3}, live, {4}
+306|{0} {1}, {2} {3}, full time
+307|{0} vs {1}, {2} at {3}
+308|, {0}
+309|HT
+310|Compare players
+311|Pick the second player
+312|Percentile rank among players in the same position
+313|These two players share no percentile stats (usually because they play different positions, like a goalkeeper and a striker).
+314|Details
+315|Season league stats
+316|?
+317|Change
+318|Player name…
+319|Persian Gulf Pro League
+320|Bundesliga
+321|Goalkeeper
+322|Defender
+323|Midfielder
+324|Forward
+325|Played {0}′: +{1}
+326|{0} goals: +{1}
+327|{0} assists: +{1}
+328|Clean sheet: +{0}
+329|{0} conceded: -{1}
+330|Own goal: -2
+331|Red card: -3
+332|Yellow card: -1
+333|Rating bonus {0}: +{1}
+334|GoalLive Fantasy Football
+335|Fantasy football
+336|Buy 11 real players with a 100M budget, pick a captain and score points from their real performances every week.
+337|Pick your league
+338|Scoring rules
+339|Under 60 minutes 1 point, 60+ 2 points · Goal: goalkeeper and defender 6, midfielder 5, forward 4 · Assist 3 · Clean sheet: goalkeeper and defender 4, midfielder 1 · Every 2 goals conceded (goalkeeper and defender) -1 · Yellow card -1 · Red -3 · Own goal -2 · Rating bonus: 7+ one, 7.5+ two, 8.5+ three · Captain's points doubled
+340|Fantasy · {0}
+341|Round {0}
+342|Change league
+343|This round
+344|Total points
+345|Budget left (M)
+346|Team deadline: {0} ({1} at {2})
+347|This round's team is locked
+348| · matches are on and points update live
+349|Pick team
+350|{0}/11 players
+351|+ Add
+352|You've gone over budget
+353|More than 3 players from {0}
+354|This mix of positions isn't allowed
+355|No captain yet; tap a player
+356|✓ Your team is ready; any change before the deadline is saved.
+357|Player points this round
+358|Previous rounds
+359|{0} pts
+360|My GoalLive fantasy score: {0} points in {1} rounds ⚽🏆
+361|Prices come from players' market values and points from real FotMob stats. Your team and points are saved on this phone.
+362|You haven't bought anyone yet; start with "Pick team"
+363| (home)
+364| (away)
+365|Buy {0} · budget left {1}M
+366|Player or club name…
+367|Most expensive
+368|Best rating
+369|Goals and assists
+370|Injured
+371|{0} goals
+372|{0} assists
+373|Opponent: {0}
+374|You already have 3 players from this club
+375|{0} · {1} · price {2}M
+376|This round: {0}
+377| (captain ×2)
+378|Hasn't played yet
+379|Make captain
+380|Sell
+381|Profile
+382|Soon
+383|in {0} days
+384|in {0} h {1} min
+385|in {0} min
+386|Cancelled
+387|You aren't following anything yet
+388|Tap the star next to teams, leagues and matches to collect them here and get their goal and line-up alerts.
+389|Or browse the leagues
+390|Teams
+391|Leagues
+392|Big matches
+393|All {0}
+394|Live
+395|Following
+396|Sort by league
+397|Sort by time
+398|No live matches right now
+399|See today's matches; when one kicks off it shows up here.
+400|All of today's matches
+401|You aren't following any team or league yet
+402|Tap the star next to a team or league to collect its matches here.
+403|Find a team
+404|Your teams don't play on this day
+405|All matches
+406|No matches on this day
+407|Today's matches
+408|{0} matches today
+409| · {0} live
+410|⭐ My team · {0}
+411|Build your dream team
+412|Build your dream team and score points
+413|Your team has {0}/11 players; complete it
+414|Your total points: {0}
+415|There's no table
+416|All
+417|Home
+418|Away
+419|Pts
+420|Goals
+421|GD
+422|Team
+423|Table
+424|Matches
+425|Stats
+426|Winners
+427|Season
+428|Previous round
+429|Next round
+430|Players
+431|{0}%
+432|Search leagues or countries…
+433|Nothing found
+434|Followed leagues
+435|Iran
+436|Popular
+437|International
+438|Countries
+439|Live · {0}
+440|Not started
+441|Goal! {0}
+442|The match hasn't started yet
+443|Play is in midfield
+444|{0} have the ball
+445|{0} piling on the pressure!
+446|A graphic view built from live data (momentum, shots and events); it updates every 20 seconds.
+447|Latest events
+448|Team stats
+449|Shots
+450|Summary
+451|Line-up
+452|🧠 You manage
+453|H2H
+454|Live pitch
+455|Commentary
+456| · round {0}
+457|Penalties
+458|Aggregate: {0}
+459|Watch live
+460| (p)
+461|Each service's official app opens (or its website in the browser); sign in with your own account. A match is only streamed by the service that holds its rights.
+462|Close
+463|Highlights and goals
+464|Match momentum
+465|Events
+466|Player of the match
+467|Best of each team
+468|Stat notes
+469|Last 5 matches
+470|W
+471|D
+472|Half-time
+473|+{0} minutes added
+474|Own goal
+475|Penalty
+476|Assist: {0}
+477|Red card
+478|Second yellow
+479|Yellow card
+480| · injured
+481|Win chances before kick-off
+482|Win probability
+483|and how they moved during the match
+484|GoalLive estimate from the score and xG
+485|Time
+486|Competition
+487|Stadium
+488| · capacity {0}
+489| · natural grass
+490| · artificial turf
+491|Referee
+492|Attendance
+493|Weather
+494|Match info
+495|Assist
+496|Substitution
+497|Key moment
+498|Full-time report
+499|Half-time report
+500|Team news
+501|Penalty missed
+502|Penalty goal
+503|No minute-by-minute commentary has been published for this match
+504|Minute by minute
+505|Text by FotMob
+506|Full match
+507|First half
+508|Second half
+509|Both teams
+510|Tap a shot to see its details
+511|Shots ({0} on target / {1})
+512|All shots
+513|Blocked
+514|Saved
+515|Woodwork
+516|Off target
+517|Player
+518|Situation
+519|Shot type
+520|Predicted line-up
+521|The official line-up is announced about an hour before kick-off
+522|On the pitch
+523|List
+524|{0} bench
+525|{0} players came on
+526|Average age {0}
+527|Value {0}
+528|Coach
+529|Starting XI
+530|Bench
+531|Coach: {0}
+532|Unavailable
+533|{0} players
+534| · back:
+535|Unknown
+536|Suspended
+537|Out
+538|⇧ On {0}'
+539|⇩ Off {0}'
+540|On {0}'
+541|Off {0}'
+542|Full profile
+543|Compare
+544|No stats recorded for this player in this match
+545|{0}/{1} ({2}%)
+546|Yes
+547|No
+548|Rating
+549|Minutes
+550|{0} assists
+551|{0} win
+552|Live TV
+553|Namava, Aparat Sport and Telewebion
+554|Assistant
+555|Ask a football question, by typing or by voice
+556|Fantasy
+557|Total
+558|Today's quiz
+559|Done · again tomorrow
+560|Keep going
+561|6 new questions
+562|Calendar
+563|Matches:
+564|Matches of followed teams
+565|My team's page
+566|{0}, {1}
+567|The service's own app opens (or its website in the browser if it isn't installed); sign in with your own account.
+568|More
+569|App
+570|Search
+571|Team, player or league
+572|All leagues
+573|Tables, fixtures and stats
+574|Home-screen widgets
+575|Live scores on your home screen
+576|Settings
+577|Look, language, alerts and audio commentary
+578|Long-press an empty spot on your home screen, tap "Widgets" and find "GoalLive". There are three: My team (large), My team (small) and Today's matches.
+579|OK
+580| (loan)
+581|Captain
+582|Compare with another player
+583|{0} cm
+584|{0} years
+585|Back: {0}
+586|Traits
+587|{0} per 90
+588|Recent matches
+589|Club
+590|National team
+591|Youth
+592|{0} career
+593| · loan
+594|{0} matches
+595|Trophies
+596|What was the score in yesterday's {0} vs {1} ({2})?
+597|Left number: home team's goals
+598|How did yesterday's {0} vs {1} end?
+599|In what year was {0} founded?
+600|What is {0}'s home stadium?
+601|Which of these is a {0} legend?
+602|Which club is nicknamed "{0}"?
+603|{0}: in what year was "{1}"?
+604|Today's quiz isn't ready; check back a little later
+605|Today's football quiz
+606| · {0} questions · streak: {1} days
+607|I scored {0} out of {1} in today's GoalLive quiz ⚽\n{2}
+608|{0} of {1}
+609|Perfect! A true football expert
+610|Well done! Come back tomorrow
+611|Not this time; new questions tomorrow
+612|Share result
+613|One of the league's best attacks (ranked {0}); {1} goals scored per match
+614|One of the league's lowest-scoring teams (ranked {0} of {1}); {2} goals scored per match
+615|One of the league's best defences (ranked {0}); {1} goals conceded per match
+616|One of the league's leakiest defences (ranked {0} of {1}); {2} goals conceded per match
+617|One of the league's top possession teams; {0}% average possession
+618|One of the league's lowest possession teams ({0}%)
+619|{0} set-piece goals this season (ranked {1} in the league)
+620|{0} goals conceded from set pieces this season
+621|Good form: {0} wins in the last {1} matches
+622|Poor form: {0} losses in the last {1} matches
+623|Unbeaten in the last {0} matches
+624|Away
+625|{0} strong: {1} wins in {2} matches
+626|{0} weak: {1} losses in {2} matches
+627|in the last {0} matches
+628|Finishes matches badly: {0} of {1} goals conceded after the 75th minute ({2})
+629|Starts matches badly: {0} of {1} goals conceded in the first 15 minutes ({2})
+630|Dangerous to the last minute: {0} of {1} goals after the 75th minute ({2})
+631|Fast starters: {0} of {1} goals in the first 15 minutes ({2})
+632|{0}: no goals conceded
+633|{0}: no goals scored
+634|Weak against aerial balls: {0} of {1} goals conceded from headers ({2})
+635|Concedes from set pieces: {0} of {1} goals conceded ({2})
+636|Vulnerable on the counter: {0} goals conceded from counter-attacks ({1})
+637|Dangerous in the air: {0} of {1} goals from headers ({2})
+638|Dangerous from set pieces: {0} of {1} goals ({2})
+639|Quick counter-attacks: {0} goals from counters ({1})
+640|{0} goals this season
+641|🛰️ Opponent radar
+642|🛰️ Team radar
+643|Strengths and weaknesses
+644|Checking recent matches…
+645|The radar couldn't load
+646|Nothing stands out (very good or very bad) in this team's numbers.
+647|There isn't enough data on this team's recent matches.
+648|Strength
+649|Weakness
+650|Goals through the match (last {0} matches)
+651|Player to watch
+652|Real numbers only: this season's table and stats and the goals of recent matches (FotMob).
+653|15
+654|30
+655|45
+656|60
+657|75
+658|90
+659| scored
+660| conceded
+661|Back
+662|GoalLive
+663|LIVE
+664|LIVE FOOTBALL · live scores
+665|Team, player or league…
+666|What are you looking for?
+667|Type a team, player or league name, or try one of these:
+668|No results for "{0}"
+669|Check the spelling; for example Sepahan or Mbappe.
+670|Clear search
+671| · coach
+672|My team
+673|App colour, pinned matches and alerts
+674|Notifications
+675|For followed teams and matches, even when the app is closed
+676|Notifications aren't allowed; tap to turn them on
+677|With scorer and minute
+678|Line-ups
+679|About an hour before kick-off
+680|Kick-off and full time
+681|Send a test notification
+682|To make sure alerts get through
+683|⚽ Goal! Notifications are on
+684|This is how goal alerts look
+685|Faster alerts when the phone is locked
+686|Turn off battery optimisation for GoalLive
+687|Goal alerts on time
+688|Allow GoalLive "Alarms & reminders"
+689|Look
+690|Night match
+691|Day match
+692|Like the phone
+693|Persian team names
+694|Persepolis, Real Madrid…
+695|Commentary is read by an online English voice; on "phone voice" the phone's own speech engine is used.
+696|Auto
+697|Online voice
+698|Phone voice
+699|Male voice
+700|Female voice
+701|Voice test
+702|Plays one line of commentary
+703|My team's live score (large and small) and today's matches
+704|Data
+705|Clear favourites
+706|Sources
+707|Where data, images, videos and voice come from
+708|Privacy
+709|GoalLive doesn't collect your personal data
+710|GoalLive version {0} · match data and stats from FotMob.
+711|Home-screen widget
+712|0. First pick "My team" in Settings.\n
+713|1. Leave the app and long-press an empty spot on your home screen.\n2. Tap "Widgets".\n3. Find "GoalLive"; it has three widgets:\n• My team (large)\n• My team (small, score only)\n• Today's matches\n4. Drag a widget onto the screen.\n\nDuring a live match it updates about every minute. Tap the widget to open the app.
+714|Clear all favourites?
+715|Clear
+716|No
+717|Which team do you support?
+718|The app takes your team's colours, its matches stay at the top and you get alerts for its goals and line-ups.
+719|Search other teams…
+720|No team
+721|Later
+722|• Results, stats, line-ups, league tables, club crests and player photos: FotMob\nhttps://www.fotmob.com\n\n
+723|• Match highlight videos: Aparat\nhttps://www.aparat.com\n\n
+724|• Commentary voice: Microsoft text-to-speech (Microsoft Edge)\nhttps://www.microsoft.com\n\n
+725|• Live TV: each service's official app or website; GoalLive streams no video\nhttps://www.namava.ir · https://sport.aparat.com · https://telewebion.com\n\n
+726|• Persian team names, the assistant, opponent radar, quiz and alert sounds: made by GoalLive
+727|Overview
+728|History
+729|Set as my team
+730|Next match
+731|Last match
+732|Recent form
+733|Scorers
+734|Full table
+735|Name
+736|City
+737|Upcoming matches
+738|Results
+739|Runner-up {0}
+740|Got it, let's go
+741|Pick a league and buy 11 players with a 100M budget: 1 goalkeeper, 3 to 5 defenders, 2 to 5 midfielders and 1 to 3 forwards.
+742|At most 3 players per club. Prices come from players' real market values.
+743|Pick a captain; their points count double.
+744|Your team locks when each round starts, and points come from real match stats (goals, assists, clean sheets, ratings).
+745|Before the match, pick one of the two teams and a formation (e.g. 4-3-3) and line up 11 players.
+746|Your line-up locks at kick-off; during the match you have up to 5 substitutions, made at that minute.
+747|Your rating comes from the real ratings of the players you picked and is compared with the real manager's choices.
+748|GoalLive talks you through the match like a commentator: goals, cards, chances and the score.
+749|Lock the phone or switch apps; the commentary keeps going and you can stop it from the notification.
+750|Commentary is read by an online English voice. In Settings you can pick a male or female voice.
+751|{0} {1} highlights
+752|{0} · official video
+753|YouTube
+754|No highlights video yet; it's usually out an hour or two after the match.
+755|A
+756|Search on Aparat
+757|Video plays from Aparat
+758|Live audio commentary
+759|Start commentary
+760|Commentating · stop
+761|Every event
+762|Key moments only
+763|{0} matches are being commentated at once
+764|Use the online voice
+765|Namava
+766|Live with a Namava subscription
+767|Aparat Sport
+768|Live Iranian league and European competitions
+769|Telewebion · Varzesh
+770|Live IRIB Varzesh channel
+771|Telewebion · Channel 3
+772|Live Channel 3
+773|No app or browser found to open {0}
+774|present
+775|Left
+776|Right
+777|official
+778|predicted
+779|Everything in English: menus, team, player and league names, and the audio commentary.

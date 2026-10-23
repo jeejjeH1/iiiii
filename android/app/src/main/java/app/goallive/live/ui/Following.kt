@@ -24,18 +24,18 @@ fun FollowingScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
         if (Store.teams.isEmpty() && Store.leagues.isEmpty() && Store.myTeam == null) {
             item {
-                EmptyView("هنوز چیزی دنبال نکرده‌اید", Ic.star,
-                    hint = "روی ستاره کنار تیم‌ها، لیگ‌ها و بازی‌ها بزنید تا اینجا جمع شوند و اعلان گل و ترکیبشان را بگیرید.",
-                    action = "انتخاب تیم محبوب") { picker = true }
+                EmptyView(L("هنوز چیزی دنبال نکرده‌اید"), Ic.star,
+                    hint = L("روی ستاره کنار تیم‌ها، لیگ‌ها و بازی‌ها بزنید تا اینجا جمع شوند و اعلان گل و ترکیبشان را بگیرید."),
+                    action = L("انتخاب تیم محبوب")) { picker = true }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    T("یا لیگ‌ها را ببینید", 13, FontWeight.Bold, LocalAccent.current, Modifier.clip(RoundedCornerShape(50)).clickable { nav.tab("leagues") }.padding(10.dp))
+                    T(L("یا لیگ‌ها را ببینید"), 13, FontWeight.Bold, LocalAccent.current, Modifier.clip(RoundedCornerShape(50)).clickable { nav.tab("leagues") }.padding(10.dp))
                 }
             }
             return@LazyColumn
         }
         Store.myTeam?.let { t -> item { MyTeamCard(t.id, t.name) } }
         if (Store.teams.isNotEmpty()) item {
-            SectionTitle("تیم‌ها")
+            SectionTitle(L("تیم‌ها"))
             Card {
                 Store.teams.entries.forEachIndexed { i, (id, name) ->
                     ListRow(first = i == 0, onClick = { nav.team(id) }) {
@@ -47,7 +47,7 @@ fun FollowingScreen() {
             }
         }
         if (Store.leagues.isNotEmpty()) item {
-            SectionTitle("لیگ‌ها")
+            SectionTitle(L("لیگ‌ها"))
             Card {
                 Store.leagues.entries.forEachIndexed { i, (id, name) ->
                     ListRow(first = i == 0, onClick = { nav.league(id) }) {

@@ -118,7 +118,7 @@ fun GoalLiveTheme(accent: Color, content: @Composable () -> Unit) {
     )
     MaterialTheme(colorScheme = scheme, typography = Type) {
         CompositionLocalProvider(
-            LocalLayoutDirection provides LayoutDirection.Rtl, LocalAccent provides accent, LocalAccentInk provides a.ink,
+            LocalLayoutDirection provides if (app.goallive.live.Lang.en) LayoutDirection.Ltr else LayoutDirection.Rtl, LocalAccent provides accent, LocalAccentInk provides a.ink,
             content = content,
         )
     }

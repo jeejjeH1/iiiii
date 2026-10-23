@@ -60,7 +60,7 @@ fun AssistantScreen() {
     val nav = LocalNav.current
     val accent = LocalAccent.current
     val scope = rememberCoroutineScope()
-    val msgs = remember { mutableStateListOf(Msg(false, "سلام! من دستیار گل‌لایو هستم ⚽\nدرباره تیم‌ها، بازیکن‌ها، لیگ‌ها و بازی‌ها به فارسی بپرسید؛ با نوشتن یا با صدا. برای دیدن همه کارهایی که بلدم بنویسید «راهنما».")) }
+    val msgs = remember { mutableStateListOf(Msg(false, L("سلام! من دستیار گل‌لایو هستم ⚽\nدرباره تیم‌ها، بازیکن‌ها، لیگ‌ها و بازی‌ها به فارسی بپرسید؛ با نوشتن یا با صدا. برای دیدن همه کارهایی که بلدم بنویسید «راهنما»."))) }
     var text by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var speak by rememberSaveable { mutableStateOf(false) }
@@ -77,7 +77,7 @@ fun AssistantScreen() {
         text = ""
         busy = true
         scope.launch {
-            val a = runCatching { brain.answer(clean) }.getOrElse { Msg(false, "اتصال برقرار نشد؛ دوباره امتحان کنید.") }
+            val a = runCatching { brain.answer(clean) }.getOrElse { Msg(false, L("اتصال برقرار نشد؛ دوباره امتحان کنید.")) }
             msgs += a
             busy = false
             if (speak) speaker.value.say(a.text)
@@ -91,22 +91,22 @@ fun AssistantScreen() {
     val listen = {
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
             .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fa-IR")
-            .putExtra(RecognizerIntent.EXTRA_PROMPT, "سؤالتان را بپرسید")
-        runCatching { voice.launch(i) }.onFailure { msgs += Msg(false, "تشخیص صدا روی این گوشی فعال نیست؛ لطفاً سؤال را بنویسید.") }
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (app.goallive.live.Lang.en) "en-US" else "fa-IR")
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, L("سؤالتان را بپرسید"))
+        runCatching { voice.launch(i) }.onFailure { msgs += Msg(false, L("تشخیص صدا روی این گوشی فعال نیست؛ لطفاً سؤال را بنویسید.")) }
     }
 
     Column(Modifier.fillMaxSize().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            T("🤖 دستیار گل‌لایو", 17, FontWeight.Black, modifier = Modifier.weight(1f))
-            Pill(if (speak) "پاسخ با صدا: روشن" else "پاسخ با صدا: خاموش", if (speak) PillKind.Accent else PillKind.Plain, onClick = { speak = !speak }, icon = Ic.mic)
+            T(L("🤖 دستیار گل‌لایو"), 17, FontWeight.Black, modifier = Modifier.weight(1f))
+            Pill(if (speak) L("پاسخ با صدا: روشن") else L("پاسخ با صدا: خاموش"), if (speak) PillKind.Accent else PillKind.Plain, onClick = { speak = !speak }, icon = Ic.mic)
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)) {
             items(msgs) { m -> Bubble(m, nav) }
             if (busy) item { Row(Modifier.padding(6.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) { repeat(3) { LiveDot(C.mute, 7.dp) } } }
             if (msgs.size == 1) item {
-                T("مثلاً بپرسید:", 13, FontWeight.Bold, C.mute, Modifier.padding(top = 6.dp, bottom = 6.dp))
+                T(L("مثلاً بپرسید:"), 13, FontWeight.Bold, C.mute, Modifier.padding(top = 6.dp, bottom = 6.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     EXAMPLES.forEach { e -> Pill(e, onClick = { ask(e) }) }
                 }
@@ -117,13 +117,13 @@ fun AssistantScreen() {
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.weight(1f).heightIn(min = 50.dp).clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line2, RoundedCornerShape(18.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp), contentAlignment = Alignment.CenterStart) {
-                if (text.isEmpty()) T("سؤالتان را بنویسید…", 14, color = C.faint)
+                if (text.isEmpty()) T(L("سؤالتان را بنویسید…"), 14, color = C.faint)
                 BasicTextField(text, { text = it }, Modifier.fillMaxWidth(), textStyle = vz(15.sp).copy(color = C.ink), cursorBrush = SolidColor(accent),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { ask(text) }), maxLines = 3)
             }
             val send = text.isNotBlank()
             Box(Modifier.size(50.dp).clip(CircleShape).background(accent).clickable { if (send) ask(text) else listen() }, contentAlignment = Alignment.Center) {
-                Icon(if (send) Ic.chev else Ic.mic, if (send) "فرستادن" else "پرسیدن با صدا", Modifier.size(24.dp), tint = LocalAccentInk.current)
+                Icon(if (send) Ic.chev else Ic.mic, if (send) L("فرستادن") else L("پرسیدن با صدا"), Modifier.size(24.dp), tint = LocalAccentInk.current)
             }
         }
     }

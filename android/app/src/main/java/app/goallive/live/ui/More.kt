@@ -41,12 +41,12 @@ private fun shortcuts(): List<Shortcut> {
     val answered = if (p.getString("quizDay", "") == today) (p.getString("quizAns", "") ?: "").split(',').count { it.isNotEmpty() } else 0
     val fantasy = fantasySub()
     return listOfNotNull(
-        Shortcut("tv", "پخش زنده", "نماوا، آپارات اسپورت و تلوبیون", Ic.tv, null, C.live, true),
-        Shortcut("ai", "دستیار", "سؤال فوتبالی بپرس، با نوشتن یا با صدا", Ic.mic, null, C.home, !Store.tipSeen("assistant")),
-        Shortcut("fantasy", "فانتزی", fantasy, null, "⚽", C.win, !fantasy.startsWith("مجموع")),
-        Shortcut("quiz", "کوئیز امروز", if (answered >= 6) "انجام شد · فردا دوباره" else if (answered > 0) "ادامه بده" else "۶ سؤال تازه", null, "?", accent, answered < 6),
-        Shortcut("calendar", "تقویم", Store.myTeam?.let { "بازی‌های " + (Clubs.get(it.id)?.fa ?: it.name) } ?: "بازی‌های تیم‌های دنبال‌شده", Ic.cal, null, C.home, false),
-        Store.myTeam?.let { Shortcut("my", Clubs.get(it.id)?.fa ?: it.name, "صفحه تیم من", null, null, accentFor(Clubs.get(it.id), it.color), false) },
+        Shortcut("tv", L("پخش زنده"), L("نماوا، آپارات اسپورت و تلوبیون"), Ic.tv, null, C.live, true),
+        Shortcut("ai", L("دستیار"), L("سؤال فوتبالی بپرس، با نوشتن یا با صدا"), Ic.mic, null, C.home, !Store.tipSeen("assistant")),
+        Shortcut("fantasy", L("فانتزی"), fantasy, null, "⚽", C.win, !fantasy.startsWith(L("مجموع"))),
+        Shortcut("quiz", L("کوئیز امروز"), if (answered >= 6) L("انجام شد · فردا دوباره") else if (answered > 0) L("ادامه بده") else L("۶ سؤال تازه"), null, "?", accent, answered < 6),
+        Shortcut("calendar", L("تقویم"), Store.myTeam?.let { L("بازی‌های ") + (Clubs.get(it.id)?.fa ?: it.name) } ?: L("بازی‌های تیم‌های دنبال‌شده"), Ic.cal, null, C.home, false),
+        Store.myTeam?.let { Shortcut("my", Clubs.get(it.id)?.fa ?: it.name, L("صفحه تیم من"), null, null, accentFor(Clubs.get(it.id), it.color), false) },
     )
 }
 
@@ -73,7 +73,7 @@ fun StoryRow() {
             val s = list[i]
             Column(
                 Modifier.width(70.dp).clip(RoundedCornerShape(16.dp)).clickable { go(s.key, nav) { tv = true } }
-                    .semantics(mergeDescendants = true) { role = Role.Button; contentDescription = "${s.title}، ${s.sub}" }.padding(vertical = 4.dp),
+                    .semantics(mergeDescendants = true) { role = Role.Button; contentDescription = L("{0}، {1}", s.title, s.sub) }.padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 val ring = if (s.fresh) Brush.sweepGradient(listOf(s.color, accent, C.live, s.color)) else Brush.linearGradient(listOf(C.line2, C.line2))
@@ -104,9 +104,9 @@ fun StationsSheet(onClose: () -> Unit) {
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                LiveDot(); T("پخش زنده", 18, FontWeight.Black)
+                LiveDot(); T(L("پخش زنده"), 18, FontWeight.Black)
             }
-            T("برنامه خود سرویس باز می‌شود (اگر نصب نباشد، سایتش در مرورگر)؛ با حساب خودتان وارد شوید.", 13, color = C.mute,
+            T(L("برنامه خود سرویس باز می‌شود (اگر نصب نباشد، سایتش در مرورگر)؛ با حساب خودتان وارد شوید."), 13, color = C.mute,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
             Card {
                 STATIONS.forEachIndexed { i, st ->
@@ -131,7 +131,7 @@ fun MoreScreen() {
     var widgetHelp by remember { mutableStateOf(false) }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace)) {
         item {
-            T("بیشتر", 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
+            T(L("بیشتر"), 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
             Card {
                 shortcuts().forEachIndexed { i, s ->
                     ListRow(first = i == 0, onClick = { go(s.key, nav) { tv = true } }) {
@@ -149,23 +149,23 @@ fun MoreScreen() {
                     }
                 }
             }
-            SectionTitle("اپلیکیشن")
+            SectionTitle(L("اپلیکیشن"))
             Card {
-                MoreRow(Ic.search, "جستجو", "تیم، بازیکن یا لیگ", true) { nav.tab("search") }
-                MoreRow(Ic.trophy, "همه لیگ‌ها", "جدول، برنامه و آمار") { nav.tab("leagues") }
-                MoreRow(Ic.grid, "ویجت‌های صفحه اصلی", "نتیجه زنده روی صفحه گوشی") { widgetHelp = true }
-                MoreRow(Ic.sliders, "تنظیمات", "ظاهر، اعلان‌ها، گزارش صوتی و نام فارسی تیم‌ها") { nav.tab("settings") }
+                MoreRow(Ic.search, L("جستجو"), L("تیم، بازیکن یا لیگ"), true) { nav.tab("search") }
+                MoreRow(Ic.trophy, L("همه لیگ‌ها"), L("جدول، برنامه و آمار")) { nav.tab("leagues") }
+                MoreRow(Ic.grid, L("ویجت‌های صفحه اصلی"), L("نتیجه زنده روی صفحه گوشی")) { widgetHelp = true }
+                MoreRow(Ic.sliders, L("تنظیمات"), L("ظاهر، اعلان‌ها، گزارش صوتی و نام فارسی تیم‌ها")) { nav.tab("settings") }
             }
         }
     }
     if (tv) StationsSheet { tv = false }
     if (widgetHelp) AlertDialog(
         onDismissRequest = { widgetHelp = false }, containerColor = C.cardSolid,
-        title = { T("ویجت‌های صفحه اصلی", 16, FontWeight.ExtraBold) },
+        title = { T(L("ویجت‌های صفحه اصلی"), 16, FontWeight.ExtraBold) },
         text = {
-            T("روی جای خالی صفحه اصلی گوشی انگشت را نگه دارید، «ویجت‌ها» را بزنید و «گل‌لایو» را پیدا کنید. سه ویجت دارد: تیم من (بزرگ)، تیم من (کوچک) و بازی‌های امروز.", 14)
+            T(L("روی جای خالی صفحه اصلی گوشی انگشت را نگه دارید، «ویجت‌ها» را بزنید و «گل‌لایو» را پیدا کنید. سه ویجت دارد: تیم من (بزرگ)، تیم من (کوچک) و بازی‌های امروز."), 14)
         },
-        confirmButton = { TextButton(onClick = { widgetHelp = false }) { T("باشه", 14, FontWeight.Bold, LocalAccent.current) } },
+        confirmButton = { TextButton(onClick = { widgetHelp = false }) { T(L("باشه"), 14, FontWeight.Bold, LocalAccent.current) } },
     )
 }
 

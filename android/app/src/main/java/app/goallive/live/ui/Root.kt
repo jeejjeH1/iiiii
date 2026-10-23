@@ -93,10 +93,10 @@ val BottomSpace: androidx.compose.ui.unit.Dp
     @Composable get() = 96.dp + androidx.compose.foundation.layout.WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
 private val TABS = listOf(
-    Triple("home", "بازی‌ها", { Ic.ball }),
-    Triple("leagues", "لیگ‌ها", { Ic.trophy }),
-    Triple("following", "دنبال‌شده‌ها", { Ic.star }),
-    Triple("more", "بیشتر", { Ic.grid }),
+    Triple("home", L("بازی‌ها"), { Ic.ball }),
+    Triple("leagues", L("لیگ‌ها"), { Ic.trophy }),
+    Triple("following", L("دنبال‌شده‌ها"), { Ic.star }),
+    Triple("more", L("بیشتر"), { Ic.grid }),
 )
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -185,18 +185,18 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
     val accent = LocalAccent.current
     Row(Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (canBack) IconBtn(Ic.back, "بازگشت", size = 22.dp) { nav.back() }
+        if (canBack) IconBtn(Ic.back, L("بازگشت"), size = 22.dp) { nav.back() }
         Row(Modifier.clickable { nav.tab("home") }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Image(painterResource(R.drawable.logo), null, Modifier.size(34.dp).glow(accent.copy(alpha = 0.35f), 8.dp, RoundedCornerShape(11.dp))
                 .clip(RoundedCornerShape(11.dp)))
-            T("گل‌لایو", 20, FontWeight.Black)
+            T(L("گل‌لایو"), 20, FontWeight.Black)
             Box(Modifier.border(1.dp, C.live, RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 1.dp)) {
                 Text("LIVE", color = C.live, style = lat(11.sp, FontWeight.Bold).copy(letterSpacing = 2.sp))
             }
         }
         Spacer(Modifier.weight(1f))
-        IconBtn(Ic.search, "جستجو") { nav.tab("search") }
-        IconBtn(Ic.sliders, "تنظیمات") { nav.tab("settings") }
+        IconBtn(Ic.search, L("جستجو")) { nav.tab("search") }
+        IconBtn(Ic.sliders, L("تنظیمات")) { nav.tab("settings") }
     }
 }
 
@@ -257,13 +257,13 @@ private fun Intro() {
                     .offset(x = (-300 * (1 - ball.value)).dp).rotate(-720f * (1 - ball.value)).clip(androidx.compose.foundation.shape.CircleShape))
                 Spacer(Modifier.height(40.dp))
                 Row(Modifier.scale(0.6f + 0.4f * word.value).alpha(word.value)) {
-                    Text("گل", color = Color.White, style = vz(72.sp, FontWeight.Black).copy(
+                    Text(L("گل"), color = Color.White, style = vz(72.sp, FontWeight.Black).copy(
                         shadow = androidx.compose.ui.graphics.Shadow(Lime, Offset(-5f, 0f), 0f)))
                     Spacer(Modifier.width(4.dp))
-                    Text("لایو", color = Color.White, style = vz(72.sp, FontWeight.Black).copy(
+                    Text(L("لایو"), color = Color.White, style = vz(72.sp, FontWeight.Black).copy(
                         shadow = androidx.compose.ui.graphics.Shadow(C.live, Offset(5f, 0f), 0f)))
                 }
-                Text("LIVE FOOTBALL · نتایج زنده", color = Lime, style = lat(14.sp, FontWeight.ExtraBold).copy(letterSpacing = 4.sp),
+                Text(L("LIVE FOOTBALL · نتایج زنده"), color = Lime, style = lat(14.sp, FontWeight.ExtraBold).copy(letterSpacing = 4.sp),
                     modifier = Modifier.alpha(tag.value).padding(top = 12.dp))
             }
         }

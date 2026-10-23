@@ -61,37 +61,37 @@ suspend fun buildQuiz(day: Long): List<Question> {
         val right = "${m.home.score} - ${m.away.score}"
         val wrong = generateSequence { "${rnd.nextInt(0, 5)} - ${rnd.nextInt(0, 5)}" }.filter { it != right }.distinct().take(3).toList()
         val opts = (wrong + right).shuffled(rnd)
-        qs += Question("بازی دیروز ${m.home.name} و ${m.away.name} (${m.leagueName}) چند شد؟", opts.map { fa(it) }, opts.indexOf(right), m.home.id, "عدد سمت راست: گل‌های میزبان")
+        qs += Question(L("بازی دیروز {0} و {1} ({2}) چند شد؟", iso(teamName(m.home.id, m.home.name)), iso(teamName(m.away.id, m.away.name)), iso(m.leagueName)), opts.map { fa(it) }, opts.indexOf(right), m.home.id, L("عدد سمت راست: گل‌های میزبان"))
     }
     played.drop(1).take(1).forEach { m ->
         val h = m.home.score ?: 0; val a = m.away.score ?: 0
-        val opts = listOf("برد ${m.home.name}", "تساوی", "برد ${m.away.name}")
-        qs += Question("دیروز در بازی ${m.home.name} و ${m.away.name} چه نتیجه‌ای رقم خورد؟", opts, if (h > a) 0 else if (h == a) 1 else 2, m.away.id)
+        val opts = listOf(L("برد {0}", iso(teamName(m.home.id, m.home.name))), L("تساوی"), L("برد {0}", iso(teamName(m.away.id, m.away.name))))
+        qs += Question(L("دیروز در بازی {0} و {1} چه نتیجه‌ای رقم خورد؟", iso(teamName(m.home.id, m.home.name)), iso(teamName(m.away.id, m.away.name))), opts, if (h > a) 0 else if (h == a) 1 else 2, m.away.id)
     }
     val clubs = Clubs.ids.shuffled(rnd)
     val makers = listOf<(Int) -> Question?>(
         { id -> val c = Clubs.get(id)!!; if (c.founded <= 0) null else {
             val right = c.founded
             val opts = (listOf(right) + generateSequence { right + rnd.nextInt(-25, 26) }.filter { it != right }.distinct().take(3)).shuffled(rnd)
-            Question("${c.fa} در چه سالی تأسیس شد؟", opts.map { fa(it) }, opts.indexOf(right), id)
+            Question(L("{0} در چه سالی تأسیس شد؟", c.fa), opts.map { fa(it) }, opts.indexOf(right), id)
         } },
         { id -> val c = Clubs.get(id)!!
             val others = Clubs.ids.filter { it != id }.map { Clubs.get(it)!!.stadium }.filter { it != c.stadium }.distinct().shuffled(rnd).take(3)
             val opts = (others + c.stadium).shuffled(rnd)
-            Question("ورزشگاه خانگی ${c.fa} کدام است؟", opts, opts.indexOf(c.stadium), id) },
+            Question(L("ورزشگاه خانگی {0} کدام است؟", c.fa), opts, opts.indexOf(c.stadium), id) },
         { id -> val c = Clubs.get(id)!!; if (c.legends.isEmpty()) null else {
             val right = c.legends[rnd.nextInt(c.legends.size)]
             val others = Clubs.ids.filter { it != id }.flatMap { Clubs.get(it)!!.legends }.filter { it !in c.legends }.distinct().shuffled(rnd).take(3)
             val opts = (others + right).shuffled(rnd)
-            Question("کدام یک از اسطوره‌های ${c.fa} است؟", opts, opts.indexOf(right), id)
+            Question(L("کدام یک از اسطوره‌های {0} است؟", c.fa), opts, opts.indexOf(right), id)
         } },
         { id -> val c = Clubs.get(id)!!
             val others = Clubs.ids.filter { it != id }.map { Clubs.get(it)!!.fa }.shuffled(rnd).take(3)
             val opts = (others + c.fa).shuffled(rnd)
-            Question("لقب «${c.nick}» مال کدام باشگاه است؟", opts, opts.indexOf(c.fa)) },
+            Question(L("لقب «{0}» مال کدام باشگاه است؟", c.nick), opts, opts.indexOf(c.fa)) },
         { id -> val c = Clubs.get(id)!!; c.years.filter { it.first != c.founded }.randomOrNull(rnd)?.let { (y, t) ->
             val opts = (listOf(y) + generateSequence { y + rnd.nextInt(-12, 13) }.filter { it != y }.distinct().take(3)).shuffled(rnd)
-            Question("${c.fa}: «$t» در چه سالی بود؟", opts.map { fa(it) }, opts.indexOf(y), id)
+            Question(L("{0}: «{1}» در چه سالی بود؟", c.fa, t), opts.map { fa(it) }, opts.indexOf(y), id)
         } },
     )
     var i = 0
@@ -116,7 +116,7 @@ fun QuizScreen() {
     var current by remember { mutableIntStateOf(picked.size) }
     val accent = LocalAccent.current
     LoadBox(l, 4) { qs ->
-        if (qs.isEmpty()) { EmptyView("کوئیز امروز آماده نشد؛ کمی بعد دوباره سر بزنید", Ic.info); return@LoadBox }
+        if (qs.isEmpty()) { EmptyView(L("کوئیز امروز آماده نشد؛ کمی بعد دوباره سر بزنید"), Ic.info); return@LoadBox }
         val score = qs.indices.count { it < picked.size && picked[it] == qs[it].answer }
         val done = picked.size >= qs.size
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
@@ -124,8 +124,8 @@ fun QuizScreen() {
                 Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(Modifier.size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(accent),
                         contentAlignment = Alignment.Center) { T("?", 34, FontWeight.Black, LocalAccentInk.current) }
-                    T("کوئیز فوتبالی امروز", 22, FontWeight.Black, modifier = Modifier.padding(top = 8.dp))
-                    T(persianDate(today, "EEEE d MMMM") + " · ${qs.size} سؤال · رکورد پیاپی: ${p.getInt("quizStreak", 0)} روز", 12, color = C.mute)
+                    T(L("کوئیز فوتبالی امروز"), 22, FontWeight.Black, modifier = Modifier.padding(top = 8.dp))
+                    T(persianDate(today, "EEEE d MMMM") + L(" · {0} سؤال · رکورد پیاپی: {1} روز", qs.size, p.getInt("quizStreak", 0)), 12, color = C.mute)
                 }
             }
             item {
@@ -139,8 +139,8 @@ fun QuizScreen() {
             }
             if (done) item {
                 Result(score, qs.size) {
-                    val text = "امروز در کوئیز گل‌لایو $score از ${qs.size} گرفتم ⚽\n${Api.SITE}"
-                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "اشتراک‌گذاری"))
+                    val text = L("امروز در کوئیز گل‌لایو {0} از {1} گرفتم ⚽\n{2}", score, qs.size, Api.SITE)
+                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), L("اشتراک‌گذاری")))
                 }
             }
             qs.forEachIndexed { qi, q ->
@@ -214,9 +214,9 @@ private fun Result(score: Int, total: Int, onShare: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         T(if (score == total) "🏆" else if (good) "⚽" else "🥅", 44)
-        T("$score از $total", 30, FontWeight.Black)
-        T(when { score == total -> "بی‌نقص! مثل یک کارشناس فوتبال"; good -> "آفرین! فردا هم سر بزن"; else -> "این بار نشد؛ فردا سؤال‌های تازه می‌آیند" }, 14, color = C.mute, align = TextAlign.Center)
+        T(L("{0} از {1}", score, total), 30, FontWeight.Black)
+        T(when { score == total -> L("بی‌نقص! مثل یک کارشناس فوتبال"); good -> L("آفرین! فردا هم سر بزن"); else -> L("این بار نشد؛ فردا سؤال‌های تازه می‌آیند") }, 14, color = C.mute, align = TextAlign.Center)
         Spacer(Modifier.height(12.dp))
-        Pill("اشتراک‌گذاری نتیجه", PillKind.Accent, onClick = onShare, icon = Ic.share)
+        Pill(L("اشتراک‌گذاری نتیجه"), PillKind.Accent, onClick = onShare, icon = Ic.share)
     }
 }

@@ -39,7 +39,7 @@ fun VoiceButton(m: MatchData) {
     val ctx = LocalContext.current
     val on = m.matchId in Commentary.matches
     var guide by remember { mutableStateOf(false) }
-    if (guide) HowToSheet("🎙️", "گزارش صوتی زنده", VOICE_STEPS, "شروع گزارش",
+    if (guide) HowToSheet("🎙️", L("گزارش صوتی زنده"), VOICE_STEPS, L("شروع گزارش"),
         onClose = { Store.markTip("voice"); guide = false }, onGo = { Store.markTip("voice"); guide = false; Commentary.toggle(ctx, m.matchId) })
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 10.dp)) {
         Row(
@@ -50,22 +50,22 @@ fun VoiceButton(m: MatchData) {
         ) {
             if (on) LiveDot(C.live)
             Text("🎙️", fontSize = 16.sp)
-            T(if (on) "در حال گزارش · توقف" else "گزارش صوتی زنده", 13, FontWeight.Black, if (on) Color(0xFF111111) else Color.White)
+            T(if (on) L("در حال گزارش · توقف") else L("گزارش صوتی زنده"), 13, FontWeight.Black, if (on) Color(0xFF111111) else Color.White)
         }
         if (on) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for ((imp, label) in listOf(false to "همه اتفاق‌ها", true to "فقط لحظه‌های مهم")) {
+                for ((imp, label) in listOf(false to L("همه اتفاق‌ها"), true to L("فقط لحظه‌های مهم"))) {
                     val sel = Commentary.importantOnly == imp
                     T(label, 11, FontWeight.ExtraBold, if (sel) Color(0xFF111111) else Color.White,
                         Modifier.clip(RoundedCornerShape(50)).background(if (sel) Color.White.copy(alpha = 0.9f) else Color.Black.copy(alpha = 0.3f))
                             .clickable { Commentary.importantOnly = imp }.padding(horizontal = 10.dp, vertical = 4.dp))
                 }
             }
-            if (Commentary.matches.size > 1) T("${Commentary.matches.size} بازی هم‌زمان گزارش می‌شود", 11, color = Color.White.copy(alpha = 0.85f))
+            if (Commentary.matches.size > 1) T(L("{0} بازی هم‌زمان گزارش می‌شود", Commentary.matches.size), 11, color = Color.White.copy(alpha = 0.85f))
             Commentary.problem?.let { p ->
                 T(p, 12, FontWeight.Bold, C.gold)
                 // no Persian voice on the phone: switch to the online voice with one tap
-                if (Store.voice == "phone") T("استفاده از صدای آنلاین", 12, FontWeight.Black, Color(0xFF111111),
+                if (Store.voice == "phone") T(L("استفاده از صدای آنلاین"), 12, FontWeight.Black, Color(0xFF111111),
                     Modifier.clip(RoundedCornerShape(50)).background(C.gold).clickable { Store.setVoice(mode = "online"); Commentary.problem = null }
                         .padding(horizontal = 12.dp, vertical = 5.dp))
             }

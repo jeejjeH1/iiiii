@@ -179,7 +179,8 @@ fun Ltr(
     text: String, modifier: Modifier = Modifier, style: TextStyle = lat(15.sp), color: Color = C.ink,
     weight: FontWeight? = null, maxLines: Int = 1, align: TextAlign? = null,
 ) {
-    Text(text, modifier, color = color, style = style.copy(textDirection = TextDirection.ContentOrLtr), fontWeight = weight,
+    val shown = if (app.goallive.live.Lang.en) text else app.goallive.live.data.FaNames.of(text)
+    Text(shown, modifier, color = color, style = style.copy(textDirection = TextDirection.ContentOrLtr), fontWeight = weight,
         maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
 }
 
@@ -191,7 +192,7 @@ fun T(text: String, size: Int = 14, w: FontWeight = FontWeight.Normal, color: Co
 }
 
 /** A team's name as the user wants it: Persian when we know it and the setting is on, else FotMob's English. */
-fun teamName(id: Int, name: String): String = if (Store.faNames) faTeamName(id, name) ?: name else name
+fun teamName(id: Int, name: String): String = if (Store.faNames) faTeamName(id, name) ?: app.goallive.live.data.FaNames.of(name) else name
 
 /** Team name: Persian in the body font, or English ([short] when given) in the broadcast font. */
 @Composable
@@ -358,7 +359,7 @@ fun Rating(r: Double?, modifier: Modifier = Modifier, small: Boolean = false) {
 @Composable
 fun StarButton(on: Boolean, onToggle: () -> Unit, size: Dp = 18.dp, tint: Color = C.faint, box: Dp = 32.dp) {
     Box(Modifier.size(box).clip(RoundedCornerShape(10.dp)).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
-        Icon(if (on) Ic.starOn else Ic.star, if (on) "دنبال نکن" else "دنبال کن", Modifier.size(size), tint = if (on) C.gold else tint)
+        Icon(if (on) Ic.starOn else Ic.star, if (on) L("دنبال نکن") else L("دنبال کن"), Modifier.size(size), tint = if (on) C.gold else tint)
     }
 }
 
@@ -381,7 +382,7 @@ fun Skeleton(rows: Int = 6, modifier: Modifier = Modifier) {
         start = Offset(-600f + 1400f * x, 0f), end = Offset(-200f + 1400f * x, 0f),
     )
     val bar = @Composable { w: Dp, h: Dp, m: Modifier -> Box(m.size(w, h).clip(RoundedCornerShape(6.dp)).background(brush)) }
-    Column(modifier.padding(vertical = 8.dp).semantics { contentDescription = "در حال بارگذاری" }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(modifier.padding(vertical = 8.dp).semantics { contentDescription = L("در حال بارگذاری") }, verticalArrangement = Arrangement.spacedBy(12.dp)) {
         var left = rows.coerceAtLeast(2)
         var card = 0
         while (left > 0) {
@@ -415,7 +416,7 @@ fun Skeleton(rows: Int = 6, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun ErrorView(onRetry: () -> Unit, text: String = "اتصال برقرار نشد") {
+fun ErrorView(onRetry: () -> Unit, text: String = L("اتصال برقرار نشد")) {
     val accent = LocalAccent.current
     Column(Modifier.fillMaxWidth().padding(vertical = 52.dp, horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(Ic.info, null, Modifier.size(40.dp), tint = C.faint)
@@ -423,7 +424,7 @@ fun ErrorView(onRetry: () -> Unit, text: String = "اتصال برقرار نش�
         T(text, 14, color = C.mute, align = TextAlign.Center)
         Spacer(Modifier.height(12.dp))
         Box(Modifier.clip(RoundedCornerShape(50)).background(accent.copy(alpha = 0.14f)).clickable(onClick = onRetry).padding(horizontal = 16.dp, vertical = 7.dp)) {
-            T("تلاش دوباره", 13, FontWeight.ExtraBold, accent)
+            T(L("تلاش دوباره"), 13, FontWeight.ExtraBold, accent)
         }
     }
 }
@@ -545,11 +546,11 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
     // one sentence for screen readers instead of a dozen small pieces
     val hn = teamName(m.home.id, m.home.name); val an = teamName(m.away.id, m.away.name)
     val desc = when {
-        m.cancelled -> "$hn و $an، لغو شد"
-        m.live -> "$hn ${m.home.score ?: 0}، $an ${m.away.score ?: 0}، زنده، ${statusText(m)}"
-        m.finished -> "$hn ${m.home.score ?: 0}، $an ${m.away.score ?: 0}، پایان بازی"
-        else -> "$hn و $an، ${persianDate(m.time, "EEEE d MMMM")} ساعت ${timeOf(m.time)}"
-    } + (sub?.let { "، $it" } ?: "")
+        m.cancelled -> L("{0} و {1}، لغو شد", hn, an)
+        m.live -> L("{0} {1}، {2} {3}، زنده، {4}", hn, m.home.score ?: 0, an, m.away.score ?: 0, statusText(m))
+        m.finished -> L("{0} {1}، {2} {3}، پایان بازی", hn, m.home.score ?: 0, an, m.away.score ?: 0)
+        else -> L("{0} و {1}، {2} ساعت {3}", hn, an, persianDate(m.time, "EEEE d MMMM"), timeOf(m.time))
+    } + (sub?.let { L("، {0}", it) } ?: "")
     val datePlace = showDate && !m.live && dayKey(m.time) != dayKey(System.currentTimeMillis())
     Box(Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = onClick)
         .semantics { contentDescription = desc }) {
@@ -559,7 +560,7 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
         ) {
             // status
             Box(Modifier.width(if (datePlace) 50.dp else 44.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
-                val st = statusText(m).replace("بین دو نیمه", "نیمه")
+                val st = statusText(m).replace(L("بین دو نیمه"), L("نیمه"))
                 when {
                     m.live -> Row(verticalAlignment = Alignment.CenterVertically) {
                         LiveDot(size = 6.dp); Spacer(Modifier.width(3.dp))

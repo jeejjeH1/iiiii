@@ -1,0 +1,272 @@
+0|El Clásico
+1|Madrid derby
+2|Manchester derby
+3|North-West derby
+4|North London derby
+5|London derby
+6|Der Klassiker
+7|Derby della Madonnina
+8|Derby d'Italia
+9|Clash of Italian giants
+10|Tehran derby · Red & Blue
+11|Red vs Gold
+12|Blue vs Gold
+13|Clash of the Reds
+14|Paris vs Catalonia
+15|Chelsea
+16|The Blues
+17|London
+18|Stamford Bridge
+19|Chelsea were founded at Stamford Bridge in 1905. From 2003, with new money and José Mourinho, they became London's top club, and in 2012 they won their first Champions League in Munich.
+20|Frank Lampard
+21|John Terry
+22|Didier Drogba
+23|Petr Čech
+24|Gianfranco Zola
+25|Founded
+26|First league title
+27|The night in Munich
+28|Second Champions League
+29|Manchester City
+30|The Citizens · Sky Blues
+31|Manchester
+32|Etihad
+33|Superbia in Proelio · Pride in battle
+34|City began in 1880 at St Mark's church in east Manchester. After years in their neighbours' shadow, from 2008 and especially under Pep Guardiola they became a winning machine, taking the treble in 2022–23.
+35|Colin Bell
+36|Sergio Agüero
+37|Vincent Kompany
+38|David Silva
+39|Kevin De Bruyne
+40|Agüero's 93rd-minute title winner
+41|100-point record
+42|Treble and first Champions League
+43|AC Milan
+44|Rossoneri
+45|San Siro
+46|Sempre Milan · Milan forever
+47|Milan were founded by Englishmen in 1899. Arrigo Sacchi's and Fabio Capello's side with Baresi, Maldini and van Basten was one of the greatest teams in football history, and Milan have been champions of Europe seven times.
+48|Paolo Maldini
+49|Franco Baresi
+50|Marco van Basten
+51|Andriy Shevchenko
+52|Kaká
+53|First European Cup
+54|4-0 final in Athens
+55|Seventh European title
+56|Tottenham
+57|Spurs
+58|Tottenham Hotspur Stadium
+59|Audere est Facere · To dare is to do
+60|Tottenham were founded in 1882 and in 1960–61 became the first team of the 20th century to win the English league and FA Cup together. The cockerel on a ball is the symbol of the north London club.
+61|Jimmy Greaves
+62|Glenn Hoddle
+63|Danny Blanchflower
+64|Harry Kane
+65|Son Heung-min
+66|The historic double
+67|First European trophy for an English team
+68|Champions League final
+69|Real Madrid
+70|Los Galácticos · Los Blancos
+71|Madrid
+72|Santiago Bernabéu
+73|Real Madrid were founded in 1902, and in 1920 the King of Spain gave them the title "Real" (royal). With Alfredo Di Stéfano and Ferenc Puskás they won the first five European Cups in a row, and they are the most successful club in Champions League history.
+74|Alfredo Di Stéfano
+75|Ferenc Puskás
+76|Raúl
+77|Iker Casillas
+78|Cristiano Ronaldo
+79|First European Champion Clubs' Cup
+80|Fifth European title in a row
+81|First team to win the Champions League twice in a row
+82|Barcelona
+83|Blaugrana · Barça
+84|Spotify Camp Nou
+85|Més que un club · More than a club
+86|Barcelona were founded in 1899 by the Swiss Joan Gamper and are a symbol of Catalan identity. Johan Cruyff's "Total Football" and the La Masia academy produced the generation of Lionel Messi, Xavi and Iniesta that won all six possible trophies in 2009.
+87|Johan Cruyff
+88|Lionel Messi
+89|Xavi Hernández
+90|Andrés Iniesta
+91|Ronaldinho
+92|First European Cup at Wembley
+93|Six trophies in one year
+94|Second treble
+95|Inter
+96|Nerazzurri
+97|Giuseppe Meazza (San Siro)
+98|Fratelli del mondo · Brothers of the world
+99|Inter split from Milan in 1908 so they could sign foreign players; that's where the name "Internazionale" comes from. Helenio Herrera's "Grande Inter" won Europe twice in the 1960s, and José Mourinho's team won the treble in 2010.
+100|Giuseppe Meazza
+101|Javier Zanetti
+102|Giacinto Facchetti
+103|Ronaldo Nazário
+104|Sandro Mazzola
+105|Treble with Mourinho
+106|Second star (20th Scudetto)
+107|Liverpool
+108|The Reds
+109|Anfield
+110|You'll Never Walk Alone
+111|Liverpool were born at Anfield in 1892. Bill Shankly and Bob Paisley made them Europe's top club in the 1970s and 80s. The "Miracle of Istanbul" in 2005 and the Premier League title with Jürgen Klopp in 2020, after 30 years of waiting, are among their unforgettable seasons.
+112|Kenny Dalglish
+113|Steven Gerrard
+114|Ian Rush
+115|Jamie Carragher
+116|Mohamed Salah
+117|Miracle of Istanbul
+118|Premier League title after 30 years
+119|Borussia Dortmund
+120|Die Borussen · Black and Yellow
+121|Dortmund
+122|Westfalenstadion · Signal Iduna Park
+123|Echte Liebe · True love
+124|Dortmund were born in 1909 in the industrial Ruhr. The "Yellow Wall", Europe's largest standing terrace, holds Germany's most famous fans, and the team won the Champions League in 1997.
+125|Michael Zorc
+126|Jürgen Kohler
+127|Matthias Sammer
+128|Marco Reus
+129|Robert Lewandowski
+130|First European trophy for a German team
+131|Champions League winners
+132|Double with Jürgen Klopp
+133|Bayern Munich
+134|The Bavarians
+135|Munich
+136|Allianz Arena
+137|Mia san mia · We are who we are
+138|Bayern were founded in 1900. The generation of Franz Beckenbauer and Gerd Müller won three European Cups in a row in the 1970s, and Bayern have been Germany's most successful club ever since.
+139|Franz Beckenbauer
+140|Gerd Müller
+141|Karl-Heinz Rummenigge
+142|Philipp Lahm
+143|Thomas Müller
+144|Third European Cup in a row
+145|First treble
+146|Arsenal
+147|The Gunners
+148|Emirates
+149|Victoria Concordia Crescit · Victory grows through harmony
+150|Arsenal were founded in 1886 by workers at the Woolwich arsenal; the name and the cannon badge come from there. Arsène Wenger's "Invincibles" went through the whole 2003–04 Premier League season unbeaten.
+151|Thierry Henry
+152|Dennis Bergkamp
+153|Tony Adams
+154|Patrick Vieira
+155|Ian Wright
+156|Founded as Dial Square
+157|First double
+158|The Invincibles
+159|Move to the Emirates Stadium
+160|Paris Saint-Germain
+161|The Parisians
+162|Paris
+163|Parc des Princes
+164|Ici c'est Paris · This is Paris
+165|Paris Saint-Germain were formed in 1970 from a merger of two clubs so the French capital would have a big team. From 2011, with stars like Zlatan, Neymar, Messi and Mbappé, they became France's most successful club.
+166|Raí
+167|Pauleta
+168|Zlatan Ibrahimović
+169|Thiago Silva
+170|Kylian Mbappé
+171|European Cup Winners' Cup
+172|First Champions League final
+173|First Champions League title
+174|Napoli
+175|Azzurri · Partenopei
+176|Naples
+177|Diego Armando Maradona
+178|Napoli were founded in 1926. Diego Maradona brought Naples the first Scudetto in the history of southern Italy in 1987, and the city's stadium now bears his name. Napoli became champions again in 2023 after 33 years.
+179|Diego Maradona
+180|Marek Hamšík
+181|Lorenzo Insigne
+182|Ciro Ferrara
+183|Antonio Juliano
+184|First Scudetto with Maradona
+185|UEFA Cup
+186|Third Scudetto after 33 years
+187|Juventus
+188|The Old Lady · Bianconeri
+189|Turin
+190|Allianz Stadium
+191|Fino alla fine · Until the very end
+192|Juventus were founded by high-school students in Turin in 1897. The black-and-white stripes came from Nottingham, and the "Old Lady" became Italy's most successful club, including nine Serie A titles in a row from 2012 to 2020.
+193|Alessandro Del Piero
+194|Gianluigi Buffon
+195|Michel Platini
+196|Pavel Nedvěd
+197|Roberto Baggio
+198|Second European title
+199|Ninth Scudetto in a row
+200|Atlético Madrid
+201|Rojiblancos · Colchoneros
+202|Metropolitano
+203|Nunca dejes de creer · Never stop believing
+204|Atlético were founded in Madrid in 1903 by Basque students. In red-and-white stripes they are Madrid's working-class, fighting team, and under Diego Simeone they became a top Spanish force again.
+205|Luis Aragonés
+206|Fernando Torres
+207|Antoine Griezmann
+208|Koke
+209|Diego Godín
+210|LaLiga and Copa double
+211|LaLiga title with Simeone
+212|Eleventh league title
+213|Manchester United
+214|The Red Devils
+215|Old Trafford · Theatre of Dreams
+216|United began as Newton Heath in 1878. The "Busby Babes" were reborn after the 1958 Munich air disaster and conquered Europe ten years later. Sir Alex Ferguson made the club England's most successful in 26 years, winning the historic treble in 1999.
+217|Bobby Charlton
+218|George Best
+219|Ryan Giggs
+220|Eric Cantona
+221|Wayne Rooney
+222|Founded as Newton Heath
+223|Munich air disaster
+224|The historic treble
+225|Persepolis
+226|The Capital Reds · Red Army
+227|Tehran
+228|Azadi Stadium
+229|Persepolis, eternal love
+230|Persepolis were founded in 1963 and, after Ali Parvin and the Shahin stars joined in 1968, became Iran's most popular team. The 1991 Asian Cup Winners' Cup and the record number of Pro League titles are among the Capital Reds' honours.
+231|Ali Parvin
+232|Ali Daei
+233|Karim Bagheri
+234|Hamid Derakhshan
+235|Mehdi Mahdavikia
+236|Asian Cup Winners' Cup
+237|AFC Champions League final
+238|Second Asian final
+239|Sepahan
+240|The Golden Ones · Isfahan Yellows
+241|Isfahan
+242|Naghsh-e Jahan
+243|The Golden Ones of Half the World
+244|Sepahan were founded in Isfahan in 1953. In 2007 they became the first Iranian team to reach the final of the new AFC Champions League and played at the Club World Cup. Sepahan are one of the most successful teams in the Pro League.
+245|Moharram Navidkia
+246|Emad Mohammed Ridha
+247|First Pro League title
+248|Club World Cup appearance
+249|Esteghlal
+250|The Capital Blues
+251|Esteghlal, the pride of Iran
+252|Esteghlal were founded in 1945 as "Docharkheh Savaran" (the Cyclists) and were called "Taj" for many years. Esteghlal are the only Iranian club to have been Asian club champions twice (1970 and 1991).
+253|Nasser Hejazi
+254|Mansour Pourheidari
+255|Ali Jabbari
+256|Farhad Majidi
+257|Amir Ghalenoei
+258|Founded as the Cyclists
+259|First Asian title
+260|Renamed from Taj to Esteghlal
+261|Second Asian title
+262|Tractor
+263|Flag-bearer of Azerbaijan · Tabriz Reds
+264|Tabriz
+265|Yadegar-e Emam (Sahand)
+266|Tractor, the pride of Tabriz
+267|Tractor were formed in 1970 from the Tabriz tractor factory and have Iran's most passionate fans. On match days the Yadegar-e Emam stadium is one of the most electric in Asia.
+268|Karim Ansarifard
+269|Farshad Ahmadzadeh
+270|First Pro League runner-up finish
+271|First Hazfi Cup

@@ -50,7 +50,8 @@ object Store {
         notifyGoals = p.getBoolean("nGoals", true)
         notifyLineups = p.getBoolean("nLineups", true)
         notifyStartEnd = p.getBoolean("nStartEnd", true)
-        faNames = p.getBoolean("faNames", true)
+        // English: FotMob's own names; Persian: Persian names everywhere
+        faNames = !app.goallive.live.Lang.en
         voice = p.getString("voice", "auto")!!
         voiceName = p.getString("voiceName", "farid")!!
         theme = p.getString("theme", "dark")!!

@@ -12,6 +12,7 @@ import coil.memory.MemoryCache
 class GoalLiveApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
+        Lang.init(this)
         Api.init(this)
         Store.init(this)
         app.goallive.live.ui.Look.mode = Store.theme

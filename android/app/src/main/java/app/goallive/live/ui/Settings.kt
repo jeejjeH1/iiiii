@@ -99,65 +99,70 @@ fun SettingsScreen() {
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace)) {
         item {
-            T("تنظیمات", 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
+            T(L("تنظیمات"), 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
             Card {
-                SubHead("تیم من")
+                SubHead(L("تیم من"))
                 val t = Store.myTeam
                 ListRow(first = true, onClick = { picker = true }) {
                     if (t != null) Crest(t.id, 34.dp) else Icon(Ic.star, null, Modifier.size(20.dp), tint = C.ink)
                     Column(Modifier.weight(1f)) {
-                        T(t?.let { Clubs.get(it.id)?.fa ?: it.name } ?: "انتخاب تیم محبوب", 14, FontWeight.Bold)
-                        T("رنگ اپ، بازی‌های سنجاق‌شده و اعلان‌ها", 12, color = C.mute)
+                        T(t?.let { Clubs.get(it.id)?.fa ?: it.name } ?: L("انتخاب تیم محبوب"), 14, FontWeight.Bold)
+                        T(L("رنگ اپ، بازی‌های سنجاق‌شده و اعلان‌ها"), 12, color = C.mute)
                     }
                     Icon(Ic.chev, null, Modifier.size(18.dp), tint = C.mute)
                 }
-                SubHead("اعلان‌ها")
-                SetRow(Ic.bell, "اعلان‌ها", if (granted) "برای تیم‌ها و بازی‌های دنبال‌شده؛ حتی وقتی اپ بسته است" else "اجازه اعلان داده نشده؛ برای روشن کردن بزنید",
+                SubHead(L("اعلان‌ها"))
+                SetRow(Ic.bell, L("اعلان‌ها"), if (granted) L("برای تیم‌ها و بازی‌های دنبال‌شده؛ حتی وقتی اپ بسته است") else L("اجازه اعلان داده نشده؛ برای روشن کردن بزنید"),
                     first = true, on = granted && anyOn) {
                     if (!granted && Build.VERSION.SDK_INT >= 33) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else if (anyOn) Store.setNotify(false, false, false) else Store.setNotify(true, true, true)
                 }
-                SetRow(Ic.ball, "گل‌ها", "با نام گلزن و دقیقه", on = Store.notifyGoals) { Store.setNotify(goals = !Store.notifyGoals) }
-                SetRow(Ic.shirt, "اعلام ترکیب", "حدود یک ساعت قبل از بازی", on = Store.notifyLineups) { Store.setNotify(lineups = !Store.notifyLineups) }
-                SetRow(Ic.whistle, "شروع و پایان بازی", null, on = Store.notifyStartEnd) { Store.setNotify(startEnd = !Store.notifyStartEnd) }
-                SetRow(Ic.info, "ارسال اعلان آزمایشی", "برای اطمینان از رسیدن اعلان‌ها") {
+                SetRow(Ic.ball, L("گل‌ها"), L("با نام گلزن و دقیقه"), on = Store.notifyGoals) { Store.setNotify(goals = !Store.notifyGoals) }
+                SetRow(Ic.shirt, L("اعلام ترکیب"), L("حدود یک ساعت قبل از بازی"), on = Store.notifyLineups) { Store.setNotify(lineups = !Store.notifyLineups) }
+                SetRow(Ic.whistle, L("شروع و پایان بازی"), null, on = Store.notifyStartEnd) { Store.setNotify(startEnd = !Store.notifyStartEnd) }
+                SetRow(Ic.info, L("ارسال اعلان آزمایشی"), L("برای اطمینان از رسیدن اعلان‌ها")) {
                     if (!granted && Build.VERSION.SDK_INT >= 33) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    else LiveAlerts.notify(ctx, 1, LiveAlerts.CH_GOALS, "⚽ گل! اعلان‌ها فعال است", "اعلان‌های گل این‌طور نمایش داده می‌شوند", 0)
+                    else LiveAlerts.notify(ctx, 1, LiveAlerts.CH_GOALS, L("⚽ گل! اعلان‌ها فعال است"), L("اعلان‌های گل این‌طور نمایش داده می‌شوند"), 0)
                 }
-                if (!batteryFree) SetRow(Ic.live, "اعلان سریع‌تر وقتی گوشی قفل است", "بهینه‌سازی باتری را برای گل‌لایو خاموش کنید") {
+                if (!batteryFree) SetRow(Ic.live, L("اعلان سریع‌تر وقتی گوشی قفل است"), L("بهینه‌سازی باتری را برای گل‌لایو خاموش کنید")) {
                     runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
                 }
                 val am = ctx.getSystemService(android.app.AlarmManager::class.java)
-                if (Build.VERSION.SDK_INT >= 31 && am?.canScheduleExactAlarms() == false) SetRow(Ic.bell, "اعلان گل سر وقت", "اجازه «زنگ هشدار و یادآوری» را به گل‌لایو بدهید") {
+                if (Build.VERSION.SDK_INT >= 31 && am?.canScheduleExactAlarms() == false) SetRow(Ic.bell, L("اعلان گل سر وقت"), L("اجازه «زنگ هشدار و یادآوری» را به گل‌لایو بدهید")) {
                     runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))) }
                 }
-                SubHead("ظاهر")
+                SubHead(L("ظاهر"))
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    Seg(listOf("dark" to "بازی شبانه", "light" to "بازی روز", "auto" to "مثل گوشی"), Store.theme,
+                    Seg(listOf("dark" to L("بازی شبانه"), "light" to L("بازی روز"), "auto" to L("مثل گوشی")), Store.theme,
                         icons = mapOf("dark" to Ic.moon, "light" to Ic.sun)) { Store.pickTheme(it); Look.mode = it }
                 }
-                SetRow(Ic.shirt, "نام فارسی تیم‌ها", if (Store.faNames) "پرسپولیس، رئال مادرید…" else "Persepolis, Real Madrid…", on = Store.faNames) {
-                    Store.useFaNames(!Store.faNames)
-                }
-                SubHead("گزارش صوتی")
+                SubHead("زبان · Language")
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    T("اگر گوشی صدای فارسی ندارد «صدای آنلاین» را انتخاب کنید؛ گزارش با صدای گوینده فارسی از اینترنت پخش می‌شود.", 12, color = C.mute)
-                    Seg(listOf("auto" to "خودکار", "online" to "صدای آنلاین", "phone" to "صدای گوشی"), Store.voice) { Store.setVoice(mode = it) }
-                    if (Store.voice != "phone") Seg(listOf("farid" to "گوینده مرد", "dilara" to "گوینده زن"), Store.voiceName) { Store.setVoice(name = it) }
+                    // each option is written in its own language; picking one restarts the app in it
+                    Seg(listOf("fa" to "فارسی", "en" to "English"), if (app.goallive.live.Lang.en) "en" else "fa") {
+                        if ((it == "en") != app.goallive.live.Lang.en) app.goallive.live.Lang.switch(ctx, it == "en")
+                    }
+                    T(L("همه‌چیز فارسی: منوها، نام تیم‌ها، بازیکنان و لیگ‌ها و گزارش صوتی."), 12, color = C.mute)
                 }
-                SetRow(Ic.mic, "امتحان صدا", "یک جمله گزارش پخش می‌شود") { Commentary.test(ctx) }
-                SubHead("اپلیکیشن")
-                SetRow(Ic.cal, "ویجت‌های صفحه اصلی", "نتیجه زنده تیم من (بزرگ و کوچک) و بازی‌های امروز", first = true, chev = true) { widgetHelp = true }
-                SubHead("داده‌ها")
-                SetRow(Ic.x, "پاک کردن علاقه‌مندی‌ها", null, first = true) { confirmClear = true }
-                SetRow(Ic.list, "منابع", "منبع اطلاعات، تصاویر، ویدیوها و صدا", chev = true) { sources = true }
-                SetRow(Ic.people, "حریم خصوصی", "گل‌لایو اطلاعات شخصی شما را دریافت نمی‌کند", chev = true) {
+                SubHead(L("گزارش صوتی"))
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    T(L("اگر گوشی صدای فارسی ندارد «صدای آنلاین» را انتخاب کنید؛ گزارش با صدای گوینده فارسی از اینترنت پخش می‌شود."), 12, color = C.mute)
+                    Seg(listOf("auto" to L("خودکار"), "online" to L("صدای آنلاین"), "phone" to L("صدای گوشی")), Store.voice) { Store.setVoice(mode = it) }
+                    if (Store.voice != "phone") Seg(listOf("farid" to L("گوینده مرد"), "dilara" to L("گوینده زن")), Store.voiceName) { Store.setVoice(name = it) }
+                }
+                SetRow(Ic.mic, L("امتحان صدا"), L("یک جمله گزارش پخش می‌شود")) { Commentary.test(ctx) }
+                SubHead(L("اپلیکیشن"))
+                SetRow(Ic.cal, L("ویجت‌های صفحه اصلی"), L("نتیجه زنده تیم من (بزرگ و کوچک) و بازی‌های امروز"), first = true, chev = true) { widgetHelp = true }
+                SubHead(L("داده‌ها"))
+                SetRow(Ic.x, L("پاک کردن علاقه‌مندی‌ها"), null, first = true) { confirmClear = true }
+                SetRow(Ic.list, L("منابع"), L("منبع اطلاعات، تصاویر، ویدیوها و صدا"), chev = true) { sources = true }
+                SetRow(Ic.people, L("حریم خصوصی"), L("گل‌لایو اطلاعات شخصی شما را دریافت نمی‌کند"), chev = true) {
                     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) }
                 }
                 ListRow {
                     Icon(Ic.info, null, Modifier.size(20.dp), tint = C.ink)
                     val v = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
-                    T("گل‌لایو نسخه $v · اطلاعات و آمار بازی‌ها از FotMob دریافت می‌شود.", 12, color = C.mute, modifier = Modifier.weight(1f))
+                    T(L("گل‌لایو نسخه {0} · اطلاعات و آمار بازی‌ها از FotMob دریافت می‌شود.", v), 12, color = C.mute, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -165,24 +170,24 @@ fun SettingsScreen() {
     if (picker) TeamPicker { picker = false }
     if (sources) AlertDialog(
         onDismissRequest = { sources = false }, containerColor = C.cardSolid,
-        title = { T("منابع", 16, FontWeight.ExtraBold) },
+        title = { T(L("منابع"), 16, FontWeight.ExtraBold) },
         text = { T(SOURCES, 13) },
-        confirmButton = { TextButton(onClick = { sources = false }) { T("باشه", 14, FontWeight.Bold, LocalAccent.current) } },
+        confirmButton = { TextButton(onClick = { sources = false }) { T(L("باشه"), 14, FontWeight.Bold, LocalAccent.current) } },
     )
     if (widgetHelp) AlertDialog(
         onDismissRequest = { widgetHelp = false }, containerColor = C.cardSolid,
-        title = { T("ویجت صفحه اصلی", 16, FontWeight.ExtraBold) },
+        title = { T(L("ویجت صفحه اصلی"), 16, FontWeight.ExtraBold) },
         text = {
-            T((if (Store.myTeam == null) "۰. اول از تنظیمات «تیم من» را انتخاب کنید.\n" else "") +
-                "۱. از اپ بیرون بروید و روی جای خالی صفحه اصلی گوشی انگشت را نگه دارید.\n۲. «ویجت‌ها» (Widgets) را بزنید.\n۳. «گل‌لایو» را پیدا کنید؛ سه ویجت دارد:\n• تیم من (بزرگ)\n• تیم من (کوچک، فقط نتیجه)\n• بازی‌های امروز\n۴. ویجت را روی صفحه بکشید.\n\nدر بازی زنده هر حدود یک دقیقه به‌روز می‌شود. با زدن روی ویجت اپ باز می‌شود.", 14)
+            T((if (Store.myTeam == null) L("۰. اول از تنظیمات «تیم من» را انتخاب کنید.\n") else "") +
+                L("۱. از اپ بیرون بروید و روی جای خالی صفحه اصلی گوشی انگشت را نگه دارید.\n۲. «ویجت‌ها» (Widgets) را بزنید.\n۳. «گل‌لایو» را پیدا کنید؛ سه ویجت دارد:\n• تیم من (بزرگ)\n• تیم من (کوچک، فقط نتیجه)\n• بازی‌های امروز\n۴. ویجت را روی صفحه بکشید.\n\nدر بازی زنده هر حدود یک دقیقه به‌روز می‌شود. با زدن روی ویجت اپ باز می‌شود."), 14)
         },
-        confirmButton = { TextButton(onClick = { widgetHelp = false }) { T("باشه", 14, FontWeight.Bold, LocalAccent.current) } },
+        confirmButton = { TextButton(onClick = { widgetHelp = false }) { T(L("باشه"), 14, FontWeight.Bold, LocalAccent.current) } },
     )
     if (confirmClear) AlertDialog(
         onDismissRequest = { confirmClear = false }, containerColor = C.cardSolid,
-        title = { T("همه علاقه‌مندی‌ها پاک شوند؟", 16, FontWeight.ExtraBold) },
-        confirmButton = { TextButton(onClick = { Store.clearFollows(); confirmClear = false }) { T("پاک کن", 14, FontWeight.Bold, C.live) } },
-        dismissButton = { TextButton(onClick = { confirmClear = false }) { T("نه", 14, FontWeight.Bold, C.mute) } },
+        title = { T(L("همه علاقه‌مندی‌ها پاک شوند؟"), 16, FontWeight.ExtraBold) },
+        confirmButton = { TextButton(onClick = { Store.clearFollows(); confirmClear = false }) { T(L("پاک کن"), 14, FontWeight.Bold, C.live) } },
+        dismissButton = { TextButton(onClick = { confirmClear = false }) { T(L("نه"), 14, FontWeight.Bold, C.mute) } },
     )
 }
 
@@ -246,10 +251,10 @@ fun TeamPicker(onClose: () -> Unit) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Box(Modifier.padding(top = 6.dp).size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(accent),
                     contentAlignment = Alignment.Center) { Icon(Ic.ball, null, Modifier.size(34.dp), tint = LocalAccentInk.current) }
-                T("تیم محبوبت کدومه؟", 22, FontWeight.Black, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
-                T("اپ با رنگ تیمت درمیاد، بازی‌هاش همیشه بالای صفحه است و گل‌ها و ترکیبش اعلان می‌شه.", 13, color = C.mute, align = TextAlign.Center)
+                T(L("تیم محبوبت کدومه؟"), 22, FontWeight.Black, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                T(L("اپ با رنگ تیمت درمیاد، بازی‌هاش همیشه بالای صفحه است و گل‌ها و ترکیبش اعلان می‌شه."), 13, color = C.mute, align = TextAlign.Center)
             }
-            Box(Modifier.padding(horizontal = 16.dp)) { SearchField(q, "جستجوی تیم‌های دیگر (انگلیسی)…") { q = it } }
+            Box(Modifier.padding(horizontal = 16.dp)) { SearchField(q, L("جستجوی تیم‌های دیگر (انگلیسی)…")) { q = it } }
             if (res.isNotEmpty()) Card(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) {
                 res.forEachIndexed { i, (id, name) ->
                     ListRow(first = i == 0, onClick = { pick(id, name) }) { Crest(id, 34.dp); Ltr(name, Modifier.weight(1f)) }
@@ -275,9 +280,9 @@ fun TeamPicker(onClose: () -> Unit) {
             }
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (Store.myTeam != null) Box(Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, C.line, RoundedCornerShape(14.dp))
-                    .clickable { pick(null, "") }, contentAlignment = Alignment.Center) { T("بدون تیم", 14, FontWeight.Bold) }
+                    .clickable { pick(null, "") }, contentAlignment = Alignment.Center) { T(L("بدون تیم"), 14, FontWeight.Bold) }
                 Box(Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(14.dp)).border(1.dp, C.line, RoundedCornerShape(14.dp))
-                    .clickable { Store.onboarded = true; onClose() }, contentAlignment = Alignment.Center) { T(if (Store.myTeam != null) "بستن" else "بعداً", 14, FontWeight.Bold) }
+                    .clickable { Store.onboarded = true; onClose() }, contentAlignment = Alignment.Center) { T(if (Store.myTeam != null) L("بستن") else L("بعداً"), 14, FontWeight.Bold) }
             }
         }
     }
@@ -286,8 +291,8 @@ fun TeamPicker(onClose: () -> Unit) {
 const val PRIVACY_URL = "https://github.com/jeejjeH1/iiiii/blob/ccr-addbae8c-95x58c/store/PRIVACY.md"
 
 /** Where everything shown in the app comes from (the store asks for this inside the app). */
-private const val SOURCES = "• نتایج، آمار، ترکیب تیم‌ها، جدول لیگ‌ها و نشان باشگاه‌ها و عکس بازیکنان: FotMob\nhttps://www.fotmob.com\n\n" +
-    "• ویدیوی خلاصه بازی‌ها: آپارات\nhttps://www.aparat.com\n\n" +
-    "• صدای گوینده گزارش صوتی: سرویس تبدیل متن به صدای مایکروسافت (Microsoft Edge)\nhttps://www.microsoft.com\n\n" +
-    "• پخش زنده: برنامه یا سایت رسمی هر سرویس؛ گل‌لایو ویدیویی پخش نمی‌کند\nhttps://www.namava.ir · https://sport.aparat.com · https://telewebion.com\n\n" +
-    "• نام فارسی تیم‌ها، دستیار، رادار حریف، کوئیز و صداهای اعلان: ساخته خود گل‌لایو"
+private val SOURCES = L("• نتایج، آمار، ترکیب تیم‌ها، جدول لیگ‌ها و نشان باشگاه‌ها و عکس بازیکنان: FotMob\nhttps://www.fotmob.com\n\n") +
+    L("• ویدیوی خلاصه بازی‌ها: آپارات\nhttps://www.aparat.com\n\n") +
+    L("• صدای گوینده گزارش صوتی: سرویس تبدیل متن به صدای مایکروسافت (Microsoft Edge)\nhttps://www.microsoft.com\n\n") +
+    L("• پخش زنده: برنامه یا سایت رسمی هر سرویس؛ گل‌لایو ویدیویی پخش نمی‌کند\nhttps://www.namava.ir · https://sport.aparat.com · https://telewebion.com\n\n") +
+    L("• نام فارسی تیم‌ها، دستیار، رادار حریف، کوئیز و صداهای اعلان: ساخته خود گل‌لایو")

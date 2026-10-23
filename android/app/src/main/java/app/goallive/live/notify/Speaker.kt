@@ -41,7 +41,7 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
         if (Store.voice != "online") {
             tts = TextToSpeech(app) { status ->
                 val t = tts
-                val r = if (status == TextToSpeech.SUCCESS && t != null) t.setLanguage(Locale("fa", "IR")) else TextToSpeech.LANG_NOT_SUPPORTED
+                val r = if (status == TextToSpeech.SUCCESS && t != null) t.setLanguage(if (app.goallive.live.Lang.en) Locale.US else Locale("fa", "IR")) else TextToSpeech.LANG_NOT_SUPPORTED
                 val ok = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED
                 if (ok) {
                     t!!.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -79,9 +79,9 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
         if (online) {
             val f = download(text)
             if (f != null) { Commentary.problem = null; play(f); return }
-            if (!phone) { Commentary.problem = "صدای آنلاین الان جواب نداد؛ چند لحظه بعد دوباره امتحان کنید (اگر نشد، فیلترشکن را روشن کنید)"; return }
+            if (!phone) { Commentary.problem = L("صدای آنلاین الان جواب نداد؛ چند لحظه بعد دوباره امتحان کنید (اگر نشد، فیلترشکن را روشن کنید)"); return }
         } else if (!phone) {
-            Commentary.problem = "صدای فارسی روی گوشی نصب نیست"
+            Commentary.problem = L("صدای فارسی روی گوشی نصب نیست")
             return
         }
         val id = "c${System.nanoTime()}"
@@ -93,15 +93,17 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
     /** The server's mp3 for a line; identical lines ("نیمه دوم آغاز شد.") are kept on disk and reused. */
     private suspend fun download(text: String): File? = withContext(Dispatchers.IO) {
         val dir = File(app.cacheDir, "tts").apply { mkdirs() }
-        val f = File(dir, "${Store.voiceName}-${Integer.toHexString(text.hashCode())}.mp3")
+        val f = File(dir, "${Store.voiceName}-${if (app.goallive.live.Lang.en) "en" else "fa"}-${Integer.toHexString(text.hashCode())}.mp3")
         if (f.length() > 0) return@withContext f
         // keep the cache small
         dir.listFiles()?.takeIf { it.size > 200 }?.sortedBy { it.lastModified() }?.take(100)?.forEach { it.delete() }
         // first straight from the voice service, then through our server
-        val voice = if (Store.voiceName == "dilara") "fa-IR-DilaraNeural" else "fa-IR-FaridNeural"
+        // the male / female commentator in the app's language
+        val (male, female) = if (app.goallive.live.Lang.en) "en-GB-RyanNeural" to "en-GB-SoniaNeural" else "fa-IR-FaridNeural" to "fa-IR-DilaraNeural"
+        val voice = if (Store.voiceName == "dilara") female else male
         EdgeVoice.speak(text.take(400), voice)?.let { f.writeBytes(it); return@withContext f }
         // the other commentator rather than silence
-        EdgeVoice.speak(text.take(400), if (voice == "fa-IR-FaridNeural") "fa-IR-DilaraNeural" else "fa-IR-FaridNeural")?.let { f.writeBytes(it); return@withContext f }
+        EdgeVoice.speak(text.take(400), if (voice == male) female else male)?.let { f.writeBytes(it); return@withContext f }
         val url = "${Api.SITE}/api/tts?v=${Store.voiceName}&t=${URLEncoder.encode(text.take(400), "UTF-8")}"
         repeat(2) {
             runCatching {

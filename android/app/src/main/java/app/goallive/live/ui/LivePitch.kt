@@ -77,7 +77,7 @@ fun LivePitch(m: MatchData) {
 
     Card(pad = androidx.compose.foundation.layout.PaddingValues(12.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            if (m.live) Pill(if (m.minute == "HT") "بین دو نیمه" else "زنده · ${m.minute}", PillKind.Live, dot = true) else Pill(if (m.finished) "پایان بازی" else "شروع نشده")
+            if (m.live) Pill(if (m.minute == "HT") L("بین دو نیمه") else L("زنده · {0}", m.minute), PillKind.Live, dot = true) else Pill(if (m.finished) L("پایان بازی") else L("شروع نشده"))
             Spacer(Modifier.weight(1f))
             Ltr("← ${teamName(m.homeId, m.homeName)}", style = vz(12.sp, FontWeight.Bold), color = m.homeColor)
         }
@@ -120,32 +120,32 @@ fun LivePitch(m: MatchData) {
                 drawCircle(attacker, 6.dp.toPx(), Offset(bx, by), style = Stroke(2.dp.toPx()))
             }
             if (goalNow) Box(Modifier.align(Alignment.Center).clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 18.dp, vertical = 8.dp)) {
-                T("گل! ${lastGoal?.s("nameStr") ?: lastGoal?.o("player")?.s("name") ?: ""}", 20, FontWeight.Black, Color.White)
+                T(L("گل! {0}", lastGoal?.s("nameStr") ?: lastGoal?.o("player")?.s("name") ?: ""), 20, FontWeight.Black, Color.White)
             }
         }
         // who is pressing
         Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Crest(if (homeAttacking) m.homeId else m.awayId, 22.dp)
             T(when {
-                !m.started -> "بازی هنوز شروع نشده"
-                strength < 0.15f -> "بازی در میانه زمین جریان دارد"
-                strength < 0.5f -> "${if (homeAttacking) m.homeName else m.awayName} توپ را در اختیار دارد"
-                else -> "فشار سنگین ${if (homeAttacking) m.homeName else m.awayName}!"
+                !m.started -> L("بازی هنوز شروع نشده")
+                strength < 0.15f -> L("بازی در میانه زمین جریان دارد")
+                strength < 0.5f -> L("{0} توپ را در اختیار دارد", if (homeAttacking) m.homeName else m.awayName)
+                else -> L("فشار سنگین {0}!", if (homeAttacking) m.homeName else m.awayName)
             }, 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), maxLines = 1)
-            T("${(strength * 100).toInt()}٪", 13, FontWeight.Black, attacker)
+            T(L("{0}٪", (strength * 100).toInt()), 13, FontWeight.Black, attacker)
         }
         Row(Modifier.fillMaxWidth().padding(top = 8.dp).height(8.dp).clip(RoundedCornerShape(4.dp))) {
             val home = ((pressure + 100f) / 200f).coerceIn(0.02f, 0.98f)
             Box(Modifier.weight(home).fillMaxSize().background(m.homeColor))
             Box(Modifier.weight(1f - home).fillMaxSize().background(m.awayColor))
         }
-        T("نمای گرافیکی از روی داده‌های زنده (مومنتوم، شوت‌ها و رویدادها) ساخته می‌شود؛ هر ۲۰ ثانیه به‌روز می‌شود.", 11, color = C.faint,
+        T(L("نمای گرافیکی از روی داده‌های زنده (مومنتوم، شوت‌ها و رویدادها) ساخته می‌شود؛ هر ۲۰ ثانیه به‌روز می‌شود."), 11, color = C.faint,
             modifier = Modifier.fillMaxWidth().padding(top = 10.dp), align = TextAlign.Center)
     }
     // the latest moments
     val feed = m.events.filter { it.s("type") in setOf("Goal", "Card", "Substitution") }.takeLast(6).reversed()
     if (feed.isNotEmpty()) Card {
-        CardTitle("آخرین اتفاق‌ها")
+        CardTitle(L("آخرین اتفاق‌ها"))
         feed.forEachIndexed { i, e ->
             ListRow(first = i == 0) {
                 Box(Modifier.width(44.dp).clip(RoundedCornerShape(50)).background(if (e.s("type") == "Goal") LocalAccent.current else C.card2).padding(vertical = 3.dp),

@@ -87,17 +87,17 @@ private fun PlayerBody(id: Int, p: JSONObject) {
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (team != null) Row(Modifier.clickable { nav.team(teamId) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Crest(teamId, 18.dp)
-                                T((club?.fa ?: team.s("teamName") ?: "") + if (team.b("onLoan")) " (قرضی)" else "", 13, FontWeight.SemiBold, ink.copy(alpha = 0.9f), maxLines = 1)
+                                T((club?.fa ?: team.s("teamName") ?: "") + if (team.b("onLoan")) L(" (قرضی)") else "", 13, FontWeight.SemiBold, ink.copy(alpha = 0.9f), maxLines = 1)
                             }
                             val pos = tr(p.path("positionDescription.primaryPosition").s("label"))
-                            T(listOf(pos, if (p.b("isCaptain")) "کاپیتان" else "").filter { it.isNotEmpty() }.joinToString(" · ").let { if (it.isNotEmpty()) "· $it" else "" },
+                            T(listOf(pos, if (p.b("isCaptain")) L("کاپیتان") else "").filter { it.isNotEmpty() }.joinToString(" · ").let { if (it.isNotEmpty()) "· $it" else "" },
                                 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f), maxLines = 1)
                         }
                         Row(Modifier.padding(top = 10.dp).height(28.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.25f))
                             .clickable { nav.compare(id) }.padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             Icon(Ic.swap, null, Modifier.size(14.dp), tint = ink)
-                            T("مقایسه با بازیکن دیگر", 12, FontWeight.ExtraBold, ink)
+                            T(L("مقایسه با بازیکن دیگر"), 12, FontWeight.ExtraBold, ink)
                         }
                     }
                 }
@@ -107,8 +107,8 @@ private fun PlayerBody(id: Int, p: JSONObject) {
             val v = x.o("value")
             tr(x.s("title")) to when (x.s("title")) {
                 "Market value" -> money(v.l("numberValue"))
-                "Height" -> "${v.i("numberValue")} سانتی‌متر"
-                "Age" -> "${v.i("numberValue")} سال"
+                "Height" -> L("{0} سانتی‌متر", v.i("numberValue"))
+                "Age" -> L("{0} سال", v.i("numberValue"))
                 else -> v.s("dateValue")?.let { persianDate(parseTime(it), "d MMMM yyyy") } ?: tr(v.s("fallback") ?: v.s("numberValue"))
             }
         }
@@ -138,8 +138,8 @@ private fun PlayerBody(id: Int, p: JSONObject) {
                     ListRow(first = true) {
                         Icon(Ic.bandage, null, Modifier.size(20.dp), tint = C.live)
                         Column {
-                            T("مصدوم", 14, FontWeight.Bold)
-                            T(listOfNotNull(inj.s("name"), inj.path("expectedReturn").s("expectedReturnFallback")?.let { "بازگشت: $it" }).joinToString(" · "), 12, color = C.mute)
+                            T(L("مصدوم"), 14, FontWeight.Bold)
+                            T(listOfNotNull(inj.s("name"), inj.path("expectedReturn").s("expectedReturnFallback")?.let { L("بازگشت: {0}", it) }).joinToString(" · "), 12, color = C.mute)
                         }
                     }
                 }
@@ -148,19 +148,19 @@ private fun PlayerBody(id: Int, p: JSONObject) {
         p.o("traits")?.takeIf { (it.a("items")?.length() ?: 0) > 0 }?.let { tr0 ->
             item {
                 Card(Modifier.padding(horizontal = 14.dp)) {
-                    CardTitle(tr0.s("title") ?: "ویژگی‌ها")
-                    tr0.a("items").objs().forEach { t -> PctRow(tr(t.s("title")), "${((t.d("value") ?: 0.0) * 100).toInt()}٪", null, ((t.d("value") ?: 0.0) * 100).toFloat(), LocalAccent.current) }
+                    CardTitle(tr0.s("title") ?: L("ویژگی‌ها"))
+                    tr0.a("items").objs().forEach { t -> PctRow(tr(t.s("title")), L("{0}٪", ((t.d("value") ?: 0.0) * 100).toInt()), null, ((t.d("value") ?: 0.0) * 100).toFloat(), LocalAccent.current) }
                 }
             }
         }
         p.path("firstSeasonStats.statsSection").a("items").objs().forEach { g ->
             item {
                 Card(Modifier.padding(horizontal = 14.dp)) {
-                    CardTitle(tr(g.s("title"))) { T("رتبه صدک بین هم‌پست‌ها", 12, FontWeight.Medium, C.mute) }
+                    CardTitle(tr(g.s("title"))) { T(L("رتبه صدک بین هم‌پست‌ها"), 12, FontWeight.Medium, C.mute) }
                     g.a("items").objs().forEach { s ->
                         val pct = (s.d("percentileRank") ?: 0.0).toFloat()
                         val c = when { pct >= 80 -> C.win; pct >= 50 -> C.gold; pct >= 25 -> Color(0xFFF08A24); else -> C.loss }
-                        val per90 = s.d("per90")?.takeIf { s.s("statFormat") != "percent" }?.let { "${dec(it)} در ۹۰" }
+                        val per90 = s.d("per90")?.takeIf { s.s("statFormat") != "percent" }?.let { L("{0} در ۹۰", dec(it)) }
                         PctRow(tr(s.s("title")), fa(s.s("statValue") ?: ""), per90, pct, c)
                     }
                 }
@@ -169,7 +169,7 @@ private fun PlayerBody(id: Int, p: JSONObject) {
         val recent = p.a("recentMatches").objs().filter { it.opt("playedInMatch") != false }.take(12)
         if (recent.isNotEmpty()) item {
             Column(Modifier.padding(horizontal = 14.dp)) {
-                SectionTitle("بازی‌های اخیر")
+                SectionTitle(L("بازی‌های اخیر"))
                 Card {
                     recent.forEachIndexed { i, m ->
                         ListRow(first = i == 0, onClick = { nav.match(m.i("id") ?: 0) }) {
@@ -194,21 +194,21 @@ private fun PlayerBody(id: Int, p: JSONObject) {
             }
         }
         val career = p.path("careerHistory.careerItems")
-        val labels = mapOf("senior" to "باشگاهی", "national team" to "تیم ملی", "youth" to "پایه")
+        val labels = mapOf("senior" to L("باشگاهی"), "national team" to L("تیم ملی"), "youth" to L("پایه"))
         career?.keys()?.asSequence()?.toList()?.forEach { k ->
             val entries = career.o(k).a("teamEntries").objs()
             if (entries.isNotEmpty()) item {
                 Column(Modifier.padding(horizontal = 14.dp)) {
-                    SectionTitle("سوابق ${labels[k] ?: k}")
+                    SectionTitle(L("سوابق {0}", labels[k] ?: k))
                     Card {
                         entries.forEachIndexed { i, t ->
                             ListRow(first = i == 0, onClick = { nav.team(t.i("teamId") ?: 0) }) {
                                 Crest(t.i("teamId") ?: 0, 34.dp)
                                 Column(Modifier.weight(1f)) {
                                     Ltr(t.s("team") ?: "", style = vz(14.sp, FontWeight.Bold))
-                                    T("${t.s("startDate")?.take(4) ?: ""} – ${t.s("endDate")?.take(4) ?: "اکنون"}" + if (t.s("transferType") == "on loan") " · قرضی" else "", 12, color = C.mute)
+                                    T("${t.s("startDate")?.take(4) ?: ""} – ${t.s("endDate")?.take(4) ?: "اکنون"}" + if (t.s("transferType") == "on loan") L(" · قرضی") else "", 12, color = C.mute)
                                 }
-                                T(listOfNotNull(t.i("appearances")?.let { "$it بازی" }, t.i("goals")?.takeIf { it > 0 }?.let { "$it گل" }).joinToString(" · "), 12, color = C.mute)
+                                T(listOfNotNull(t.i("appearances")?.let { L("{0} بازی", it) }, t.i("goals")?.takeIf { it > 0 }?.let { L("{0} گل", it) }).joinToString(" · "), 12, color = C.mute)
                             }
                         }
                     }
@@ -220,14 +220,14 @@ private fun PlayerBody(id: Int, p: JSONObject) {
         }
         if (trophies.isNotEmpty()) item {
             Column(Modifier.padding(horizontal = 14.dp)) {
-                SectionTitle("افتخارات")
+                SectionTitle(L("افتخارات"))
                 Card {
                     trophies.forEachIndexed { i, (x, teamName) ->
                         ListRow(first = i == 0) {
                             Icon(Ic.trophy, null, Modifier.size(18.dp), tint = C.gold)
                             Column(Modifier.weight(1f)) {
                                 Ltr(x.s("leagueName") ?: "", style = vz(14.sp, FontWeight.Bold))
-                                Ltr("$teamName · " + fa(x.a("seasonsWon").strs().joinToString("، ")), style = vz(12.sp), color = C.mute, maxLines = 2)
+                                Ltr("$teamName · " + fa(x.a("seasonsWon").strs().joinToString(L("، "))), style = vz(12.sp), color = C.mute, maxLines = 2)
                             }
                             T("${x.a("seasonsWon")?.length() ?: 0}×", 14, FontWeight.Black)
                         }

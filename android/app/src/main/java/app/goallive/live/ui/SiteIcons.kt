@@ -24,8 +24,9 @@ object Ic {
     val trophy by lazy { icon("trophy", false, "M8 4h8v5a4 4 0 0 1-8 0z", "M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 21h8M9 17h6") }
     val star by lazy { icon("star", false, "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.8z") }
     val search by lazy { icon("search", false, "M4 11a7 7 0 1 0 14 0a7 7 0 1 0 -14 0", "M20 20l-3.5-3.5") }
-    val back by lazy { icon("back", false, "M9 6l6 6-6 6") }
-    val chev by lazy { icon("chev", false, "M15 6l-6 6 6 6") }
+    // drawn for right-to-left; English reads the other way
+    val back by lazy { icon("back", false, if (app.goallive.live.Lang.en) "M15 6l-6 6 6 6" else "M9 6l6 6-6 6") }
+    val chev by lazy { icon("chev", false, if (app.goallive.live.Lang.en) "M9 6l6 6-6 6" else "M15 6l-6 6 6 6") }
     val down by lazy { icon("down", false, "M6 9l6 6 6-6") }
     val moon by lazy { icon("moon", false, "M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z") }
     val sun by lazy { icon("sun", false, "M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0", "M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4") }

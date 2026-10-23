@@ -92,11 +92,11 @@ object LiveAlerts {
         val attrs = android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_EVENT)
             .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
         for ((id, name, info, importance) in listOf(
-            listOf(CH_GOALS, "گل‌ها", "گل تیم‌ها و بازی‌های دنبال‌شده؛ با صدای غرش ورزشگاه", NotificationManager.IMPORTANCE_HIGH),
-            listOf(CH_VAR, "گل مردود", "وقتی داور گلی را پس می‌گیرد", NotificationManager.IMPORTANCE_HIGH),
-            listOf(CH_LINEUPS, "ترکیب تیم‌ها", "اعلام ترکیب حدود یک ساعت قبل از بازی", NotificationManager.IMPORTANCE_DEFAULT),
-            listOf(CH_KICKOFF, "شروع بازی", "سوت شروع", NotificationManager.IMPORTANCE_DEFAULT),
-            listOf(CH_FULLTIME, "پایان بازی", "سوت پایان و نتیجه نهایی", NotificationManager.IMPORTANCE_DEFAULT),
+            listOf(CH_GOALS, L("گل‌ها"), L("گل تیم‌ها و بازی‌های دنبال‌شده؛ با صدای غرش ورزشگاه"), NotificationManager.IMPORTANCE_HIGH),
+            listOf(CH_VAR, L("گل مردود"), L("وقتی داور گلی را پس می‌گیرد"), NotificationManager.IMPORTANCE_HIGH),
+            listOf(CH_LINEUPS, L("ترکیب تیم‌ها"), L("اعلام ترکیب حدود یک ساعت قبل از بازی"), NotificationManager.IMPORTANCE_DEFAULT),
+            listOf(CH_KICKOFF, L("شروع بازی"), L("سوت شروع"), NotificationManager.IMPORTANCE_DEFAULT),
+            listOf(CH_FULLTIME, L("پایان بازی"), L("سوت پایان و نتیجه نهایی"), NotificationManager.IMPORTANCE_DEFAULT),
         )) {
             nm.createNotificationChannel(NotificationChannel(id as String, name as String, importance as Int).apply {
                 description = info as String
@@ -157,15 +157,15 @@ object LiveAlerts {
             val cur = JSONObject().put("st", m.started).put("fi", m.finished).put("g", total).put("lu", prev?.optBoolean("lu") ?: false).put("t", m.time)
             if (prev != null) {
                 if (Store.notifyStartEnd && m.started && !prev.optBoolean("st") && !m.finished) {
-                    notify(ctx, m.id * 10 + 1, CH_KICKOFF, "سوت شروع بازی", "${m.home.name} - ${m.away.name}", m.id)
+                    notify(ctx, m.id * 10 + 1, CH_KICKOFF, L("سوت شروع بازی"), "${app.goallive.live.ui.teamName(m.home.id, m.home.name)} - ${app.goallive.live.ui.teamName(m.away.id, m.away.name)}", m.id)
                 }
                 val before = prev.optInt("g")
                 if (Store.notifyGoals && total > before) goal(ctx, m)
                 if (Store.notifyGoals && total < before && m.live) {
-                    notify(ctx, m.id * 10 + 2, CH_VAR, "گل مردود شد", "${m.home.name} ${fa(m.home.score)} - ${fa(m.away.score)} ${m.away.name}", m.id)
+                    notify(ctx, m.id * 10 + 2, CH_VAR, L("گل مردود شد"), "${app.goallive.live.ui.teamName(m.home.id, m.home.name)} ${fa(m.home.score)} - ${fa(m.away.score)} ${app.goallive.live.ui.teamName(m.away.id, m.away.name)}", m.id)
                 }
                 if (Store.notifyStartEnd && m.finished && !prev.optBoolean("fi")) {
-                    notify(ctx, m.id * 10 + 3, CH_FULLTIME, "پایان بازی", "${m.home.name} ${fa(m.home.score)} - ${fa(m.away.score)} ${m.away.name}", m.id)
+                    notify(ctx, m.id * 10 + 3, CH_FULLTIME, L("پایان بازی"), "${app.goallive.live.ui.teamName(m.home.id, m.home.name)} ${fa(m.home.score)} - ${fa(m.away.score)} ${app.goallive.live.ui.teamName(m.away.id, m.away.name)}", m.id)
                 }
             }
             // line-ups come out about an hour before kick-off
@@ -177,7 +177,7 @@ object LiveAlerts {
                     cur.put("lu", true)
                     val hf = lu.o("homeTeam").s("formation") ?: ""
                     val af = lu.o("awayTeam").s("formation") ?: ""
-                    notify(ctx, m.id * 10 + 4, CH_LINEUPS, "ترکیب‌ها اعلام شد", "${m.home.name} ($hf) - ${m.away.name} ($af)", m.id)
+                    notify(ctx, m.id * 10 + 4, CH_LINEUPS, L("ترکیب‌ها اعلام شد"), "${app.goallive.live.ui.teamName(m.home.id, m.home.name)} ($hf) - ${app.goallive.live.ui.teamName(m.away.id, m.away.name)} ($af)", m.id)
                 }
             }
             state.put(key, cur)
@@ -203,13 +203,13 @@ object LiveAlerts {
                 val who = g.s("nameStr") ?: g.o("player").s("name") ?: ""
                 val min = g.s("timeStr") ?: g.s("time") ?: ""
                 body = "$who ${fa(min)}'" + when {
-                    g.b("ownGoal") -> " (گل به خودی)"
-                    g.s("goalDescriptionKey") == "penalty" -> " (پنالتی)"
+                    g.b("ownGoal") -> L(" (گل به خودی)")
+                    g.s("goalDescriptionKey") == "penalty" -> L(" (پنالتی)")
                     else -> ""
                 }
             }
         }
-        val title = "⚽ گل! ${m.home.name} ${fa(m.home.score)} - ${fa(m.away.score)} ${m.away.name}"
+        val title = L("⚽ گل! {0} {1} - {2} {3}", app.goallive.live.ui.teamName(m.home.id, m.home.name), fa(m.home.score), fa(m.away.score), app.goallive.live.ui.teamName(m.away.id, m.away.name))
         notify(ctx, m.id * 10 + 5, CH_GOALS, title, body.ifEmpty { m.leagueName }, m.id)
     }
 

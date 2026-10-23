@@ -59,10 +59,9 @@ public class ScoreWidget extends AppWidgetProvider {
     /** Team name in Persian when the app knows it and the user wants Persian names. */
     static String teamName(Context ctx, JSONObject t) {
         String name = t.optString("name");
-        boolean fa = ctx.getSharedPreferences("goallive", Context.MODE_PRIVATE).getBoolean("faNames", true);
-        if (!fa) return name;
+        if (Lang.en) return name;
         String f = app.goallive.live.data.TrKt.faTeamName((int) t.optLong("id"), name);
-        return f != null ? f : name;
+        return f != null ? f : app.goallive.live.data.FaNames.INSTANCE.of(name);
     }
 
     /** Ask every placed widget to refresh (used when the app goes to the background). */
@@ -78,7 +77,7 @@ public class ScoreWidget extends AppWidgetProvider {
             try {
                 render(app);
             } catch (Exception e) {
-                showMessage(app, "اتصال برقرار نشد · برای تلاش دوباره بزنید");
+                showMessage(app, I18n.L("اتصال برقرار نشد · برای تلاش دوباره بزنید"));
                 schedule(app, 5 * 60_000L);
             } finally {
                 pending.finish();
@@ -95,7 +94,7 @@ public class ScoreWidget extends AppWidgetProvider {
         SharedPreferences prefs = ctx.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE);
         String raw = prefs.getString("myTeam", null);
         if (raw == null) {
-            showMessage(ctx, "اپ را باز کنید و «تیم من» را انتخاب کنید");
+            showMessage(ctx, I18n.L("اپ را باز کنید و «تیم من» را انتخاب کنید"));
             return;
         }
         JSONObject team = new JSONObject(raw);
@@ -111,9 +110,9 @@ public class ScoreWidget extends AppWidgetProvider {
         if (m == null) {
             v.setViewVisibility(R.id.w_match, View.GONE);
             v.setViewVisibility(R.id.w_message, View.VISIBLE);
-            v.setTextViewText(R.id.w_message, "فعلاً بازی‌ای برنامه‌ریزی نشده");
+            v.setTextViewText(R.id.w_message, I18n.L("فعلاً بازی‌ای برنامه‌ریزی نشده"));
             s.setTextViewText(R.id.w_score, "–");
-            s.setTextViewText(R.id.w_status, "بازی ندارد");
+            s.setTextViewText(R.id.w_status, I18n.L("بازی ندارد"));
             mgr.updateAppWidget(ids, v);
             mgr.updateAppWidget(mini, s);
             schedule(ctx, 60 * 60_000L);
@@ -139,13 +138,13 @@ public class ScoreWidget extends AppWidgetProvider {
                 r.setTextViewText(R.id.w_score, fa(away.optInt("score") + " - " + home.optInt("score")));
                 boolean live = "live".equals(state);
                 String minute = m.optString("minute");
-                r.setTextViewText(R.id.w_status, live ? "● زنده " + fa("HT".equals(minute) ? "بین دو نیمه" : minute) : "پایان بازی");
+                r.setTextViewText(R.id.w_status, live ? I18n.L("● زنده ") + fa("HT".equals(minute) ? I18n.L("بین دو نیمه") : minute) : I18n.L("پایان بازی"));
                 r.setTextColor(R.id.w_status, live ? Color.parseColor("#FF4D6A") : Color.parseColor("#CCFFFFFF"));
             }
             if (hb != null) r.setImageViewBitmap(R.id.w_home_logo, hb);
             if (ab != null) r.setImageViewBitmap(R.id.w_away_logo, ab);
         }
-        v.setTextViewText(R.id.w_updated, "به‌روزرسانی " + fa(new SimpleDateFormat("HH:mm", Locale.US).format(new Date())));
+        v.setTextViewText(R.id.w_updated, I18n.L("به‌روزرسانی ") + fa(new SimpleDateFormat("HH:mm", Locale.US).format(new Date())));
         mgr.updateAppWidget(ids, v);
         mgr.updateAppWidget(mini, s);
 
@@ -182,7 +181,7 @@ public class ScoreWidget extends AppWidgetProvider {
         if (mini.length > 0) {
             RemoteViews s = miniBase(ctx, new JSONObject());
             s.setTextViewText(R.id.w_score, "⚽");
-            s.setTextViewText(R.id.w_status, text.length() > 16 ? "تیم من؟" : text);
+            s.setTextViewText(R.id.w_status, text.length() > 16 ? I18n.L("تیم من؟") : text);
             mgr.updateAppWidget(mini, s);
         }
         int[] ids = ids(ctx, ScoreWidget.class);
@@ -255,13 +254,14 @@ public class ScoreWidget extends AppWidgetProvider {
     private static String dayLabel(long kickoff) {
         SimpleDateFormat day = new SimpleDateFormat("yyyyMMdd", Locale.US);
         String k = day.format(new Date(kickoff)), today = day.format(new Date()), tomorrow = day.format(new Date(System.currentTimeMillis() + 86_400_000L));
-        if (k.equals(today)) return "امروز";
-        if (k.equals(tomorrow)) return "فردا";
+        if (k.equals(today)) return I18n.L("امروز");
+        if (k.equals(tomorrow)) return I18n.L("فردا");
         long days = Math.round((kickoff - System.currentTimeMillis()) / 86_400_000.0);
-        return fa(String.valueOf(Math.max(days, 2))) + " روز دیگر";
+        return fa(String.valueOf(Math.max(days, 2))) + I18n.L(" روز دیگر");
     }
 
     static String fa(String s) {
+        if (Lang.en) return s;
         StringBuilder b = new StringBuilder(s.length());
         for (char ch : s.toCharArray()) b.append(ch >= '0' && ch <= '9' ? (char) ('۰' + (ch - '0')) : ch);
         return b.toString();

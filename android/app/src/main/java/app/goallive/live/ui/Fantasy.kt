@@ -82,8 +82,8 @@ import kotlin.math.sqrt
  * and a captain. Each gameweek the team is locked at the first kick-off and scores from the real match data.
  */
 
-private val F_LEAGUES = listOf(47 to "لیگ برتر انگلیس", 523 to "لیگ برتر خلیج فارس", 87 to "لالیگا", 55 to "سری آ", 54 to "بوندس‌لیگا")
-private val POS = listOf("دروازه‌بان", "مدافع", "هافبک", "مهاجم")
+private val F_LEAGUES = listOf(47 to L("لیگ برتر انگلیس"), 523 to L("لیگ برتر خلیج فارس"), 87 to L("لالیگا"), 55 to L("سری آ"), 54 to L("بوندس‌لیگا"))
+private val POS = listOf(L("دروازه‌بان"), L("مدافع"), L("هافبک"), L("مهاجم"))
 private val POS_SHORT = listOf("GK", "DEF", "MID", "FWD")
 private val POS_RANGE = listOf(1..1, 3..5, 2..5, 1..3)
 private const val BUDGET = 100.0
@@ -158,18 +158,18 @@ private fun score(p: FPlayer, m: JSONObject): Pair<Int, List<String>> {
     if (mins <= 0) return 0 to emptyList()
     val ev = lp.path("performance").a("events").objs().map { it.s("type") }
     val why = ArrayList<String>()
-    var pts = if (mins >= 60) 2 else 1; why += "بازی ${mins}′: +$pts"
+    var pts = if (mins >= 60) 2 else 1; why += L("بازی {0}′: +{1}", mins, pts)
     val g = ev.count { it == "goal" }
-    if (g > 0) { val per = when (p.pos) { 0, 1 -> 6; 2 -> 5; else -> 4 }; pts += g * per; why += "$g گل: +${g * per}" }
+    if (g > 0) { val per = when (p.pos) { 0, 1 -> 6; 2 -> 5; else -> 4 }; pts += g * per; why += L("{0} گل: +{1}", g, g * per) }
     val a = ev.count { it == "assist" }
-    if (a > 0) { pts += a * 3; why += "$a پاس گل: +${a * 3}" }
+    if (a > 0) { pts += a * 3; why += L("{0} پاس گل: +{1}", a, a * 3) }
     val conceded = m.path("header").a("teams").objs().getOrNull(if (isHome) 1 else 0).i("score") ?: 0
-    if (conceded == 0 && mins >= 60 && p.pos <= 2) { val cs = if (p.pos <= 1) 4 else 1; pts += cs; why += "کلین‌شیت: +$cs" }
-    if (p.pos <= 1 && conceded >= 2) { pts -= conceded / 2; why += "$conceded گل خورده: -${conceded / 2}" }
-    if ("ownGoal" in ev) { pts -= 2; why += "گل به خودی: -۲" }
-    if ("redCard" in ev || "yellowRedCard" in ev) { pts -= 3; why += "کارت قرمز: -۳" } else if ("yellowCard" in ev) { pts -= 1; why += "کارت زرد: -۱" }
+    if (conceded == 0 && mins >= 60 && p.pos <= 2) { val cs = if (p.pos <= 1) 4 else 1; pts += cs; why += L("کلین‌شیت: +{0}", cs) }
+    if (p.pos <= 1 && conceded >= 2) { pts -= conceded / 2; why += L("{0} گل خورده: -{1}", conceded, conceded / 2) }
+    if ("ownGoal" in ev) { pts -= 2; why += L("گل به خودی: -۲") }
+    if ("redCard" in ev || "yellowRedCard" in ev) { pts -= 3; why += L("کارت قرمز: -۳") } else if ("yellowCard" in ev) { pts -= 1; why += L("کارت زرد: -۱") }
     val r = lp.path("performance").d("rating") ?: ps.a("stats").objs().firstNotNullOfOrNull { it.o("stats")?.o("FotMob rating")?.o("stat")?.d("value") }
-    if (r != null) { val bonus = when { r >= 8.5 -> 3; r >= 7.5 -> 2; r >= 7.0 -> 1; else -> 0 }; if (bonus > 0) { pts += bonus; why += "پاداش نمره ${dec(r, 1)}: +$bonus" } }
+    if (r != null) { val bonus = when { r >= 8.5 -> 3; r >= 7.5 -> 2; r >= 7.0 -> 1; else -> 0 }; if (bonus > 0) { pts += bonus; why += L("پاداش نمره {0}: +{1}", dec(r, 1), bonus) } }
     return pts to why
 }
 
@@ -180,12 +180,12 @@ fun FantasyScreen() {
     @Suppress("UNUSED_VARIABLE") val redraw = tick
     if (state.league == 0) {
         var help by rememberTip("fantasy")
-        if (help) HowToSheet("⚽", "فوتبال فانتزی گل‌لایو", FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
+        if (help) HowToSheet("⚽", L("فوتبال فانتزی گل‌لایو"), FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
         LeaguePick { id -> state.o.put("league", id); state.save(); state = FState.load() }
         return
     }
     var help by rememberTip("fantasy")
-    if (help) HowToSheet("⚽", "فوتبال فانتزی گل‌لایو", FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
+    if (help) HowToSheet("⚽", L("فوتبال فانتزی گل‌لایو"), FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
     val l = rememberLoader(state.league) { loadLeague(state.league) }
     LoadBox(l, 6) { lg -> FantasyBody(lg, state, { tick++ }) { state.o.remove("league"); state.o.remove("team"); state.o.remove("captain"); state.save(); state = FState.load() } }
 }
@@ -198,11 +198,11 @@ private fun LeaguePick(onPick: (Int) -> Unit) {
             Column(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(accent),
                     contentAlignment = Alignment.Center) { androidx.compose.material3.Icon(Ic.shirt, null, Modifier.size(34.dp), tint = LocalAccentInk.current) }
-                T("فوتبال فانتزی", 22, FontWeight.Black)
-                T("با ۱۰۰ میلیون بودجه ۱۱ بازیکن واقعی بخر، کاپیتان انتخاب کن و از روی عملکرد واقعی‌شان در هر هفته امتیاز بگیر.", 13, color = C.mute, align = TextAlign.Center)
+                T(L("فوتبال فانتزی"), 22, FontWeight.Black)
+                T(L("با ۱۰۰ میلیون بودجه ۱۱ بازیکن واقعی بخر، کاپیتان انتخاب کن و از روی عملکرد واقعی‌شان در هر هفته امتیاز بگیر."), 13, color = C.mute, align = TextAlign.Center)
             }
         }
-        item { SectionTitle("لیگ خودت را انتخاب کن") }
+        item { SectionTitle(L("لیگ خودت را انتخاب کن")) }
         item {
             Card {
                 F_LEAGUES.forEachIndexed { i, (id, name) ->
@@ -214,8 +214,8 @@ private fun LeaguePick(onPick: (Int) -> Unit) {
         }
         item {
             Card(Modifier.padding(top = 12.dp)) {
-                CardTitle("قانون امتیازها")
-                T("بازی کمتر از ۶۰ دقیقه ۱ و بیشتر ۲ امتیاز · گل: دروازه‌بان و مدافع ۶، هافبک ۵، مهاجم ۴ · پاس گل ۳ · کلین‌شیت: دروازه‌بان و مدافع ۴، هافبک ۱ · هر ۲ گل خورده (دروازه‌بان و مدافع) ۱- · کارت زرد ۱- · قرمز ۳- · گل به خودی ۲- · پاداش نمره: ۷+ یک، ۷.۵+ دو، ۸.۵+ سه · امتیاز کاپیتان دو برابر",
+                CardTitle(L("قانون امتیازها"))
+                T(L("بازی کمتر از ۶۰ دقیقه ۱ و بیشتر ۲ امتیاز · گل: دروازه‌بان و مدافع ۶، هافبک ۵، مهاجم ۴ · پاس گل ۳ · کلین‌شیت: دروازه‌بان و مدافع ۴، هافبک ۱ · هر ۲ گل خورده (دروازه‌بان و مدافع) ۱- · کارت زرد ۱- · قرمز ۳- · گل به خودی ۲- · پاداش نمره: ۷+ یک، ۷.۵+ دو، ۸.۵+ سه · امتیاز کاپیتان دو برابر"),
                     13, color = C.ink.copy(alpha = 0.85f), modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
             }
         }
@@ -266,18 +266,18 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     LeagueLogo(lg.id, 26.dp)
                     Column(Modifier.weight(1f)) {
-                        T("فانتزی · ${F_LEAGUES.firstOrNull { it.first == lg.id }?.second ?: ""}", 15, FontWeight.Black)
-                        T(if (roundName.all(Char::isDigit)) "هفته $roundName" else roundName, 12, color = C.mute)
+                        T(L("فانتزی · {0}", F_LEAGUES.firstOrNull { it.first == lg.id }?.second ?: ""), 15, FontWeight.Black)
+                        T(if (roundName.all(Char::isDigit)) L("هفته {0}", roundName) else roundName, 12, color = C.mute)
                     }
-                    Pill("تغییر لیگ", onClick = reset)
+                    Pill(L("تغییر لیگ"), onClick = reset)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Stat(if (locked) "$roundTotal" else "–", "امتیاز این هفته", Modifier.weight(1f), accent)
-                    Stat("${history.values.sum() + if (locked && roundName !in history) roundTotal else 0}", "امتیاز کل", Modifier.weight(1f), C.ink)
-                    Stat(dec(BUDGET - spent, 1), "بودجه باقی (م)", Modifier.weight(1f), if (spent > BUDGET) C.loss else C.win)
+                    Stat(if (locked) "$roundTotal" else "–", L("امتیاز این هفته"), Modifier.weight(1f), accent)
+                    Stat("${history.values.sum() + if (locked && roundName !in history) roundTotal else 0}", L("امتیاز کل"), Modifier.weight(1f), C.ink)
+                    Stat(dec(BUDGET - spent, 1), L("بودجه باقی (م)"), Modifier.weight(1f), if (spent > BUDGET) C.loss else C.win)
                 }
-                T(if (!locked) "مهلت تغییر تیم: ${countdown(deadline)} (${persianDate(deadline, "EEEE d MMMM")} ساعت ${timeOf(deadline)})"
-                    else "تیم این هفته قفل شد" + if (relevant.any { it.live }) " · بازی‌ها در جریان است و امتیازها زنده حساب می‌شود" else "", 12, FontWeight.Bold, C.ink.copy(alpha = 0.9f))
+                T(if (!locked) L("مهلت تغییر تیم: {0} ({1} ساعت {2})", countdown(deadline), persianDate(deadline, "EEEE d MMMM"), timeOf(deadline))
+                    else L("تیم این هفته قفل شد") + if (relevant.any { it.live }) L(" · بازی‌ها در جریان است و امتیازها زنده حساب می‌شود") else "", 12, FontWeight.Bold, C.ink.copy(alpha = 0.9f))
             }
         }
         item { FPitch(picks, captain, locked, livePts?.mapValues { it.value.first }, lg) { open = it } }
@@ -285,7 +285,7 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
             val counts = (0..3).map { pos -> picks.count { it.pos == pos } }
             val perClub = picks.groupingBy { it.teamId }.eachCount()
             Card {
-                CardTitle("چیدن تیم", sub = "${picks.size}/۱۱ بازیکن")
+                CardTitle(L("چیدن تیم"), sub = L("{0}/۱۱ بازیکن", picks.size))
                 Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (0..3).forEach { pos ->
                         val ok = counts[pos] in POS_RANGE[pos]
@@ -295,23 +295,23 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                             T(POS[pos], 11, FontWeight.Bold, C.mute)
                             T("${counts[pos]}", 18, FontWeight.Black, if (ok) C.win else C.ink)
                             T("${POS_RANGE[pos].first}–${POS_RANGE[pos].last}", 10, color = C.faint)
-                            if (!full) T("+ افزودن", 11, FontWeight.ExtraBold, accent)
+                            if (!full) T(L("+ افزودن"), 11, FontWeight.ExtraBold, accent)
                         }
                     }
                 }
                 val problems = buildList {
-                    if (spent > BUDGET) add("از بودجه بیشتر خرج کرده‌ای")
-                    perClub.filter { it.value > 3 }.keys.forEach { add("بیشتر از ۳ بازیکن از ${lg.teamNames[it]}") }
-                    if (picks.size == 11 && (0..3).any { counts[it] !in POS_RANGE[it] }) add("ترکیب پست‌ها مجاز نیست")
-                    if (picks.size == 11 && captain !in team) add("کاپیتان انتخاب نشده؛ روی یک بازیکن بزن")
+                    if (spent > BUDGET) add(L("از بودجه بیشتر خرج کرده‌ای"))
+                    perClub.filter { it.value > 3 }.keys.forEach { add(L("بیشتر از ۳ بازیکن از {0}", lg.teamNames[it])) }
+                    if (picks.size == 11 && (0..3).any { counts[it] !in POS_RANGE[it] }) add(L("ترکیب پست‌ها مجاز نیست"))
+                    if (picks.size == 11 && captain !in team) add(L("کاپیتان انتخاب نشده؛ روی یک بازیکن بزن"))
                 }
-                if (picks.size == 11 && problems.isEmpty()) T("✓ تیمت آماده است و تا مهلت هر تغییری بدهی ذخیره می‌شود.", 12, FontWeight.Bold, C.win, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
+                if (picks.size == 11 && problems.isEmpty()) T(L("✓ تیمت آماده است و تا مهلت هر تغییری بدهی ذخیره می‌شود."), 12, FontWeight.Bold, C.win, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
                 problems.forEach { T("• $it", 12, FontWeight.Bold, C.loss, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp)) }
             }
         }
         if (locked && livePts != null) item {
             Card {
-                CardTitle("امتیاز بازیکن‌ها در این هفته")
+                CardTitle(L("امتیاز بازیکن‌ها در این هفته"))
                 picks.sortedByDescending { livePts[it.id]?.first ?: 0 }.forEachIndexed { i, p ->
                     val v = (livePts[p.id]?.first ?: 0) * if (p.id == captain) 2 else 1
                     ListRow(first = i == 0, onClick = { open = p }) {
@@ -324,19 +324,19 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
         }
         if (history.isNotEmpty()) item {
             Card {
-                CardTitle("هفته‌های قبل")
+                CardTitle(L("هفته‌های قبل"))
                 history.entries.sortedByDescending { it.key.toIntOrNull() ?: 0 }.forEachIndexed { i, (r, v) ->
-                    ListRow(first = i == 0) { T(if (r.all(Char::isDigit)) "هفته $r" else r, 14, FontWeight.Bold, modifier = Modifier.weight(1f)); T("$v امتیاز", 14, FontWeight.Black, accent) }
+                    ListRow(first = i == 0) { T(if (r.all(Char::isDigit)) L("هفته {0}", r) else r, 14, FontWeight.Bold, modifier = Modifier.weight(1f)); T(L("{0} امتیاز", v), 14, FontWeight.Black, accent) }
                 }
                 Row(Modifier.padding(12.dp)) {
-                    Pill("اشتراک‌گذاری", PillKind.Accent, icon = Ic.share, onClick = {
-                        val t = "امتیاز فانتزی من در گل‌لایو: ${history.values.sum()} امتیاز در ${history.size} هفته ⚽🏆"
-                        ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), "اشتراک‌گذاری"))
+                    Pill(L("اشتراک‌گذاری"), PillKind.Accent, icon = Ic.share, onClick = {
+                        val t = L("امتیاز فانتزی من در گل‌لایو: {0} امتیاز در {1} هفته ⚽🏆", history.values.sum(), history.size)
+                        ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), L("اشتراک‌گذاری")))
                     })
                 }
             }
         }
-        item { T("قیمت‌ها از ارزش بازار بازیکن‌ها ساخته شده و امتیازها از آمار واقعی FotMob. تیم و امتیازها روی همین گوشی ذخیره می‌شود.", 11, color = C.faint, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+        item { T(L("قیمت‌ها از ارزش بازار بازیکن‌ها ساخته شده و امتیازها از آمار واقعی FotMob. تیم و امتیازها روی همین گوشی ذخیره می‌شود."), 11, color = C.faint, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
     }
 
     pickPos?.let { pos -> Picker(lg, pos, picks, spent, roundMatches, { pickPos = null }) { p -> val t = st.team.apply { add(p.id) }; st.setTeam(t, if (st.captain == 0) p.id else st.captain); changed(); pickPos = null } }
@@ -366,7 +366,7 @@ private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map
         },
     ) {
         val w = maxWidth; val h = maxHeight
-        if (picks.isEmpty()) T("هنوز بازیکنی نخریده‌ای؛ از کادر «چیدن تیم» شروع کن", 13, FontWeight.Bold, Color.White, Modifier.align(Alignment.Center).padding(24.dp), align = TextAlign.Center)
+        if (picks.isEmpty()) T(L("هنوز بازیکنی نخریده‌ای؛ از کادر «چیدن تیم» شروع کن"), 13, FontWeight.Bold, Color.White, Modifier.align(Alignment.Center).padding(24.dp), align = TextAlign.Center)
         for (pos in 0..3) {
             val row = picks.filter { it.pos == pos }
             val y = listOf(0.86f, 0.62f, 0.38f, 0.14f)[pos]
@@ -404,7 +404,7 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
     var q by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("price") }
     val perClub = picks.groupingBy { it.teamId }.eachCount()
-    val opponent = { tid: Int -> round.firstOrNull { it.home.id == tid || it.away.id == tid }?.let { m -> if (m.home.id == tid) lg.teamNames[m.away.id] + " (خانه)" else lg.teamNames[m.home.id] + " (بیرون)" } }
+    val opponent = { tid: Int -> round.firstOrNull { it.home.id == tid || it.away.id == tid }?.let { m -> if (m.home.id == tid) lg.teamNames[m.away.id] + L(" (خانه)") else lg.teamNames[m.home.id] + L(" (بیرون)") } }
     val list = lg.players.values.filter { it.pos == pos && picks.none { x -> x.id == it.id } }
         .filter { q.isBlank() || it.name.contains(q.trim(), true) || (lg.teamNames[it.teamId] ?: "").contains(q.trim(), true) || (Clubs.get(it.teamId)?.fa ?: "").contains(q.trim()) }
         .sortedByDescending { when (sort) { "rating" -> it.rating ?: 0.0; "goals" -> (it.goals * 3 + it.assists).toDouble(); else -> it.price } }
@@ -412,9 +412,9 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
-            T("خرید ${POS[pos]} · بودجه باقی ${dec(BUDGET - spent, 1)}م", 16, FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp))
-            Box(Modifier.padding(horizontal = 16.dp)) { SearchField(q, "نام بازیکن یا باشگاه…") { q = it } }
-            Box(Modifier.padding(horizontal = 16.dp)) { Seg(listOf("price" to "گران‌ترین", "rating" to "بهترین نمره", "goals" to "گل و پاس گل"), sort) { sort = it } }
+            T(L("خرید {0} · بودجه باقی {1}م", POS[pos], dec(BUDGET - spent, 1)), 16, FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp))
+            Box(Modifier.padding(horizontal = 16.dp)) { SearchField(q, L("نام بازیکن یا باشگاه…")) { q = it } }
+            Box(Modifier.padding(horizontal = 16.dp)) { Seg(listOf("price" to L("گران‌ترین"), "rating" to L("بهترین نمره"), "goals" to L("گل و پاس گل")), sort) { sort = it } }
             LazyColumn(Modifier.fillMaxWidth().height(460.dp).padding(top = 8.dp)) {
                 items(list) { p ->
                     val tooMuch = spent + p.price > BUDGET
@@ -425,13 +425,13 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
                         Column(Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Ltr(p.name, Modifier.weight(1f, false), color = if (ok) C.ink else C.faint)
-                                if (p.injured) T("مصدوم", 10, FontWeight.Bold, C.live)
+                                if (p.injured) T(L("مصدوم"), 10, FontWeight.Bold, C.live)
                             }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Crest(p.teamId, 14.dp)
-                                T(listOfNotNull(Clubs.get(p.teamId)?.fa ?: lg.teamNames[p.teamId], "${p.goals} گل", "${p.assists} پاس", opponent(p.teamId)?.let { "حریف: $it" }).joinToString(" · "), 11, color = C.mute, maxLines = 1)
+                                T(listOfNotNull(Clubs.get(p.teamId)?.fa ?: lg.teamNames[p.teamId], L("{0} گل", p.goals), L("{0} پاس", p.assists), opponent(p.teamId)?.let { L("حریف: {0}", it) }).joinToString(" · "), 11, color = C.mute, maxLines = 1)
                             }
-                            if (clubFull) T("۳ بازیکن از این باشگاه داری", 10, color = C.loss)
+                            if (clubFull) T(L("۳ بازیکن از این باشگاه داری"), 10, color = C.loss)
                         }
                         Rating(p.rating, small = true)
                         T(dec(p.price, 1), 15, FontWeight.Black, if (tooMuch) C.loss else LocalAccent.current)
@@ -452,19 +452,19 @@ private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable:
                 Face(p.id, 56.dp)
                 Column(Modifier.weight(1f)) {
                     Ltr(p.name, style = lat(19.sp, FontWeight.ExtraBold))
-                    T("${POS[p.pos]} · ${Clubs.get(p.teamId)?.fa ?: lg.teamNames[p.teamId] ?: ""} · قیمت ${dec(p.price, 1)}م", 12, color = C.mute)
+                    T(L("{0} · {1} · قیمت {2}م", POS[p.pos], Clubs.get(p.teamId)?.fa ?: lg.teamNames[p.teamId] ?: "", dec(p.price, 1)), 12, color = C.mute)
                 }
                 Rating(p.rating)
             }
             if (pts != null) {
-                SubHead("امتیاز این هفته: ${pts.first * if (isCaptain) 2 else 1}" + if (isCaptain) " (کاپیتان ×۲)" else "")
-                if (pts.second.isEmpty()) T("هنوز بازی نکرده", 13, color = C.mute, modifier = Modifier.padding(horizontal = 16.dp))
+                SubHead(L("امتیاز این هفته: {0}", pts.first * if (isCaptain) 2 else 1) + if (isCaptain) L(" (کاپیتان ×۲)") else "")
+                if (pts.second.isEmpty()) T(L("هنوز بازی نکرده"), 13, color = C.mute, modifier = Modifier.padding(horizontal = 16.dp))
                 pts.second.forEach { T("• $it", 13, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
             }
             Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (editable && !isCaptain) Pill("کاپیتان کن", PillKind.Accent, onClick = onCaptain)
-                if (editable) Pill("فروش", PillKind.Live, onClick = onRemove)
-                Pill("پروفایل", onClick = { onClose(); nav.player(p.id) })
+                if (editable && !isCaptain) Pill(L("کاپیتان کن"), PillKind.Accent, onClick = onCaptain)
+                if (editable) Pill(L("فروش"), PillKind.Live, onClick = onRemove)
+                Pill(L("پروفایل"), onClick = { onClose(); nav.player(p.id) })
             }
         }
     }

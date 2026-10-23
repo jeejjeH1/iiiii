@@ -106,7 +106,7 @@ fun GoalCelebration(state: MutableState<Goal?>) {
         Box(
             Modifier.fillMaxSize().background(Brush.radialGradient(listOf(goal.color.copy(alpha = 0.92f), darken(goal.color, 0.35f).copy(alpha = 0.96f))))
                 .clickable(remember { MutableInteractionSource() }, null) { state.value = null }
-                .semantics { liveRegion = LiveRegionMode.Assertive; contentDescription = "گل برای ${goal.team}! ${goal.scorer ?: ""} دقیقه ${goal.minute}. نتیجه ${goal.score}" },
+                .semantics { liveRegion = LiveRegionMode.Assertive; contentDescription = L("گل برای {0}! {1} دقیقه {2}. نتیجه {3}", goal.team, goal.scorer ?: "", goal.minute, goal.score) },
             contentAlignment = Alignment.Center,
         ) {
             Canvas(Modifier.fillMaxSize()) {
@@ -131,12 +131,12 @@ fun GoalCelebration(state: MutableState<Goal?>) {
             Column(Modifier.scale(pop.value).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Crest(goal.teamId, 96.dp, large = true)
                 Spacer(Modifier.height(10.dp))
-                Text("گل!", color = ink, style = vz(84.sp, FontWeight.Black).copy(shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 6f), 18f)))
+                Text(L("گل!"), color = ink, style = vz(84.sp, FontWeight.Black).copy(shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 6f), 18f)))
                 T(goal.team, 22, FontWeight.Black, ink, align = TextAlign.Center)
                 goal.scorer?.let { Ltr(it, style = lat(22.sp, FontWeight.ExtraBold), color = ink.copy(alpha = 0.92f), align = TextAlign.Center) }
                 Spacer(Modifier.height(14.dp))
                 Box(Modifier.background(Color.Black.copy(alpha = 0.3f), androidx.compose.foundation.shape.RoundedCornerShape(50)).padding(horizontal = 18.dp, vertical = 6.dp)) {
-                    T("${goal.score}  ·  دقیقه ${goal.minute}", 16, FontWeight.Black, Color.White)
+                    T(L("{0}  ·  دقیقه {1}", goal.score, goal.minute), 16, FontWeight.Black, Color.White)
                 }
             }
         }

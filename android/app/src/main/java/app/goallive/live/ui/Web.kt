@@ -9,14 +9,14 @@ import android.widget.Toast
 class Station(val key: String, val name: String, val sub: String, val url: String)
 
 val STATIONS = listOf(
-    Station("namava", "نماوا", "پخش زنده با اشتراک نماوا", "https://www.namava.ir/"),
-    Station("aparat", "آپارات اسپورت", "پخش زنده لیگ برتر ایران و رقابت‌های اروپایی", "https://sport.aparat.com/"),
-    Station("varzesh", "تلوبیون · شبکه ورزش", "پخش زنده شبکه ورزش صداوسیما", "https://telewebion.com/live/varzesh"),
-    Station("tv3", "تلوبیون · شبکه ۳", "پخش زنده شبکه سه", "https://telewebion.com/live/tv3"),
+    Station("namava", L("نماوا"), L("پخش زنده با اشتراک نماوا"), "https://www.namava.ir/"),
+    Station("aparat", L("آپارات اسپورت"), L("پخش زنده لیگ برتر ایران و رقابت‌های اروپایی"), "https://sport.aparat.com/"),
+    Station("varzesh", L("تلوبیون · شبکه ورزش"), L("پخش زنده شبکه ورزش صداوسیما"), "https://telewebion.com/live/varzesh"),
+    Station("tv3", L("تلوبیون · شبکه ۳"), L("پخش زنده شبکه سه"), "https://telewebion.com/live/tv3"),
 )
 
 /** Hands the service's link to the phone: its own app takes it when installed, otherwise the browser does. */
 fun openStation(ctx: Context, st: Station) {
     val ok = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(st.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
-    if (!ok) Toast.makeText(ctx, "برنامه یا مرورگری برای باز کردن ${st.name} پیدا نشد", Toast.LENGTH_SHORT).show()
+    if (!ok) Toast.makeText(ctx, L("برنامه یا مرورگری برای باز کردن {0} پیدا نشد", st.name), Toast.LENGTH_SHORT).show()
 }

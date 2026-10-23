@@ -88,7 +88,7 @@ fun CompareScreen(a: Int, b0: Int) {
     // second player's colour: whichever of blue / orange is further from the accent
     val other = if (accent.blue > accent.red) C.away else C.home
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
-        item { T("مقایسه بازیکنان", 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)) }
+        item { T(L("مقایسه بازیکنان"), 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)) }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PlayerTile(la.value, accent, Modifier.weight(1f), null)
@@ -99,7 +99,7 @@ fun CompareScreen(a: Int, b0: Int) {
         val pa = la.value
         val pb = lb.value
         if (b == 0) {
-            item { SectionTitle("بازیکن دوم را انتخاب کنید") }
+            item { SectionTitle(L("بازیکن دوم را انتخاب کنید")) }
             item { PlayerPicker { b = it } }
             return@LazyColumn
         }
@@ -108,22 +108,22 @@ fun CompareScreen(a: Int, b0: Int) {
         val keys = pa.pct.keys.filter { it in pb.pct }.take(8)
         item {
             Card(Modifier.padding(top = 12.dp)) {
-                CardTitle("رتبه صدک بین هم‌پست‌ها") { Legend(pa.name, accent, pb.name, other) }
+                CardTitle(L("رتبه صدک بین هم‌پست‌ها")) { Legend(pa.name, accent, pb.name, other) }
                 if (keys.size >= 3) Radar(keys.map { tr(it) }, keys.map { pa.pct[it]!!.first }, keys.map { pb.pct[it]!!.first }, accent, other)
-                else T("این دو بازیکن آمار صدکی مشترک ندارند (معمولاً به‌خاطر پست متفاوت، مثل دروازه‌بان و مهاجم).", 13, color = C.mute,
+                else T(L("این دو بازیکن آمار صدکی مشترک ندارند (معمولاً به‌خاطر پست متفاوت، مثل دروازه‌بان و مهاجم)."), 13, color = C.mute,
                     modifier = Modifier.padding(16.dp), align = TextAlign.Center)
             }
         }
         if (keys.isNotEmpty()) item {
             Card(Modifier.padding(top = 12.dp)) {
-                CardTitle("جزئیات")
+                CardTitle(L("جزئیات"))
                 keys.forEachIndexed { i, k -> CompareRow(tr(k), pa.pct[k]!!.second, pb.pct[k]!!.second, pa.pct[k]!!.first, pb.pct[k]!!.first, accent, other, i == 0) }
             }
         }
         val season = pa.season.map { it.first }.filter { t -> pb.season.any { it.first == t } }
         if (season.isNotEmpty()) item {
             Card(Modifier.padding(top = 12.dp)) {
-                CardTitle("آمار فصل در لیگ", sub = if (pa.league == pb.league) pa.league else null)
+                CardTitle(L("آمار فصل در لیگ"), sub = if (pa.league == pb.league) pa.league else null)
                 season.forEachIndexed { i, t ->
                     val va = pa.season.first { it.first == t }.second; val vb = pb.season.first { it.first == t }.second
                     val f = { v: Double -> if (v % 1 != 0.0) dec(v) else "${v.toInt()}" }
@@ -154,7 +154,7 @@ private fun PlayerTile(p: Profile?, color: Color, modifier: Modifier, onChange: 
     ) {
         if (p == null) {
             Box(Modifier.size(64.dp).clip(RoundedCornerShape(50)).background(C.card2), contentAlignment = Alignment.Center) { Icon(Ic.people, null, Modifier.size(30.dp), tint = C.faint) }
-            T("؟", 15, FontWeight.Black, C.mute)
+            T(L("؟"), 15, FontWeight.Black, C.mute)
             return@Column
         }
         Face(p.id, 64.dp, color, 3.dp)
@@ -163,7 +163,7 @@ private fun PlayerTile(p: Profile?, color: Color, modifier: Modifier, onChange: 
             Crest(p.teamId, 16.dp); T(Clubs.get(p.teamId)?.fa ?: p.teamName, 11, color = C.mute, maxLines = 1)
         }
         if (p.position.isNotEmpty()) T(p.position, 11, FontWeight.Bold, color)
-        if (onChange != null) Pill("تغییر", onClick = onChange)
+        if (onChange != null) Pill(L("تغییر"), onClick = onChange)
     }
 }
 
@@ -177,7 +177,7 @@ private fun PlayerPicker(onPick: (Int) -> Unit) {
         res = runCatching { search(q.trim()).players.filter { !it.optBoolean("isCoach") } }.getOrDefault(emptyList()).take(8)
     }
     Column {
-        SearchField(q, "نام بازیکن (انگلیسی یا فارسی)…", autoFocus = true) { q = it }
+        SearchField(q, L("نام بازیکن (انگلیسی یا فارسی)…"), autoFocus = true) { q = it }
         if (res.isNotEmpty()) Card {
             res.forEachIndexed { i, p ->
                 val id = p.s("id")?.toIntOrNull() ?: 0

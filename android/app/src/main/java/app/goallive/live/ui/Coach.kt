@@ -71,7 +71,7 @@ private val FORMATIONS = linkedMapOf(
     "4-3-3" to listOf(4, 3, 3), "4-4-2" to listOf(4, 4, 2), "4-2-3-1" to listOf(4, 2, 3, 1), "3-5-2" to listOf(3, 5, 2),
     "3-4-3" to listOf(3, 4, 3), "4-1-4-1" to listOf(4, 1, 4, 1), "5-3-2" to listOf(5, 3, 2), "4-5-1" to listOf(4, 5, 1),
 )
-private val LINES = listOf("keepers" to "دروازه‌بان‌ها", "defenders" to "مدافعان", "midfielders" to "هافبک‌ها", "attackers" to "مهاجمان")
+private val LINES = listOf("keepers" to L("دروازه‌بان‌ها"), "defenders" to L("مدافعان"), "midfielders" to L("هافبک‌ها"), "attackers" to L("مهاجمان"))
 
 private class SquadPlayer(val id: Int, val name: String, val number: String, val line: Int, val seasonRating: Double?)
 private class Sub(val out: Int, val inn: Int, val min: Int)
@@ -131,12 +131,12 @@ fun CoachTab(m: MatchData) {
     ) {
         var help by rememberTip("coach")
         Row(verticalAlignment = Alignment.CenterVertically) {
-            T("🧠 مربی تو هستی", 18, FontWeight.Black, modifier = Modifier.weight(1f))
+            T(L("🧠 مربی تو هستی"), 18, FontWeight.Black, modifier = Modifier.weight(1f))
             HelpButton { help = true }
         }
-        if (help) HowToSheet("🧠", "مربی تو هستی چطور کار می‌کند؟", COACH_STEPS, onClose = { Store.markTip("coach"); help = false })
-        T(if (!locked) "ترکیب و سیستم $teamName را خودت بچین. بعد از اعلام ترکیب رسمی و در طول بازی، تصمیم‌هایت با سرمربی واقعی مقایسه می‌شود."
-            else "بازی شروع شده و ترکیبت قفل شد. حالا می‌توانی تعویض‌هایت را ثبت کنی.", 13, color = C.ink.copy(alpha = 0.85f))
+        if (help) HowToSheet("🧠", L("مربی تو هستی چطور کار می‌کند؟"), COACH_STEPS, onClose = { Store.markTip("coach"); help = false })
+        T(if (!locked) L("ترکیب و سیستم {0} را خودت بچین. بعد از اعلام ترکیب رسمی و در طول بازی، تصمیم‌هایت با سرمربی واقعی مقایسه می‌شود.", teamName)
+            else L("بازی شروع شده و ترکیبت قفل شد. حالا می‌توانی تعویض‌هایت را ثبت کنی."), 13, color = C.ink.copy(alpha = 0.85f))
     }
     if (!locked && plan.xi.isEmpty()) Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), if (plan.team == m.homeId) "h" else "a") {
         plan = Plan(if (it == "h") m.homeId else m.awayId, plan.formation, mutableListOf(), mutableListOf()); changed()
@@ -168,14 +168,14 @@ fun CoachTab(m: MatchData) {
         val same = plan.xi.count { id -> official.any { it.i("id") == id } }
         val realF = side.s("formation") ?: ""
         Card {
-            CardTitle("مقایسه با ترکیب ${if ((lu.s("lineupType") ?: "standard") == "standard") "رسمی" else "احتمالی"}")
+            CardTitle(L("مقایسه با ترکیب {0}", if ((lu.s("lineupType") ?: "standard") == "standard") L("رسمی") else L("احتمالی")))
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Fact2("$same از ۱۱", "بازیکن مشترک", Modifier.weight(1f), if (same >= 9) C.win else if (same >= 6) C.gold else C.loss)
-                Fact2(fa(realF), "سیستم مربی", Modifier.weight(1f), if (realF == plan.formation) C.win else C.ink)
-                Fact2(fa(plan.formation), "سیستم تو", Modifier.weight(1f), accent)
+                Fact2(L("{0} از ۱۱", same), L("بازیکن مشترک"), Modifier.weight(1f), if (same >= 9) C.win else if (same >= 6) C.gold else C.loss)
+                Fact2(fa(realF), L("سیستم مربی"), Modifier.weight(1f), if (realF == plan.formation) C.win else C.ink)
+                Fact2(fa(plan.formation), L("سیستم تو"), Modifier.weight(1f), accent)
             }
             val missing = official.filter { o -> plan.xi.none { it == o.i("id") } }.mapNotNull { it.s("lastName") ?: it.s("name") }
-            if (missing.isNotEmpty()) T("مربی این‌ها را بازی داد و تو نه: " + missing.joinToString("، "), 12, color = C.mute, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
+            if (missing.isNotEmpty()) T(L("مربی این‌ها را بازی داد و تو نه: ") + missing.joinToString(L("، ")), 12, color = C.mute, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
         }
     }
 
@@ -196,20 +196,20 @@ fun CoachTab(m: MatchData) {
                 .border(1.dp, C.line2, RoundedCornerShape(24.dp)).padding(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            T(if (m.finished) "نمره نهایی مربیگری" else "نمره تا این لحظه", 13, FontWeight.Bold, C.mute)
+            T(if (m.finished) L("نمره نهایی مربیگری") else L("نمره تا این لحظه"), 13, FontWeight.Bold, C.mute)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { T(dec(mine, 1), 34, FontWeight.Black, accent); T("تو", 12, color = C.mute) }
-                T("در برابر", 13, color = C.mute)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { T(dec(real, 1), 34, FontWeight.Black); T("سرمربی واقعی", 12, color = C.mute) }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) { T(dec(mine, 1), 34, FontWeight.Black, accent); T(L("تو"), 12, color = C.mute) }
+                T(L("در برابر"), 13, color = C.mute)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) { T(dec(real, 1), 34, FontWeight.Black); T(L("سرمربی واقعی"), 12, color = C.mute) }
             }
-            T(when { win -> "امشب از سرمربی $teamName بهتر بودی! 🧠"; mine < real - 0.05 -> "این بار سرمربی برنده شد؛ بازی بعد جبران کن"; else -> "تقریباً هم‌نمره با سرمربی!" },
+            T(when { win -> L("امشب از سرمربی {0} بهتر بودی! 🧠", teamName); mine < real - 0.05 -> L("این بار سرمربی برنده شد؛ بازی بعد جبران کن"); else -> L("تقریباً هم‌نمره با سرمربی!") },
                 15, FontWeight.ExtraBold, align = TextAlign.Center)
-            if (est) T("برای بازیکنی که در بازی نبود، میانگین نمره فصلش حساب شده (تخمینی).", 11, color = C.faint, align = TextAlign.Center)
+            if (est) T(L("برای بازیکنی که در بازی نبود، میانگین نمره فصلش حساب شده (تخمینی)."), 11, color = C.faint, align = TextAlign.Center)
             if (m.finished) {
                 recordResult(m.matchId, mine, real)
-                Pill("اشتراک‌گذاری", PillKind.Accent, icon = Ic.share, onClick = {
-                    val t = "در بازی ${m.homeName} و ${m.awayName} مربی شدم: نمره من ${dec(mine, 1)} در برابر سرمربی ${dec(real, 1)} 🧠⚽\nگل‌لایو"
-                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), "اشتراک‌گذاری"))
+                Pill(L("اشتراک‌گذاری"), PillKind.Accent, icon = Ic.share, onClick = {
+                    val t = L("در بازی {0} و {1} مربی شدم: نمره من {2} در برابر سرمربی {3} 🧠⚽\nگل‌لایو", m.homeName, m.awayName, dec(mine, 1), dec(real, 1))
+                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t), L("اشتراک‌گذاری")))
                 })
             }
         }
@@ -218,7 +218,7 @@ fun CoachTab(m: MatchData) {
     // substitutions once the match is on
     if (m.started && !m.finished && plan.xi.size == 11) Subs(plan, byId, m) { changed() }
     else if (plan.subs.isNotEmpty()) Card {
-        CardTitle("تعویض‌های تو")
+        CardTitle(L("تعویض‌های تو"))
         plan.subs.forEachIndexed { i, s -> SubRow(s, byId, i == 0) }
     }
 
@@ -226,15 +226,15 @@ fun CoachTab(m: MatchData) {
     if (!locked) {
         val gk = plan.xi.count { byId[it]?.line == 0 }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            T("انتخاب ۱۱ نفر: ${plan.xi.size}/۱۱", 14, FontWeight.Black, if (plan.xi.size == 11) C.win else C.ink, Modifier.weight(1f))
-            if (plan.xi.isNotEmpty()) Pill("پاک کردن", onClick = { plan.xi.clear(); changed() })
+            T(L("انتخاب ۱۱ نفر: {0}/۱۱", plan.xi.size), 14, FontWeight.Black, if (plan.xi.size == 11) C.win else C.ink, Modifier.weight(1f))
+            if (plan.xi.isNotEmpty()) Pill(L("پاک کردن"), onClick = { plan.xi.clear(); changed() })
         }
-        if (plan.xi.size == 11 && gk != 1) T(if (gk == 0) "دروازه‌بان انتخاب نکرده‌ای!" else "بیشتر از یک دروازه‌بان در ترکیب است.", 12, FontWeight.Bold, C.loss)
+        if (plan.xi.size == 11 && gk != 1) T(if (gk == 0) L("دروازه‌بان انتخاب نکرده‌ای!") else L("بیشتر از یک دروازه‌بان در ترکیب است."), 12, FontWeight.Bold, C.loss)
         LINES.forEachIndexed { line, (_, label) ->
             val ps = squad.filter { it.line == line }
             if (ps.isEmpty()) return@forEachIndexed
             Card {
-                CardTitle(label, sub = "${ps.count { it.id in plan.xi }} انتخاب")
+                CardTitle(label, sub = L("{0} انتخاب", ps.count { it.id in plan.xi }))
                 ps.forEachIndexed { i, p ->
                     val on = p.id in plan.xi
                     ListRow(first = i == 0, onClick = {
@@ -315,8 +315,8 @@ private fun Subs(plan: Plan, byId: Map<Int, SquadPlayer>, m: MatchData, onChange
     var out by remember { mutableIntStateOf(0) }
     val minute = m.minute.substringBefore('+').filter(Char::isDigit).toIntOrNull() ?: 45
     Card {
-        CardTitle("تعویض‌های تو", sub = "${plan.subs.size}/۵") { if (plan.subs.size < 5) Pill("+ تعویض", PillKind.Accent, onClick = { out = 0; picking = true }) }
-        if (plan.subs.isEmpty()) T("مثل مربی واقعی تا ۵ تعویض داری. تعویض در دقیقه فعلی بازی ثبت می‌شود.", 12, color = C.mute, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
+        CardTitle(L("تعویض‌های تو"), sub = L("{0}/۵", plan.subs.size)) { if (plan.subs.size < 5) Pill(L("+ تعویض"), PillKind.Accent, onClick = { out = 0; picking = true }) }
+        if (plan.subs.isEmpty()) T(L("مثل مربی واقعی تا ۵ تعویض داری. تعویض در دقیقه فعلی بازی ثبت می‌شود."), 12, color = C.mute, modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
         plan.subs.forEachIndexed { i, s -> SubRow(s, byId, i == 0) }
     }
     if (picking) {
@@ -324,7 +324,7 @@ private fun Subs(plan: Plan, byId: Map<Int, SquadPlayer>, m: MatchData, onChange
         val bench = byId.values.filter { it.id !in plan.xi && plan.subs.none { s -> s.inn == it.id } }
         AlertDialog(
             onDismissRequest = { picking = false }, containerColor = C.cardSolid,
-            title = { T(if (out == 0) "چه کسی بیرون برود؟" else "چه کسی وارد زمین شود؟", 16, FontWeight.Black) },
+            title = { T(if (out == 0) L("چه کسی بیرون برود؟") else L("چه کسی وارد زمین شود؟"), 16, FontWeight.Black) },
             text = {
                 Column(Modifier.height(380.dp).verticalScroll(rememberScrollState())) {
                     (if (out == 0) onPitch.mapNotNull { byId[it] } else bench).forEachIndexed { i, p ->
@@ -336,7 +336,7 @@ private fun Subs(plan: Plan, byId: Map<Int, SquadPlayer>, m: MatchData, onChange
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { picking = false }) { T("انصراف", 14, FontWeight.Bold, C.mute) } },
+            confirmButton = { TextButton(onClick = { picking = false }) { T(L("انصراف"), 14, FontWeight.Bold, C.mute) } },
         )
     }
 }
@@ -356,11 +356,11 @@ private fun History() {
     if (arr.isEmpty()) return
     val wins = arr.count { it.optDouble("mine") > it.optDouble("real") + 0.05 }
     Card {
-        CardTitle("کارنامه مربیگری تو")
+        CardTitle(L("کارنامه مربیگری تو"))
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Fact2("${arr.size}", "بازی", Modifier.weight(1f), C.ink)
-            Fact2("$wins", "بهتر از مربی", Modifier.weight(1f), C.win)
-            Fact2(dec(arr.map { it.optDouble("mine") }.average(), 1), "میانگین نمره", Modifier.weight(1f), LocalAccent.current)
+            Fact2("${arr.size}", L("بازی"), Modifier.weight(1f), C.ink)
+            Fact2("$wins", L("بهتر از مربی"), Modifier.weight(1f), C.win)
+            Fact2(dec(arr.map { it.optDouble("mine") }.average(), 1), L("میانگین نمره"), Modifier.weight(1f), LocalAccent.current)
         }
     }
 }

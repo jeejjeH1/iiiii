@@ -20,7 +20,7 @@ import app.goallive.live.data.Store
 /** A short "how does this work?" guide: numbered steps and one big button. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HowToSheet(emoji: String, title: String, steps: List<String>, button: String = "فهمیدم، بزن بریم", onClose: () -> Unit, onGo: () -> Unit = onClose) {
+fun HowToSheet(emoji: String, title: String, steps: List<String>, button: String = L("فهمیدم، بزن بریم"), onClose: () -> Unit, onGo: () -> Unit = onClose) {
     val accent = LocalAccent.current
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
@@ -50,25 +50,25 @@ fun rememberTip(key: String): MutableState<Boolean> = remember(key) { mutableSta
 @Composable
 fun HelpButton(onClick: () -> Unit) {
     Box(Modifier.size(34.dp).clip(CircleShape).background(C.card2).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(Ic.help, "راهنما", Modifier.size(20.dp), tint = C.mute)
+        Icon(Ic.help, L("راهنما"), Modifier.size(20.dp), tint = C.mute)
     }
 }
 
 val FANTASY_STEPS = listOf(
-    "یک لیگ انتخاب کنید و با ۱۰۰ میلیون بودجه ۱۱ بازیکن بخرید: ۱ دروازه‌بان، ۳ تا ۵ مدافع، ۲ تا ۵ هافبک و ۱ تا ۳ مهاجم.",
-    "از هر باشگاه حداکثر ۳ بازیکن. قیمت‌ها از ارزش بازار واقعی بازیکن‌ها ساخته شده‌اند.",
-    "یک کاپیتان انتخاب کنید؛ امتیاز او دو برابر حساب می‌شود.",
-    "با شروع هر هفته تیم شما قفل می‌شود و امتیازها از آمار واقعی بازی‌ها (گل، پاس گل، کلین‌شیت، نمره) حساب می‌شود.",
+    L("یک لیگ انتخاب کنید و با ۱۰۰ میلیون بودجه ۱۱ بازیکن بخرید: ۱ دروازه‌بان، ۳ تا ۵ مدافع، ۲ تا ۵ هافبک و ۱ تا ۳ مهاجم."),
+    L("از هر باشگاه حداکثر ۳ بازیکن. قیمت‌ها از ارزش بازار واقعی بازیکن‌ها ساخته شده‌اند."),
+    L("یک کاپیتان انتخاب کنید؛ امتیاز او دو برابر حساب می‌شود."),
+    L("با شروع هر هفته تیم شما قفل می‌شود و امتیازها از آمار واقعی بازی‌ها (گل، پاس گل، کلین‌شیت، نمره) حساب می‌شود."),
 )
 
 val COACH_STEPS = listOf(
-    "قبل از بازی، یکی از دو تیم و سیستم بازی (مثلاً ۴-۳-۳) را انتخاب کنید و ۱۱ بازیکن بچینید.",
-    "با سوت شروع ترکیبتان قفل می‌شود؛ در طول بازی تا ۵ تعویض دارید که در همان دقیقه ثبت می‌شود.",
-    "نمره شما از نمره واقعی بازیکن‌هایی که انتخاب کردید ساخته می‌شود و با تصمیم‌های سرمربی واقعی مقایسه می‌شود.",
+    L("قبل از بازی، یکی از دو تیم و سیستم بازی (مثلاً ۴-۳-۳) را انتخاب کنید و ۱۱ بازیکن بچینید."),
+    L("با سوت شروع ترکیبتان قفل می‌شود؛ در طول بازی تا ۵ تعویض دارید که در همان دقیقه ثبت می‌شود."),
+    L("نمره شما از نمره واقعی بازیکن‌هایی که انتخاب کردید ساخته می‌شود و با تصمیم‌های سرمربی واقعی مقایسه می‌شود."),
 )
 
 val VOICE_STEPS = listOf(
-    "گل‌لایو بازی را مثل یک گزارشگر به فارسی تعریف می‌کند: گل‌ها، کارت‌ها، موقعیت‌ها و نتیجه.",
-    "گوشی را قفل کنید یا سراغ برنامه دیگری بروید؛ گزارش ادامه دارد و از اعلان می‌شود قطعش کرد.",
-    "اگر گوشی صدای فارسی ندارد، خودکار با صدای گوینده آنلاین پخش می‌شود. در تنظیمات می‌توانید گوینده مرد یا زن را انتخاب کنید.",
+    L("گل‌لایو بازی را مثل یک گزارشگر به فارسی تعریف می‌کند: گل‌ها، کارت‌ها، موقعیت‌ها و نتیجه."),
+    L("گوشی را قفل کنید یا سراغ برنامه دیگری بروید؛ گزارش ادامه دارد و از اعلان می‌شود قطعش کرد."),
+    L("اگر گوشی صدای فارسی ندارد، خودکار با صدای گوینده آنلاین پخش می‌شود. در تنظیمات می‌توانید گوینده مرد یا زن را انتخاب کنید."),
 )

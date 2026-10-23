@@ -77,8 +77,8 @@ fun TableView(data: Any?, highlight: List<Int> = emptyList()) {
     }
     val tables = root?.a("tables").objs().ifEmpty { listOfNotNull(root) }.filter { it.o("table") != null }
         .sortedBy { t -> if (highlight.isNotEmpty() && t.o("table").a("all").objs().any { (it.i("id") ?: 0) in highlight }) 0 else 1 }
-    if (tables.isEmpty()) { EmptyView("جدولی وجود ندارد", Ic.list); return }
-    val kinds = listOf("all" to "همه", "home" to "خانه", "away" to "خارج", "xg" to "xG").filter { (k, _) -> tables.any { (it.o("table").a(k)?.length() ?: 0) > 0 } }
+    if (tables.isEmpty()) { EmptyView(L("جدولی وجود ندارد"), Ic.list); return }
+    val kinds = listOf("all" to L("همه"), "home" to L("خانه"), "away" to L("خارج"), "xg" to "xG").filter { (k, _) -> tables.any { (it.o("table").a(k)?.length() ?: 0) > 0 } }
     var kind by rememberSaveable { mutableStateOf("all") }
     if (kinds.none { it.first == kind }) kind = "all"
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -106,11 +106,11 @@ fun TableRows(rows: List<JSONObject>, kind: String, legend: List<JSONObject>, hi
     val nav = LocalNav.current
     val accent = LocalAccent.current
     val xg = kind == "xg"
-    val cols: List<Pair<String, Dp>> = if (xg) listOf("xG" to 40.dp, "xGA" to 40.dp, "xPts" to 40.dp, "امتیاز" to 40.dp)
-    else listOf("بازی" to 34.dp, "گل" to 48.dp, "تفاضل" to 40.dp, "امتیاز" to 40.dp)
+    val cols: List<Pair<String, Dp>> = if (xg) listOf("xG" to 40.dp, "xGA" to 40.dp, "xPts" to 40.dp, L("امتیاز") to 40.dp)
+    else listOf(L("بازی") to 34.dp, L("گل") to 48.dp, L("تفاضل") to 40.dp, L("امتیاز") to 40.dp)
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         T("#", 11, FontWeight.Bold, C.mute, Modifier.width(30.dp), align = TextAlign.Center)
-        T("تیم", 11, FontWeight.Bold, C.mute, Modifier.weight(1f).padding(start = 4.dp))
+        T(L("تیم"), 11, FontWeight.Bold, C.mute, Modifier.weight(1f).padding(start = 4.dp))
         cols.forEach { (c, w) -> T(c, 11, FontWeight.Bold, C.mute, Modifier.width(w), align = TextAlign.Center) }
     }
     Divider()
@@ -161,10 +161,10 @@ private fun LeagueBody(id: Int, d: JSONObject, onSeason: (String) -> Unit) {
     val det = d.o("details")
     val name = det.s("name") ?: ""
     val tabs = buildList {
-        if ((d.a("table")?.length() ?: 0) > 0) add("table" to "جدول")
-        if ((d.o("fixtures").a("allMatches")?.length() ?: 0) > 0) add("fixtures" to "بازی‌ها")
-        if ((d.o("stats").a("players")?.length() ?: 0) > 0 || (d.o("stats").a("teams")?.length() ?: 0) > 0) add("stats" to "آمار")
-        if ((d.a("seasons")?.length() ?: 0) > 0) add("seasons" to "قهرمانان")
+        if ((d.a("table")?.length() ?: 0) > 0) add("table" to L("جدول"))
+        if ((d.o("fixtures").a("allMatches")?.length() ?: 0) > 0) add("fixtures" to L("بازی‌ها"))
+        if ((d.o("stats").a("players")?.length() ?: 0) > 0 || (d.o("stats").a("teams")?.length() ?: 0) > 0) add("stats" to L("آمار"))
+        if ((d.a("seasons")?.length() ?: 0) > 0) add("seasons" to L("قهرمانان"))
     }
     var tab by rememberSaveable { mutableStateOf(tabs.firstOrNull()?.first ?: "fixtures") }
     if (tabs.isNotEmpty() && tabs.none { it.first == tab }) tab = tabs.first().first
@@ -179,7 +179,7 @@ private fun LeagueBody(id: Int, d: JSONObject, onSeason: (String) -> Unit) {
                         Ltr(name, style = lat(28.sp, FontWeight.ExtraBold), color = Color.White, maxLines = 2)
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             det.s("country")?.takeIf { it != "INT" }?.let { T("$it ·", 13, FontWeight.SemiBold, Color.White.copy(alpha = 0.85f)) }
-                            T("فصل", 13, FontWeight.SemiBold, Color.White.copy(alpha = 0.85f))
+                            T(L("فصل"), 13, FontWeight.SemiBold, Color.White.copy(alpha = 0.85f))
                             Box {
                                 Row(Modifier.height(30.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.3f)).border(1.dp, Color.White.copy(alpha = 0.2f), RoundedCornerShape(50))
                                     .clickable(enabled = seasons.size > 1) { pick = true }.padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically,
@@ -226,9 +226,9 @@ private fun LeagueFixtures(d: JSONObject) {
     Card {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             // RTL: the right-hand arrow goes back a round
-            IconBtn(Ic.back, "هفته قبل", if (i > 0) C.ink else C.faint, size = 18.dp) { if (i > 0) cur = rounds[i - 1] }
-            T(if (cur.isNotEmpty() && cur.all(Char::isDigit)) "هفته $cur" else cur.ifEmpty { "بازی‌ها" }, 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), align = TextAlign.Center)
-            IconBtn(Ic.chev, "هفته بعد", if (i < rounds.size - 1) C.ink else C.faint, size = 18.dp) { if (i < rounds.size - 1) cur = rounds[i + 1] }
+            IconBtn(Ic.back, L("هفته قبل"), if (i > 0) C.ink else C.faint, size = 18.dp) { if (i > 0) cur = rounds[i - 1] }
+            T(if (cur.isNotEmpty() && cur.all(Char::isDigit)) L("هفته {0}", cur) else cur.ifEmpty { L("بازی‌ها") }, 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), align = TextAlign.Center)
+            IconBtn(Ic.chev, L("هفته بعد"), if (i < rounds.size - 1) C.ink else C.faint, size = 18.dp) { if (i < rounds.size - 1) cur = rounds[i + 1] }
         }
         all.filter { roundOf(it) == cur }.map { parseMatch(it) }.groupBy { dayKey(it.time) }.forEach { (_, ms) ->
             SubHead(persianDate(ms.first().time, "EEEE d MMMM"))
@@ -241,7 +241,7 @@ private fun LeagueFixtures(d: JSONObject) {
 private fun Leaders(stats: JSONObject?) {
     val nav = LocalNav.current
     Column {
-        for ((title, arr, isTeam) in listOf(Triple("بازیکنان", stats.a("players").objs(), false), Triple("تیم‌ها", stats.a("teams").objs(), true))) {
+        for ((title, arr, isTeam) in listOf(Triple(L("بازیکنان"), stats.a("players").objs(), false), Triple(L("تیم‌ها"), stats.a("teams").objs(), true))) {
             if (arr.isEmpty()) continue
             SectionTitle(title)
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -260,7 +260,7 @@ private fun Leaders(stats: JSONObject?) {
                                 val v = st.d("value") ?: p.d("value")
                                 Ltr(when {
                                     v == null -> "–"
-                                    st.s("format") == "percent" -> "${v.toInt()}٪"
+                                    st.s("format") == "percent" -> L("{0}٪", v.toInt())
                                     st.s("name") == "squad_value_team" -> money(v.toLong())
                                     v % 1 != 0.0 -> dec(v)
                                     else -> "${v.toInt()}"
@@ -315,7 +315,7 @@ fun LeaguesScreen() {
         }
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
-        item { SearchField(q, "جستجوی لیگ یا کشور…") { q = it } }
+        item { SearchField(q, L("جستجوی لیگ یا کشور…")) { q = it } }
         val d = l.value
         if (d == null) { item { if (l.state is Load.Err) ErrorView({ l.state = Load.Loading; l.reload() }) else Skeleton(8) }; return@LazyColumn }
         val popular = d.a("popular").objs()
@@ -327,16 +327,18 @@ fun LeaguesScreen() {
                 .distinctBy { it.first.i("id") }
                 .filter { (lg, cn) -> (lg.s("localizedName") ?: lg.s("name") ?: "").lowercase().contains(query) || cn.lowercase().contains(query) }
                 .take(80)
-            item { if (hits.isEmpty()) EmptyView("چیزی پیدا نشد", Ic.search) else Card { hits.forEachIndexed { i, (lg, _) -> row(lg, i == 0) } } }
+            item { if (hits.isEmpty()) EmptyView(L("چیزی پیدا نشد"), Ic.search) else Card { hits.forEachIndexed { i, (lg, _) -> row(lg, i == 0) } } }
             return@LazyColumn
         }
         if (Store.leagues.isNotEmpty()) item {
-            SectionTitle("لیگ‌های دنبال‌شده")
+            SectionTitle(L("لیگ‌های دنبال‌شده"))
             Card { Store.leagues.entries.forEachIndexed { i, (id, name) -> row(JSONObject().put("id", id).put("name", name), i == 0) } }
         }
-        item { SectionTitle("محبوب"); Card { popular.forEachIndexed { i, it -> row(it, i == 0) } } }
-        item { SectionTitle("بین‌المللی"); Card { intl.forEachIndexed { i, it -> row(it, i == 0) } } }
-        item { SectionTitle("کشورها") }
+        val iran = countries.firstOrNull { it.s("ccode") == "IRN" }?.a("leagues")?.objs().orEmpty()
+        if (iran.isNotEmpty()) item { SectionTitle(L("ایران")); Card { iran.forEachIndexed { i, it -> row(it, i == 0) } } }
+        item { SectionTitle(L("محبوب")); Card { popular.forEachIndexed { i, it -> row(it, i == 0) } } }
+        item { SectionTitle(L("بین‌المللی")); Card { intl.forEachIndexed { i, it -> row(it, i == 0) } } }
+        item { SectionTitle(L("کشورها")) }
         item {
             Card {
                 countries.forEachIndexed { i, c ->
@@ -377,7 +379,7 @@ fun SearchField(value: String, hint: String, autoFocus: Boolean = false, onChang
                 textStyle = vz(15.sp).copy(color = C.ink), cursorBrush = SolidColor(accent),
             )
         }
-        if (value.isNotEmpty()) Icon(Ic.x, "پاک کردن", Modifier.size(18.dp).clickable { onChange("") }, tint = C.mute)
+        if (value.isNotEmpty()) Icon(Ic.x, L("پاک کردن"), Modifier.size(18.dp).clickable { onChange("") }, tint = C.mute)
     }
     if (autoFocus) LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 }

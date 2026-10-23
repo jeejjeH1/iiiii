@@ -61,7 +61,7 @@ object EdgeVoice {
                     webSocket.send("X-Timestamp:${stamp()}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n" +
                         """{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}""")
                     val safe = text.replace("&", " ").replace("<", " ").replace(">", " ")
-                    val ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='fa-IR'><voice name='$voice'>" +
+                    val ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${voice.take(5)}'><voice name='$voice'>" +
                         "<prosody pitch='+2Hz' rate='+8%' volume='+0%'>$safe</prosody></voice></speak>"
                     val reqId = UUID.randomUUID().toString().replace("-", "")
                     webSocket.send("X-RequestId:$reqId\r\nContent-Type:application/ssml+xml\r\nX-Timestamp:${stamp()}Z\r\nPath:ssml\r\n\r\n$ssml")
