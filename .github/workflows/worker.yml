@@ -1,0 +1,46 @@
+# Puts the GoalLive server (worker/) and the website on Cloudflare Workers.
+# Needs the CLOUDFLARE_API_TOKEN secret (permission: Account → Workers Scripts → Edit); CLOUDFLARE_ACCOUNT_ID is optional.
+name: Cloudflare server
+
+on:
+  push:
+    paths: ['worker/**', 'api/**', 'lib/**', 'index.html', 'assets/**', 'icons/**', 'sw.js', 'manifest.webmanifest', '.github/workflows/worker.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: worker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Site files
+        run: |
+          mkdir -p public
+          cp -r ../index.html ../assets ../fonts ../icon.svg ../icons ../manifest.webmanifest ../sw.js public/
+      - name: Account
+        run: |
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            id=$(curl -s -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/accounts | jq -r '.result[0].id // empty')
+            [ -n "$id" ] || { echo "No Cloudflare account found for this key"; exit 1; }
+            echo "CLOUDFLARE_ACCOUNT_ID=$id" >> "$GITHUB_ENV"
+          fi
+      - name: Deploy
+        run: npx -y wrangler@4 deploy 2>&1 | tee deploy.log
+      - name: Check
+        run: |
+          url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
+          echo "Server: $url"
+          curl -sf "$url/api/today" -o /dev/null -w 'today %{http_code} %{size_download}\n'
+          curl -sf "$url/" -o /dev/null -w 'site %{http_code}\n'
