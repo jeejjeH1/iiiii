@@ -97,6 +97,8 @@ class ScreensEn {
         NavHook.nav?.tab("settings"); settle(1500); shot("en-08-settings")
         NavHook.nav?.tab("more"); settle(2000); shot("en-09-more")
         NavHook.nav?.quiz(); settle(9000); shot("en-10-quiz")
+        NavHook.nav?.board(); settle(2000); shot("en-13-board")
+        NavHook.nav?.predictions(); settle(2000); shot("en-14-predictions")
         NavHook.nav?.assistant(); settle(2000)
         ask("Where is Esteghlal in the table?"); settle(12000); shot("en-11-assistant")
         ask("Barcelona next match"); settle(12000); shot("en-12-assistant")

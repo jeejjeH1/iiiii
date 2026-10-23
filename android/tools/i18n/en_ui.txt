@@ -818,3 +818,48 @@
 817|  🎯 +3
 818|  ✓ +1
 819|Live football scores on GoalLive · get it on Bazaar
+820|📋 Tactics board
+821|Move
+822|Draw arrows
+823|Undo
+824|Drag the players with your finger; tap one to give it a name.
+825|Remove opponent
+826|Add opponent
+827|Share picture
+828|Player name
+829|e.g. Taremi
+830|Tactics board
+831|Made with GoalLive · get it on Bazaar
+832|My tactics on GoalLive
+833|🗺️ Attack map
+834|Where each team attacked
+835|Share of attacks down each side, seen from the attacking team (FotMob).
+836|{0} spread their attacks across all three channels.
+837|{0} attacked mostly down the left ({1}%); {2}'s right-back had the busiest day.
+838|{0} attacked mostly down the right ({1}%); {2}'s left-back had the busiest day.
+839|{0} attacked mostly through the middle ({1}%); {2}'s centre-backs were under pressure.
+840|📖 The match in 30 seconds
+841|📖 The match so far
+842|{0} were on top for most of the match.
+843|An even match; neither side was on top for long.
+844|Own goal by {0}; {1} {2}, {3} {4}
+845|Goal by {0} for {1}; {2} {3}, {4} {5}
+846|{0} sent off; {1} down to ten.
+847|{0} took control after {1} came on (until minute {2}).
+848|{0} piled on the pressure from here until minute {1}.
+849|♟️ Tactical preview
+850|Key duels
+851|Line-ups come out about an hour before kick-off; then both formations and the key duels appear here.
+852|Key to winning
+853|{0}: exploit the opponent's weakness — {1}
+854|{0}: lean on their strength — {1}
+855|Heatmap
+856|Mostly in his own half
+857|Mostly in midfield
+858|Mostly in the final third
+859|on the left
+860|in the middle
+861|on the right
+862|{0}, {1} (attacking left to right).
+863|📋 {0} on the tactics board
+864|Line up, draw arrows and share

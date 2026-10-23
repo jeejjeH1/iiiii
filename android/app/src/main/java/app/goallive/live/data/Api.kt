@@ -107,7 +107,12 @@ object Api {
         return b.build().toString()
     }
 
+    /** FotMob endpoints our server doesn't proxy (player heatmaps), fetched straight from FotMob and kept like the rest. */
+    suspend fun fotmob(pathAndQuery: String, maxAge: Long = 3_600_000): JSONObject =
+        get("https://www.fotmob.com/api/$pathAndQuery", maxAge) as? JSONObject ?: throw IOException("bad response")
+
     fun fetch(url: String): String {
+        if (url.startsWith("https://www.fotmob.com/")) return fetchRaw(url, fotmob = true)
         val direct = directUrl(url)
         if (direct != null && System.currentTimeMillis() < serverDownUntil) return fetchRaw(direct, fotmob = true)
         return try {

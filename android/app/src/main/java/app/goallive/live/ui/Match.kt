@@ -421,10 +421,13 @@ fun isPen(e: JSONObject) = e.s("goalDescriptionKey") == "penalty" || e.s("suffix
 private fun Summary(m: MatchData) {
     val nav = LocalNav.current
     PredictCard(m)
+    TacticalPreview(m)
     if (m.started || m.finished) Card {
         CardTitle(L("خلاصه و گل‌ها"))
         Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) { Highlights(m, compact = true) }
     }
+    MatchStory(m)
+    if (m.started) AttackZones(m)
     // before kick-off (and during the match) the radar is the most useful thing on this tab
     if (!m.finished && !m.cancelled && m.homeId > 0 && m.awayId > 0) OpponentRadar(m)
     val momentum = m.content.path("momentum.main").a("data").objs()
@@ -1001,6 +1004,10 @@ private fun LineupTab(m: MatchData) {
         Pill(L("ترکیب احتمالی"), PillKind.Accent); T(L("ترکیب رسمی حدود یک ساعت قبل از بازی اعلام می‌شود"), 11, color = C.mute)
     }
     if (hasLayout) Seg(listOf("pitch" to L("روی زمین"), "list" to L("فهرست")), view) { view = it }
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Pill(L("📋 {0} روی تخته تاکتیک", teamName(m.homeId, m.homeName)), onClick = { nav.board(m.matchId, "h") })
+        Pill(L("📋 {0} روی تخته تاکتیک", teamName(m.awayId, m.awayName)), onClick = { nav.board(m.matchId, "a") })
+    }
     if (view == "pitch" && hasLayout) {
         Seg(listOf("both" to L("هر دو تیم"), "h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), side) { side = it }
         TeamBar(H, m.homeColor, m.homeId)
@@ -1246,6 +1253,7 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                 Pill(L("پروفایل کامل"), PillKind.Accent, onClick = { onClose(); nav.player(p.id) })
                 Pill(L("مقایسه"), onClick = { onClose(); nav.compare(p.id) }, icon = Ic.swap)
             }
+            if (m.started) PlayerHeatmap(m.matchId, p.id, color)
             val groups = ps?.a("stats").objs()
             if (groups.isNullOrEmpty()) T(L("آمار این بازیکن در این بازی ثبت نشده"), 13, color = C.mute, modifier = Modifier.fillMaxWidth().padding(24.dp), align = TextAlign.Center)
             groups?.forEach { g ->

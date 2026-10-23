@@ -194,6 +194,9 @@ fun T(text: String, size: Int = 14, w: FontWeight = FontWeight.Normal, color: Co
     Text(text, modifier, color = color, style = vz(size.coerceAtLeast(12).sp, w), maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
 }
 
+/** A player's or coach's name inside a sentence: as FotMob writes it in English, in Persian letters in Persian. */
+fun personName(n: String): String = if (app.goallive.live.Lang.en) n else app.goallive.live.data.FaNames.of(n)
+
 /** A team's name as the user wants it: Persian when we know it and the setting is on, else FotMob's English. */
 fun teamName(id: Int, name: String): String = if (Store.faNames) faTeamName(id, name) ?: app.goallive.live.data.FaNames.of(name) else name
 

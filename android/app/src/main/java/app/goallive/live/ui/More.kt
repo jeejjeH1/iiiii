@@ -49,6 +49,7 @@ private fun shortcuts(): List<Shortcut> {
         Shortcut("predict", L("پیش‌بینی"), if (Predictions.all.isEmpty()) L("نتیجه بازی‌ها را حدس بزن و امتیاز بگیر") else L("{0} امتیاز · {1}", fa(Predictions.total), predictLevel(Predictions.total).first),
             null, "🔮", C.gold, Predictions.all.isEmpty()),
         Shortcut("fantasy", L("فانتزی"), fantasy, null, "⚽", C.win, !fantasy.startsWith(L("مجموع"))),
+        Shortcut("board", L("تخته تاکتیک"), L("ترکیب بچین، فلش بکش و بفرست"), null, "📋", C.home, false),
         Shortcut("quiz", L("کوئیز امروز"), if (answered >= 6) L("انجام شد · فردا دوباره") else if (answered > 0) L("ادامه بده") else L("۶ سؤال تازه"), null, "?", accent, answered < 6),
         Shortcut("calendar", L("تقویم"), Store.myTeam?.let { L("بازی‌های ") + (Clubs.get(it.id)?.fa ?: it.name) } ?: L("بازی‌های تیم‌های دنبال‌شده"), Ic.cal, null, C.home, false),
         Store.myTeam?.let { Shortcut("my", Clubs.get(it.id)?.fa ?: it.name, L("صفحه تیم من"), null, null, accentFor(Clubs.get(it.id), it.color), false) },
@@ -59,6 +60,7 @@ private fun go(key: String, nav: Nav, tv: () -> Unit) = when (key) {
     "tv" -> tv()
     "fantasy" -> nav.fantasy()
     "predict" -> nav.predictions()
+    "board" -> nav.board()
     "quiz" -> nav.quiz()
     "calendar" -> nav.calendar()
     "ai" -> { Store.markTip("assistant"); nav.assistant() }

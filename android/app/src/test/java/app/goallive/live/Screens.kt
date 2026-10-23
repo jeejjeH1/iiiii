@@ -9,6 +9,9 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.core.app.ApplicationProvider
 import app.goallive.live.data.Api
@@ -112,6 +115,9 @@ class Screens {
         settle(9000); shot("01-home")
         if (match != null) {
             NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")
+            // further down the summary: the match story and the attack map
+            repeat(2) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(1500); shot("02d-summary-down$k") }
+            runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeDown(durationMillis = 300); swipeDown(durationMillis = 300) } }; settle(800)
             tap("زنده", exact = true); settle(3000); shot("02b-match-pitch")
             tap("گزارش متنی", exact = true); settle(4000); shot("02c-match-commentary")
             tap("آمار", exact = true); settle(3000); shot("03-match-stats")
@@ -158,6 +164,11 @@ class Screens {
             settle(1500); shot("26-predict")
         }
         NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
+        if (match != null) { NavHook.nav?.board(match.id, "h"); settle(6000); shot("29-board") }
+        if (upcoming != null) {
+            NavHook.nav?.match(upcoming.id); settle(4000)
+            runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(2000); shot("30-preview")
+        }
         // the share picture of the finished match
         if (match != null) runCatching {
             val md = runBlocking { app.goallive.live.ui.MatchData(Api.fm("matchDetails", mapOf("matchId" to match.id))) }
