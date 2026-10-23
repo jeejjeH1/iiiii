@@ -242,7 +242,7 @@ private fun LeagueCard(b: LeagueBlock, ms: List<MatchItem>, isCollapsed: Boolean
 private fun Ticker(live: List<MatchItem>) {
     val nav = LocalNav.current
     Box(Modifier.padding(top = 2.dp, bottom = 6.dp).fillMaxWidth().height(34.dp)
-        .background(C.card).border(1.dp, C.line)) {
+        .background(C.card).border(1.dp, C.line).clipToBounds()) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Row(Modifier.fillMaxSize().basicMarquee(iterations = Int.MAX_VALUE, velocity = 40.dp).padding(start = 70.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(28.dp)) {
@@ -258,8 +258,13 @@ private fun Ticker(live: List<MatchItem>) {
                 }
             }
         }
-        // red "LIVE" tag with a slanted edge, on the right
-        val slant = GenericShape { s, _ -> moveTo(s.height * 0.35f, 0f); lineTo(s.width, 0f); lineTo(s.width, s.height); lineTo(0f, s.height); close() }
+        // red "LIVE" tag at the start edge (right in Persian, left in English), slanted on its inner side so the scores slide under it
+        val ltr = app.goallive.live.Lang.en
+        val slant = GenericShape { s, _ ->
+            if (ltr) { moveTo(0f, 0f); lineTo(s.width, 0f); lineTo(s.width - s.height * 0.35f, s.height); lineTo(0f, s.height) }
+            else { moveTo(s.height * 0.35f, 0f); lineTo(s.width, 0f); lineTo(s.width, s.height); lineTo(0f, s.height) }
+            close()
+        }
         Row(Modifier.align(Alignment.CenterStart).fillMaxHeight().clip(slant).background(C.live).padding(start = 12.dp, end = 20.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("LIVE", color = Color.White, style = lat(12.sp, FontWeight.ExtraBold).copy(letterSpacing = 2.sp))
