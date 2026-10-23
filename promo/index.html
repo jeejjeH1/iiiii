@@ -1,0 +1,348 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: Vz; src: url(assets/vazir_black.ttf); font-weight: 900; }
+@font-face { font-family: Vz; src: url(assets/vazir_bold.ttf); font-weight: 700; }
+@font-face { font-family: Bar; src: url(assets/barlow_extrabold.ttf); font-weight: 800; }
+html, body { margin: 0; background: #000; }
+canvas { display: block; }
+</style></head>
+<body>
+<canvas id="c" width="1080" height="1920"></canvas>
+<script>
+// Promo video for گل‌لایو, drawn frame by frame: render(t) paints the moment t (seconds).
+// render.mjs steps t at 30 fps and saves each frame; the soundtrack is cut to the same timeline (sound.py).
+const W = 1080, H = 1920;
+const cv = document.getElementById('c'), x = cv.getContext('2d');
+const LIME = '#C6FF3D', RED = '#FF3358', GOLD = '#FFC53D', BG = '#05070A';
+const img = {};
+const names = ['logo', 'logo_disc', 'mark_white', '01-home', '02b-match-pitch', '23-match-radar', '22b-assistant-answer', '15-compare', 'bazaar'];
+window.ready = Promise.all(names.map(n => new Promise(ok => {
+  const i = new Image(); i.onload = () => { img[n] = i; ok(); }; i.onerror = () => ok(); i.src = `assets/${n}.png`;
+}))).then(() => document.fonts.load('900 80px Vz')).then(() => document.fonts.load('700 40px Vz')).then(() => document.fonts.load('800 40px Bar'));
+
+// ---------- helpers ----------
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const eOut = p => 1 - Math.pow(1 - p, 3);
+const eIn = p => p * p * p;
+const eIO = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+const back = p => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+const elastic = p => p === 0 || p === 1 ? p : Math.pow(2, -10 * p) * Math.sin((p * 10 - .75) * (2 * Math.PI / 3)) + 1;
+const lerp = (a, b, p) => a + (b - a) * p;
+function rnd(seed) { let s = seed >>> 0; return () => ((s = Math.imul(s ^ (s >>> 15), 1 | s) + 0x6D2B79F5 | 0) >>> 0) / 4294967296; }
+
+function text(str, px, y, size, color, opts = {}) {
+  x.save();
+  x.font = `${opts.w || 900} ${size}px ${opts.f || 'Vz'}`;
+  x.textAlign = opts.align || 'center'; x.textBaseline = 'middle';
+  x.direction = opts.ltr ? 'ltr' : 'rtl';
+  if (opts.glow) { x.shadowColor = opts.glow; x.shadowBlur = opts.blur || 40; }
+  if (opts.stroke) { x.lineWidth = opts.stroke; x.strokeStyle = opts.strokeColor || '#000'; x.strokeText(str, px, y); }
+  x.fillStyle = color; x.fillText(str, px, y);
+  x.restore();
+}
+
+function roundRect(px, py, w, h, r) {
+  x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r);
+  x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath();
+}
+
+// stadium backdrop: mowed stripes, two floodlight beams, haze
+function stadium(t, accent = LIME, power = 1) {
+  x.fillStyle = BG; x.fillRect(0, 0, W, H);
+  // pitch stripes in perspective at the bottom
+  x.save();
+  const g = x.createLinearGradient(0, H * .55, 0, H);
+  g.addColorStop(0, 'rgba(18,70,38,0)'); g.addColorStop(1, 'rgba(18,90,45,.55)');
+  x.fillStyle = g; x.fillRect(0, H * .55, W, H * .45);
+  for (let i = 0; i < 9; i++) {
+    const y0 = H * .55 + Math.pow(i / 9, 1.8) * H * .45, y1 = H * .55 + Math.pow((i + .5) / 9, 1.8) * H * .45;
+    x.fillStyle = 'rgba(255,255,255,.025)'; x.fillRect(0, y0, W, y1 - y0);
+  }
+  x.restore();
+  // beams
+  for (const side of [-1, 1]) {
+    const sway = Math.sin(t * .7 + side) * 6;
+    x.save();
+    x.translate(side < 0 ? -120 : W + 120, -200);
+    x.rotate((side < 0 ? -1 : 1) * (28 + sway) * Math.PI / 180 * -1);
+    const bg = x.createLinearGradient(0, 0, 0, H * 1.4);
+    bg.addColorStop(0, `rgba(220,240,255,${.22 * power})`); bg.addColorStop(1, 'rgba(220,240,255,0)');
+    x.fillStyle = bg; x.beginPath(); x.moveTo(-40, 0); x.lineTo(40, 0); x.lineTo(520, H * 1.4); x.lineTo(-520, H * 1.4); x.closePath(); x.fill();
+    x.restore();
+  }
+  // accent haze from the top
+  const rg = x.createRadialGradient(W / 2, -100, 50, W / 2, -100, H * .7);
+  rg.addColorStop(0, hexA(accent, .22 * power)); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = rg; x.fillRect(0, 0, W, H);
+}
+
+function hexA(hex, a) { let h = hex.slice(1); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+
+// floating dust in the floodlights
+const dust = Array.from({ length: 90 }, (_, i) => { const r = rnd(i + 11); return [r() * W, r() * H, 1 + r() * 3, .2 + r() * .6, r() * 6.28]; });
+function particles(t, a = 1) {
+  for (const [px, py, s, sp, ph] of dust) {
+    const yy = (py - t * 40 * sp + H) % H, xx = px + Math.sin(t * sp + ph) * 30;
+    x.fillStyle = `rgba(255,255,255,${(.15 + .35 * Math.abs(Math.sin(t + ph))) * a})`;
+    x.beginPath(); x.arc(xx, yy, s, 0, 7); x.fill();
+  }
+}
+
+// shockwave rings from a point
+function shock(cx, cy, p, color) {
+  if (p <= 0 || p >= 1) return;
+  for (let k = 0; k < 3; k++) {
+    const q = clamp(p * 1.3 - k * .15); if (q <= 0) continue;
+    x.strokeStyle = hexA(color, (1 - q) * .8); x.lineWidth = 18 * (1 - q) + 2;
+    x.beginPath(); x.arc(cx, cy, 80 + eOut(q) * 900, 0, 7); x.stroke();
+  }
+}
+
+function flash(a, color = '#fff') { if (a > 0) { x.fillStyle = hexA(color, clamp(a)); x.fillRect(0, 0, W, H); } }
+
+// speed lines rushing to the centre
+function speedLines(t, a, color = '#fff') {
+  if (a <= 0) return;
+  const r = rnd(5);
+  for (let i = 0; i < 70; i++) {
+    const ang = r() * 6.28, d0 = 300 + ((r() * 900 + t * 2600) % 1300), len = 120 + r() * 260;
+    x.strokeStyle = hexA(color, a * (.15 + r() * .35)); x.lineWidth = 2 + r() * 4;
+    x.beginPath(); x.moveTo(W / 2 + Math.cos(ang) * d0, H / 2 + Math.sin(ang) * d0);
+    x.lineTo(W / 2 + Math.cos(ang) * (d0 + len), H / 2 + Math.sin(ang) * (d0 + len)); x.stroke();
+  }
+}
+
+// glitchy title: colour-split copies that snap together
+function splitTitle(str, cx, cy, size, p, t) {
+  const off = (1 - eOut(p)) * 60 + (Math.sin(t * 40) > .97 ? 14 : 0);
+  x.save(); x.globalCompositeOperation = 'lighter';
+  text(str, cx - off, cy, size, hexA(LIME, .9));
+  text(str, cx + off, cy, size, hexA(RED, .9));
+  x.restore();
+  text(str, cx, cy, size, '#fff', { glow: 'rgba(255,255,255,.35)', blur: 30 });
+}
+
+// a phone showing an app screen
+function phone(im, cx, cy, scale, rot, alpha = 1, accent = LIME) {
+  if (!im) return;
+  const w = 560 * scale, h = w * 1720 / 800;
+  x.save(); x.globalAlpha = alpha; x.translate(cx, cy); x.rotate(rot);
+  x.shadowColor = hexA(accent, .55); x.shadowBlur = 90;
+  roundRect(-w / 2 - 18, -h / 2 - 18, w + 36, h + 36, 70 * scale); x.fillStyle = '#0b0f14'; x.fill();
+  x.shadowBlur = 0; x.lineWidth = 4; x.strokeStyle = 'rgba(255,255,255,.18)'; x.stroke();
+  roundRect(-w / 2, -h / 2, w, h, 52 * scale); x.save(); x.clip(); x.drawImage(im, -w / 2, -h / 2, w, h);
+  // glass shine
+  const gl = x.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+  gl.addColorStop(0, 'rgba(255,255,255,.14)'); gl.addColorStop(.35, 'rgba(255,255,255,0)'); x.fillStyle = gl; x.fillRect(-w / 2, -h / 2, w, h);
+  x.restore(); x.restore();
+}
+
+// confetti
+const conf = Array.from({ length: 220 }, (_, i) => { const r = rnd(i + 99); return [r() * 6.28, 600 + r() * 1700, r() * 6.28, r() * 3, [LIME, '#fff', GOLD, RED][i % 4], 10 + r() * 18]; });
+function confetti(p) {
+  if (p <= 0 || p >= 1) return;
+  for (const [ang, sp, rot, spin, col, s] of conf) {
+    const d = sp * eOut(p), px = W / 2 + Math.cos(ang) * d, py = H * .45 + Math.sin(ang) * d * .8 + p * p * 900;
+    x.save(); x.translate(px, py); x.rotate(rot + p * spin * 12); x.globalAlpha = 1 - eIn(p);
+    x.fillStyle = col; x.fillRect(-s / 2, -s / 4, s, s / 2); x.restore();
+  }
+}
+
+function logoDisc(cx, cy, size, rot = 0, alpha = 1, glow = LIME) {
+  const im = img.logo_disc; if (!im) return;
+  x.save(); x.globalAlpha = alpha; x.translate(cx, cy); x.rotate(rot);
+  x.shadowColor = hexA(glow, .8); x.shadowBlur = 80;
+  x.drawImage(im, -size / 2, -size / 2, size, size); x.restore();
+}
+
+// the Bazaar download badge: the store's logo with «دانلود از بازار»
+function bazaarBadge(cx, cy, p) {
+  if (p <= 0) return;
+  const s = back(clamp(p)), w = 720, h = 190;
+  x.save(); x.translate(cx, cy + (1 - eOut(p)) * 260); x.scale(s, s); x.globalAlpha = clamp(p * 2);
+  x.shadowColor = 'rgba(0,191,111,.55)'; x.shadowBlur = 70;
+  roundRect(-w / 2, -h / 2, w, h, 48); x.fillStyle = '#fff'; x.fill(); x.shadowBlur = 0;
+  const L = 140;
+  if (img.bazaar) {
+    x.drawImage(img.bazaar, w / 2 - 40 - L, -L / 2, L, L);
+  }
+  text('دانلود از', w / 2 - 230, -32, 46, '#5d6b63', { w: 700, align: 'right' });
+  text('بازار', w / 2 - 230, 36, 82, '#0a7a4a', { align: 'right' });
+  x.restore();
+}
+
+// ---------- timeline ----------
+const FEATURES = [
+  { t: 4.3, img: '01-home', title: 'نتایج زنده', sub: 'همه بازی‌های دنیا، لحظه‌به‌لحظه', color: LIME },
+  { t: 6.05, img: '02b-match-pitch', title: 'زمین زنده', sub: 'هر حمله و هر شوت روی زمین', color: '#4F8BFF' },
+  { t: 7.8, img: '23-match-radar', title: 'رادار حریف', sub: 'نقاط قوت و ضعف هر تیم', color: '#FF8A3D' },
+  { t: 9.55, img: '22b-assistant-answer', title: 'دستیار هوشمند', sub: 'بپرس، جواب بگیر', color: '#B07CFF' },
+  { t: 11.3, img: '15-compare', title: 'مقایسه بازیکن‌ها', sub: 'مسی یا هالند؟ با نمودار ببین', color: GOLD },
+];
+const GOAL = 13.1, END = 16.2, DURATION = 22.5;
+
+window.render = function (t) {
+  x.setTransform(1, 0, 0, 1, 0, 0); x.globalAlpha = 1;
+  // camera shake on the big hits
+  let shake = 0;
+  for (const [ht, amp] of [[1.6, 26], [GOAL, 38], [END, 22], [2.2, 10]]) { const q = t - ht; if (q >= 0 && q < .45) shake += amp * (1 - q / .45); }
+  const r = rnd(Math.floor(t * 30) + 1);
+  x.translate((r() - .5) * shake, (r() - .5) * shake);
+
+  if (t < 4.3) intro(t);
+  else if (t < GOAL) montage(t);
+  else if (t < END) goal(t);
+  else outro(t);
+
+  // film grain + vignette on top of everything
+  x.setTransform(1, 0, 0, 1, 0, 0);
+  const vg = x.createRadialGradient(W / 2, H / 2, H * .3, W / 2, H / 2, H * .75);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.55)');
+  x.fillStyle = vg; x.fillRect(0, 0, W, H);
+  // fade in / out
+  flash(1 - seg(t, 0, .25), '#000');
+  flash(seg(t, DURATION - .6, DURATION), '#000');
+};
+
+function intro(t) {
+  // lights snap on: two flickers, then full power
+  const on = t < .3 ? 0 : t < .4 ? .9 : t < .55 ? .2 : t < .8 ? 1 : 1;
+  stadium(t, LIME, on);
+  particles(t, on);
+  speedLines(t, seg(t, .9, 1.5) * (1 - seg(t, 1.6, 1.9)));
+  // the ball flies in from deep, spinning, and lands with a shockwave
+  const p = seg(t, .8, 1.6);
+  if (p > 0 && t < 1.6) {
+    const sz = lerp(40, 520, eIn(p));
+    logoDisc(W / 2, lerp(H * .32, H * .40, p), sz, (1 - p) * -10, clamp(p * 3));
+  }
+  if (t >= 1.6) {
+    const q = t - 1.6;
+    shock(W / 2, H * .40, seg(q, 0, 1), LIME);
+    flash(Math.max(0, .9 - q * 3));
+    // the ball eases up to make room for the title
+    const up = eIO(seg(t, 2.0, 2.6));
+    const bounce = 1 - .06 * Math.sin(q * 18) * Math.exp(-q * 6);
+    logoDisc(W / 2, lerp(H * .40, H * .30, up), lerp(520, 380, up) * bounce, Math.sin(t * 2) * .05, 1);
+  }
+  // title
+  const tp = seg(t, 2.2, 2.7);
+  if (tp > 0) {
+    x.save(); const sc = lerp(1.6, 1, eOut(tp)); x.translate(W / 2, H * .53); x.scale(sc, sc); x.globalAlpha = clamp(tp * 2);
+    splitTitle('گل‌لایو', 0, 0, 230, tp, t); x.restore();
+    // LIVE tag and subtitle
+    const lp = seg(t, 2.7, 3.1);
+    x.save(); x.globalAlpha = lp; x.translate(W / 2, H * .62 + (1 - eOut(lp)) * 40);
+    roundRect(-120, -42, 240, 84, 18); x.lineWidth = 6; x.strokeStyle = RED; x.stroke();
+    text('LIVE', 0, 4, 58, RED, { f: 'Bar', w: 800, ltr: true });
+    x.fillStyle = RED; x.globalAlpha = lp * (Math.sin(t * 8) > 0 ? 1 : .3); x.beginPath(); x.arc(-150, 0, 14, 0, 7); x.fill();
+    x.restore();
+    const sp = seg(t, 3.0, 3.5);
+    x.save(); x.globalAlpha = sp; text('فوتبال، زنده‌تر از همیشه', W / 2, H * .69 + (1 - eOut(sp)) * 30, 64, '#dfe6ec', { w: 700 }); x.restore();
+  }
+  // wipe out to the montage
+  const wp = seg(t, 4.0, 4.3);
+  if (wp > 0) { x.fillStyle = LIME; x.fillRect(0, H * (1 - eIn(wp)), W, H * eIn(wp)); }
+}
+
+function montage(t) {
+  const i = FEATURES.findLastIndex(f => t >= f.t);
+  const f = FEATURES[i], next = FEATURES[i + 1];
+  const local = t - f.t, len = (next ? next.t : GOAL) - f.t;
+  stadium(t, f.color, 1);
+  particles(t, .8);
+  // big outlined number in the back
+  text(`0${i + 1}`, W * .5, H * .17, 340, 'rgba(255,255,255,0)', { f: 'Bar', w: 800, ltr: true, stroke: 3, strokeColor: hexA(f.color, .35) });
+  // phone slides in tilted, settles, then flies out
+  const pin = eOut(seg(local, 0, .45)), pout = eIn(seg(local, len - .3, len));
+  const dir = i % 2 ? -1 : 1;
+  const px = W / 2 + dir * (1 - pin) * 900 - dir * pout * 1100;
+  const rot = dir * ((1 - pin) * .35 - pout * .3) + Math.sin(t * 1.4) * .015;
+  phone(img[f.img], px, H * .615 + Math.sin(t * 2) * 8, .9, rot, 1, f.color);
+  // title card
+  const tin = back(seg(local, .12, .55)), tout = seg(local, len - .25, len);
+  x.save(); x.globalAlpha = 1 - tout; x.translate(W / 2 - dir * (1 - tin) * 700, H * .2);
+  roundRect(-420, -95, 840, 190, 40); x.fillStyle = hexA(f.color, .95); x.fill();
+  const ink = f.color === LIME || f.color === GOLD ? '#0b1200' : '#fff';
+  text(f.title, 0, -12, 104, ink);
+  x.restore();
+  x.save(); x.globalAlpha = seg(local, .35, .7) * (1 - tout);
+  text(f.sub, W / 2, H * .2 + 150, 52, '#fff', { w: 700, glow: 'rgba(0,0,0,.8)', blur: 20 }); x.restore();
+  // progress dots
+  for (let k = 0; k < FEATURES.length; k++) {
+    x.fillStyle = k === i ? f.color : 'rgba(255,255,255,.25)';
+    roundRect(W / 2 - 150 + k * 64, H - 120, k === i ? 44 : 22, 14, 7); x.fill();
+  }
+  // whoosh streak on each switch
+  const sw = seg(local, 0, .25);
+  if (sw > 0 && sw < 1) { x.fillStyle = hexA(f.color, (1 - sw) * .5); x.fillRect(0, 0, W, H); }
+  // ramp into the goal moment
+  if (!next) speedLines(t, seg(t, GOAL - .7, GOAL), f.color);
+}
+
+function goal(t) {
+  const q = t - GOAL;
+  stadium(t, LIME, 1.2);
+  // crowd of flashing camera lights in the stands
+  const r = rnd(Math.floor(t * 12));
+  for (let k = 0; k < 40; k++) { x.fillStyle = `rgba(255,255,255,${r() * .6})`; x.beginPath(); x.arc(r() * W, r() * H * .45, 2 + r() * 4, 0, 7); x.fill(); }
+  confetti(seg(q, 0, 2.6));
+  shock(W / 2, H * .42, seg(q, 0, 1.1), GOLD);
+  // «گل!» slams in
+  const s = q < .25 ? lerp(3, .9, eIn(q / .25)) : lerp(.9, 1, elastic(seg(q, .25, .9)));
+  x.save(); x.translate(W / 2, H * .42); x.scale(s, s); x.rotate(-.06);
+  splitTitle('گل!', 0, 0, 420, seg(q, 0, .4), t);
+  x.restore();
+  // score line counting up
+  const sp = seg(q, .6, 1.0);
+  x.save(); x.globalAlpha = sp; x.translate(W / 2, H * .62 + (1 - eOut(sp)) * 60);
+  roundRect(-300, -80, 600, 160, 40); x.fillStyle = 'rgba(0,0,0,.55)'; x.fill(); x.lineWidth = 4; x.strokeStyle = hexA(LIME, .6); x.stroke();
+  text(q > 1.1 ? '۲ - ۱' : '۱ - ۱', 0, 6, 110, '#fff', { ltr: true });
+  x.restore();
+  const vp = seg(q, 1.3, 1.7);
+  x.save(); x.globalAlpha = vp; text('هر گل را با گزارشگر فارسی زنده بشنو', W / 2, H * .74, 52, LIME, { w: 700 }); x.restore();
+  flash(Math.max(0, 1 - q * 4));
+  // white-out into the end card
+  flash(seg(t, END - .25, END));
+}
+
+function outro(t) {
+  const q = t - END;
+  stadium(t, LIME, 1);
+  particles(t, 1);
+  // logo pops with rings, then breathes
+  const lp = seg(q, 0, .6);
+  shock(W / 2, H * .3, seg(q, 0, 1.2), LIME);
+  if (img.logo) {
+    const s = back(lp) * (1 + .02 * Math.sin(t * 3));
+    const L = 420;
+    x.save(); x.translate(W / 2, H * .3); x.scale(s, s); x.rotate((1 - eOut(lp)) * -.8);
+    x.shadowColor = hexA(LIME, .7); x.shadowBlur = 100;
+    roundRect(-L / 2, -L / 2, L, L, 96); x.save(); x.clip(); x.drawImage(img.logo, -L / 2, -L / 2, L, L); x.restore();
+    x.restore();
+  }
+  // app name letters drop in
+  const np = seg(q, .35, .9);
+  if (np > 0) {
+    x.save(); x.translate(W / 2, H * .5 + (1 - eOut(np)) * -120); x.globalAlpha = clamp(np * 2);
+    splitTitle('گل‌لایو', 0, 0, 200, np, t); x.restore();
+    const sp = seg(q, .8, 1.2);
+    x.save(); x.globalAlpha = sp; text('نتایج زنده فوتبال · دستیار هوشمند · گزارش صوتی', W / 2, H * .58, 44, '#cfd8df', { w: 700 }); x.restore();
+  }
+  // download call and the Bazaar badge
+  const cp = seg(q, 1.4, 1.8);
+  x.save(); x.globalAlpha = cp; text('همین حالا دانلود کنید', W / 2, H * .68 + (1 - eOut(cp)) * 30, 76, '#fff', { glow: hexA(LIME, .6), blur: 40 }); x.restore();
+  bazaarBadge(W / 2, H * .79, seg(q, 1.7, 2.3));
+  // a light sweep across the badge
+  const sw = seg(q, 2.6, 3.2);
+  if (sw > 0 && sw < 1) {
+    x.save(); x.globalCompositeOperation = 'lighter';
+    const gx = lerp(W * .1, W * .9, sw), g = x.createLinearGradient(gx - 120, 0, gx + 120, 0);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.5, 'rgba(255,255,255,.35)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g; x.fillRect(0, H * .74, W, H * .1); x.restore();
+  }
+}
+</script>
+</body></html>
