@@ -53,34 +53,50 @@ suspend fun teamRadar(id: Int, name: String, isHome: Boolean): TeamRadar = corou
     val d = Api.fm("teams", mapOf("id" to id, "ccode3" to "IRN"), 3_600_000)
     val out = ArrayList<Insight>()
 
-    // season ranks among the league's teams (FotMob ranks 1 = best)
+    // season ranks among the league's teams (FotMob ranks 1 = best); leagues without them are ranked from the table
     val rows = d.a("table").objs().flatMap { t -> listOfNotNull(t.path("data.table")) + t.o("data").a("tables").objs().mapNotNull { it.o("table") } }
     val table = rows.firstOrNull { tb -> tb.a("all").objs().any { it.i("id") == id } }
-    val n = table?.a("all")?.length() ?: 20
+    val all = table?.a("all")?.objs().orEmpty()
+    val n = all.size.takeIf { it > 0 } ?: 20
     val ranks = d.o("stats").a("teams").objs().associate { (it.s("header") ?: "") to it.o("participant") }
-    fun rank(h: String) = ranks[h]?.i("rank")
-    fun value(h: String) = ranks[h]?.d("value")
-    rank("Goals per match")?.let { r ->
-        if (r <= 3) out += Insight("⚽", "از بهترین خط‌های حمله لیگ (رتبه ${fa(r)})؛ ${dec(value("Goals per match"), 1)} گل در هر بازی", true)
-        else if (r > n - 4) out += Insight("🥶", "خط حمله کم‌گل؛ فقط ${dec(value("Goals per match"), 1)} گل در هر بازی", false)
+    // goals for / against per game from the table: "13-25" over "played"
+    fun perGame(r: JSONObject, k: Int): Double? {
+        val pl = r.i("played") ?: 0
+        val g = r.s("scoresStr")?.split("-")?.getOrNull(k)?.trim()?.toIntOrNull() ?: return null
+        return if (pl >= 3) g.toDouble() / pl else null
     }
-    rank("Goals conceded per match")?.let { r ->
-        if (r <= 3) out += Insight("🧱", "دفاع محکم (رتبه ${fa(r)} لیگ)؛ ${dec(value("Goals conceded per match"), 1)} گل خورده در هر بازی", true)
-        else if (r > n - 4) out += Insight("🕳️", "دفاع شکننده؛ ${dec(value("Goals conceded per match"), 1)} گل خورده در هر بازی", false)
+    fun tableRank(k: Int, highBest: Boolean): Pair<Int, Double>? {
+        val mine = all.firstOrNull { it.i("id") == id }?.let { perGame(it, k) } ?: return null
+        val vals = all.mapNotNull { perGame(it, k) }
+        return (vals.count { if (highBest) it > mine else it < mine } + 1) to mine
     }
-    rank("Average possession")?.let { r ->
-        if (r <= 3) out += Insight("🎯", "بازی مالکانه؛ میانگین ${fa(value("Average possession")?.toInt())}٪ مالکیت توپ", true)
-        else if (r > n - 4) out += Insight("↩️", "کم توپ در اختیار می‌گیرد (${fa(value("Average possession")?.toInt())}٪)؛ بیشتر با ضدحمله بازی می‌کند", false)
+    fun rank(h: String, k: Int, highBest: Boolean): Pair<Int, Double>? =
+        ranks[h]?.let { r -> r.i("rank")?.let { it to (r.d("value") ?: 0.0) } } ?: tableRank(k, highBest)
+    rank("Goals per match", 0, true)?.let { (r, v) ->
+        if (r <= 3) out += Insight("⚽", "از بهترین خط‌های حمله لیگ (رتبه ${fa(r)})؛ ${dec(v, 1)} گل زده در هر بازی", true)
+        else if (r > n - 3) out += Insight("🥶", "از کم‌گل‌ترین تیم‌های لیگ (رتبه ${fa(r)} از ${fa(n)})؛ ${dec(v, 1)} گل زده در هر بازی", false)
     }
-    rank("Set piece goals")?.takeIf { it <= 3 }?.let { out += Insight("🚩", "روی ضربات ایستگاهی خطرناک است (رتبه ${fa(it)} لیگ)", true) }
-    rank("Set piece goals conceded")?.takeIf { it > n - 4 }?.let { out += Insight("🚩", "روی ضربات ایستگاهی زیاد گل می‌خورد", false) }
+    rank("Goals conceded per match", 1, false)?.let { (r, v) ->
+        if (r <= 3) out += Insight("🧱", "از بهترین دفاع‌های لیگ (رتبه ${fa(r)})؛ ${dec(v, 1)} گل خورده در هر بازی", true)
+        else if (r > n - 3) out += Insight("🕳️", "از پرگل‌خورده‌ترین تیم‌های لیگ (رتبه ${fa(r)} از ${fa(n)})؛ ${dec(v, 1)} گل خورده در هر بازی", false)
+    }
+    ranks["Average possession"]?.let { p ->
+        val r = p.i("rank") ?: return@let; val v = p.d("value")?.toInt()
+        if (r <= 3) out += Insight("🎯", "از تیم‌های پرمالکیت لیگ؛ میانگین ${fa(v)}٪ مالکیت توپ", true)
+        else if (r > n - 3) out += Insight("↩️", "از کم‌مالکیت‌ترین تیم‌های لیگ (${fa(v)}٪)", false)
+    }
+    ranks["Set piece goals"]?.let { p -> val r = p.i("rank") ?: return@let
+        if (r <= 3 && (p.i("value") ?: 0) >= 3) out += Insight("🚩", "${fa(p.i("value"))} گل از ضربات ایستگاهی در این فصل (رتبه ${fa(r)} لیگ)", true) }
+    ranks["Set piece goals conceded"]?.let { p -> val r = p.i("rank") ?: return@let
+        if (r > n - 3 && (p.i("value") ?: 0) >= 3) out += Insight("🚩", "${fa(p.i("value"))} گل از ضربات ایستگاهی خورده در این فصل", false) }
 
     // recent form
     val form = d.path("overview").a("teamForm").objs().takeLast(5).mapNotNull { it.s("resultString") }
     val w = form.count { it == "W" }; val l = form.count { it == "L" }
     if (form.size >= 4) when {
-        w >= 4 -> out += Insight("🔥", "در فرم عالی: ${fa(w)} برد در ${fa(form.size)} بازی اخیر", true)
+        w >= 4 -> out += Insight("🔥", "در فرم خوب: ${fa(w)} برد در ${fa(form.size)} بازی اخیر", true)
         l >= 3 -> out += Insight("📉", "فرم بد: ${fa(l)} باخت در ${fa(form.size)} بازی اخیر", false)
+        l == 0 -> out += Insight("🛡️", "در ${fa(form.size)} بازی اخیر شکست نخورده", true)
     }
     // home / away record in the league
     table?.a(if (isHome) "home" else "away")?.objs()?.firstOrNull { it.i("id") == id }?.let { r ->
@@ -90,39 +106,64 @@ suspend fun teamRadar(id: Int, name: String, isHome: Boolean): TeamRadar = corou
         else if (pl >= 3 && ls * 100 / pl >= 50) out += Insight(if (isHome) "🏟️" else "✈️", "$where ضعیف: ${fa(ls)} باخت در ${fa(pl)} بازی", false)
     }
 
-    // goal by goal in the last league / cup matches (friendlies left out)
+    // goal by goal in the last league / cup matches (friendlies left out). The shot map tells how each goal came;
+    // leagues without one (Iran's among them) still list every goal with its minute in the match events.
     val recent = d.path("fixtures.allFixtures").a("fixtures").objs()
         .filter { it.path("status").b("finished") && (it.o("tournament").i("leagueId") ?: 0) !in FRIENDLIES }.takeLast(6)
     val details = recent.map { f -> async { runCatching { Api.fm("matchDetails", mapOf("matchId" to f.s("id")), 6 * 3_600_000) }.getOrNull() } }.awaitAll()
     val scoredBy = IntArray(6); val concededBy = IntArray(6)
     var sHead = 0; var sSet = 0; var sFast = 0; var sAll = 0
     var cHead = 0; var cSet = 0; var cFast = 0; var cAll = 0
-    var used = 0
+    var used = 0; var rich = 0; var sRich = 0; var cRich = 0
     for (md in details.filterNotNull()) {
-        used++
-        for (g in md.path("content.shotmap").a("shots").objs().filter { it.s("eventType") == "Goal" }) {
-            val ours = (g.i("teamId") == id) != g.b("isOwnGoal")
-            val sl = slice(g.i("min") ?: 0)
-            val head = g.s("shotType") == "Header"
-            val set = g.s("situation") in SET_PIECES
-            val fast = g.s("situation") == "FastBreak"
-            if (ours) { scoredBy[sl]++; sAll++; if (head) sHead++; if (set) sSet++; if (fast) sFast++ }
-            else { concededBy[sl]++; cAll++; if (head) cHead++; if (set) cSet++; if (fast) cFast++ }
+        val homeId = md.path("general.homeTeam").i("id")
+        val shotGoals = md.path("content.shotmap").a("shots").objs().filter { it.s("eventType") == "Goal" }
+        val evGoals = md.path("content.matchFacts.events").a("events").objs().filter { it.s("type") == "Goal" }
+        val total = md.path("header").a("teams").objs().sumOf { it.i("score") ?: 0 }
+        when {
+            shotGoals.isNotEmpty() && shotGoals.size >= evGoals.size -> {
+                used++; rich++
+                for (g in shotGoals) {
+                    val ours = (g.i("teamId") == id) != g.b("isOwnGoal")
+                    val sl = slice(g.i("min") ?: 0)
+                    val head = g.s("shotType") == "Header"
+                    val set = g.s("situation") in SET_PIECES
+                    val fast = g.s("situation") == "FastBreak"
+                    if (ours) { scoredBy[sl]++; sAll++; sRich++; if (head) sHead++; if (set) sSet++; if (fast) sFast++ }
+                    else { concededBy[sl]++; cAll++; cRich++; if (head) cHead++; if (set) cSet++; if (fast) cFast++ }
+                }
+            }
+            evGoals.isNotEmpty() || total == 0 -> {
+                used++
+                for (g in evGoals) {
+                    val forHome = g.b("isHome")
+                    val ours = (forHome == (homeId == id))
+                    val sl = slice(g.i("time") ?: 0)
+                    if (ours) { scoredBy[sl]++; sAll++ } else { concededBy[sl]++; cAll++ }
+                }
+            }
+            // a match with goals but no goal list: nothing to learn from it
         }
     }
     if (used >= 3) {
         val m = "در ${fa(used)} بازی اخیر"
-        if (cAll >= 3 && pct(cHead, cAll) >= 35) out += Insight("🗣️", "${fa(pct(cHead, cAll))}٪ گل‌هایی که خورده با ضربه سر بوده ($m)", false)
-        if (cAll >= 3 && pct(cSet, cAll) >= 35) out += Insight("🚩", "${fa(pct(cSet, cAll))}٪ گل‌های خورده از ضربات ایستگاهی ($m)", false)
-        if (cAll >= 3 && pct(concededBy[5], cAll) >= 35) out += Insight("🥵", "در ۱۵ دقیقه آخر خسته می‌شود: ${fa(pct(concededBy[5], cAll))}٪ گل‌های خورده بعد از دقیقه ۷۵", false)
-        if (cAll >= 3 && pct(concededBy[0], cAll) >= 30) out += Insight("⏰", "شروع بازی را بد آغاز می‌کند: ${fa(pct(concededBy[0], cAll))}٪ گل‌های خورده در ۱۵ دقیقه اول", false)
-        if (cFast >= 2) out += Insight("⚡", "در برابر ضدحمله آسیب‌پذیر است (${fa(cFast)} گل خورده از ضدحمله)", false)
-        if (sAll >= 3 && pct(sHead, sAll) >= 30) out += Insight("🗣️", "در ضربه سر خطرناک است: ${fa(pct(sHead, sAll))}٪ گل‌هایش با سر ($m)", true)
-        if (sAll >= 3 && pct(sSet, sAll) >= 35) out += Insight("🚩", "${fa(pct(sSet, sAll))}٪ گل‌هایش از ضربات ایستگاهی ($m)", true)
-        if (sAll >= 3 && pct(scoredBy[5], sAll) >= 35) out += Insight("⏱️", "تا آخرین دقیقه خطرناک است: ${fa(pct(scoredBy[5], sAll))}٪ گل‌هایش بعد از دقیقه ۷۵", true)
-        if (sFast >= 2) out += Insight("⚡", "ضدحمله‌های سریع و کشنده (${fa(sFast)} گل از ضدحمله)", true)
+        // when the goals came: needs enough goals to mean something
+        if (cAll >= 4 && pct(concededBy[5], cAll) >= 40) out += Insight("🥵", "پایان بازی را بد تمام می‌کند: ${fa(concededBy[5])} از ${fa(cAll)} گل خورده بعد از دقیقه ۷۵ ($m)", false)
+        if (cAll >= 4 && pct(concededBy[0], cAll) >= 35) out += Insight("⏰", "شروع بازی را بد آغاز می‌کند: ${fa(concededBy[0])} از ${fa(cAll)} گل خورده در ۱۵ دقیقه اول ($m)", false)
+        if (sAll >= 4 && pct(scoredBy[5], sAll) >= 40) out += Insight("⏱️", "تا آخرین دقیقه خطرناک است: ${fa(scoredBy[5])} از ${fa(sAll)} گلش بعد از دقیقه ۷۵ ($m)", true)
+        if (sAll >= 4 && pct(scoredBy[0], sAll) >= 35) out += Insight("🚀", "سریع شروع می‌کند: ${fa(scoredBy[0])} از ${fa(sAll)} گلش در ۱۵ دقیقه اول ($m)", true)
         if (cAll == 0) out += Insight("🧤", "$m هیچ گلی نخورده", true)
         if (sAll == 0) out += Insight("🥶", "$m هیچ گلی نزده", false)
+    }
+    if (rich >= 3) {
+        val m = "در ${fa(rich)} بازی اخیر"
+        // how the goals came (only from matches with a shot map)
+        if (cRich >= 4 && pct(cHead, cRich) >= 40) out += Insight("🗣️", "در دفاع از توپ‌های هوایی ضعیف است: ${fa(cHead)} از ${fa(cRich)} گل خورده با ضربه سر ($m)", false)
+        if (cRich >= 4 && pct(cSet, cRich) >= 40) out += Insight("🚩", "روی ضربات ایستگاهی گل می‌خورد: ${fa(cSet)} از ${fa(cRich)} گل خورده ($m)", false)
+        if (cFast >= 2) out += Insight("⚡", "در برابر ضدحمله آسیب‌پذیر است: ${fa(cFast)} گل خورده از ضدحمله ($m)", false)
+        if (sRich >= 4 && pct(sHead, sRich) >= 35) out += Insight("🗣️", "در ضربه سر خطرناک است: ${fa(sHead)} از ${fa(sRich)} گلش با سر ($m)", true)
+        if (sRich >= 4 && pct(sSet, sRich) >= 40) out += Insight("🚩", "روی ضربات ایستگاهی خطرناک است: ${fa(sSet)} از ${fa(sRich)} گلش ($m)", true)
+        if (sFast >= 2) out += Insight("⚡", "ضدحمله‌های سریع: ${fa(sFast)} گل از ضدحمله ($m)", true)
     }
 
     // the man to watch
@@ -162,7 +203,7 @@ fun OpponentRadar(m: MatchData) {
                 val r = if (side == "h") s.v.first else s.v.second
                 val color = if (side == "h") m.homeColor else m.awayColor
                 Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (r.insights.isEmpty()) T("نکته برجسته‌ای پیدا نشد؛ تیمی متعادل است.", 13, color = C.mute)
+                    if (r.insights.isEmpty()) T(if (r.matches >= 3) "در آمار این تیم نکته برجسته‌ای (خیلی خوب یا خیلی بد) دیده نمی‌شود." else "اطلاعات کافی از بازی‌های اخیر این تیم در دسترس نیست.", 13, color = C.mute)
                     r.insights.forEach { ins ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background((if (ins.good) C.win else C.away).copy(alpha = 0.10f))
                             .padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -186,7 +227,7 @@ fun OpponentRadar(m: MatchData) {
                         }
                         r.keyText?.let { T(it, 12, FontWeight.Bold, color = C.ink) }
                     }
-                    T("بر اساس آمار این فصل و گل‌به‌گل بازی‌های اخیر (FotMob).", 12, color = C.faint)
+                    T("فقط از روی آمار واقعی: جدول و آمار این فصل و گل‌های بازی‌های اخیر (FotMob).", 12, color = C.faint)
                 }
             }
         }
