@@ -7,6 +7,7 @@ import widget from '../../api/widget.js';
 import hl from '../../api/hl.js';
 import img from '../../api/img.js';
 import { tts } from './tts.js';
+import { v1, DOCS, HttpError } from './v1.js';
 
 const ROUTES = { fm, today, widget, hl, img };
 
@@ -50,23 +51,16 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const m = url.pathname.match(/^\/api\/([a-z]+)$/);
+    if (url.pathname === '/v1' || url.pathname.startsWith('/v1/')) return api(request, ctx, url);
     if (!m) return Response.json({
-      name: 'GoalLive API',
-      endpoints: {
-        '/api/fm?e=matches&date=YYYYMMDD&timezone=Asia/Tehran': 'all matches of a day',
-        '/api/fm?e=matchDetails&matchId=<id>': 'one match: events, stats, lineups, shots',
-        '/api/fm?e=ltc&matchId=<id>': 'live text commentary',
-        '/api/fm?e=tltable&leagueId=<id>': 'league table',
-        '/api/fm?e=leagues&id=<id>': 'league: fixtures, stats',
-        '/api/fm?e=teams&id=<id>': 'team: squad, fixtures, form',
-        '/api/fm?e=playerData&id=<id>': 'player profile and stats',
-        '/api/fm?e=suggest&term=<text>': 'search teams, players, leagues',
-        '/api/fm?e=allLeagues': 'every league',
-        '/api/today?teams=<id,id>': "today's matches, followed teams first",
-        '/api/widget?team=<id>': "a team's next/live match for widgets",
-        '/api/hl?q=<text>': 'highlight videos (Aparat)',
-        '/api/img?p=<path>': 'team/player images',
-        '/api/tts?t=<text>&v=farid|dilara|ryan|sonia': 'speech (mp3)',
+      ...DOCS,
+      raw: {
+        'GET /api/fm?e=matches|matchDetails|ltc|tltable|leagues|teams|playerData|suggest|allLeagues&…': "FotMob's own answers, untouched",
+        'GET /api/today?teams=<id,id>': "today's matches, followed teams first",
+        'GET /api/widget?team=<id>': "a team's next/live match for widgets",
+        'GET /api/hl?q=<text>': 'highlight videos (Aparat)',
+        'GET /api/img?p=<path>': 'team/player images',
+        'GET /api/tts?t=<text>&v=farid|dilara|ryan|sonia': 'speech (mp3)',
       },
     }, { status: url.pathname === '/' ? 200 : 404, headers: { 'Access-Control-Allow-Origin': '*' } });
     const name = m[1];
@@ -83,3 +77,20 @@ export default {
     return res;
   },
 };
+
+/** /v1: JSON with CORS, cached at the edge for as long as each answer stays fresh. */
+async function api(request, ctx, url) {
+  if (request.method === 'OPTIONS') return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' } });
+  const res = await cached(request, ctx, async () => {
+    try {
+      const { body, ttl } = await v1(url);
+      return Response.json(body, { headers: { 'Cache-Control': `public, s-maxage=${ttl}` } });
+    } catch (e) {
+      const status = e instanceof HttpError ? e.status : 502;
+      return Response.json({ error: String(e?.message || e) }, { status });
+    }
+  });
+  const out = new Response(res.body, res);
+  out.headers.set('Access-Control-Allow-Origin', '*');
+  return out;
+}

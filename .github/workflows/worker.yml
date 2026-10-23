@@ -39,7 +39,9 @@ jobs:
           url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
           echo "Server: $url"
           d=$(TZ=Asia/Tehran date +%Y%m%d)
-          for p in / "/api/fm?e=matches&date=$d&timezone=Asia/Tehran" /api/fm?e=tltable\&leagueId=47 /api/fm?e=suggest\&term=persepolis /api/today /api/widget?team=8634 /api/hl?q=goal "/api/tts?t=hello&v=ryan"; do
+          for p in /v1 /v1/leagues?lang=fa "/v1/matches?date=today&lang=fa" /v1/live /v1/leagues/523/table?lang=fa /v1/teams/101610 /v1/players/30981 "/v1/search?q=persepolis" / "/api/fm?e=matches&date=$d&timezone=Asia/Tehran" /api/fm?e=tltable\&leagueId=47 /api/fm?e=suggest\&term=persepolis /api/today /api/widget?team=8634 /api/hl?q=goal "/api/tts?t=hello&v=ryan"; do
             curl -s "$url$p" -o out -w "%{http_code} %{size_download}B  $p\n"; head -c 160 out | tr -d '\0' ; echo
           done
           curl -sf "$url/api/fm?e=suggest&term=persepolis" -o /dev/null
+          curl -sf "$url/v1/matches?date=today" -o /dev/null
+          curl -sf "$url/v1/leagues/47/table" -o /dev/null
