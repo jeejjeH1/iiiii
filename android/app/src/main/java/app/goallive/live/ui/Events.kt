@@ -88,7 +88,7 @@ private fun EventLine(e: JSONObject, m: MatchData) {
     val pid = e.o("player").i("id") ?: 0
     val name = e.s("nameStr") ?: e.o("player").s("name") ?: ""
     val ico: @Composable () -> Unit = {
-        Box(Modifier.size(30.dp).clip(CircleShape).background(if (goal) color.copy(alpha = 0.22f) else C.card2).border(1.dp, if (goal) color.copy(alpha = 0.6f) else C.line, CircleShape),
+        Box(Modifier.size(if (goal) 30.dp else 26.dp).clip(CircleShape).background(if (goal) color.copy(alpha = 0.22f) else C.card2).border(1.dp, if (goal) color.copy(alpha = 0.6f) else C.line, CircleShape),
             contentAlignment = Alignment.Center) {
             when (type) {
                 "Goal" -> Icon(Ic.ball, null, Modifier.size(17.dp), tint = if (e.b("ownGoal")) C.live else C.ink)
@@ -114,13 +114,13 @@ private fun EventLine(e: JSONObject, m: MatchData) {
                     }, 11, color = C.mute, align = textAlign, maxLines = 2)
                 }
                 "Card" -> {
-                    Ltr(name, style = vz(13.sp, FontWeight.Bold), align = textAlign)
+                    Ltr(name, style = vz(12.sp, FontWeight.Bold), align = textAlign)
                     T(when (e.s("card")) { "Red" -> L("کارت قرمز"); "YellowRed" -> L("کارت زرد دوم و اخراج"); else -> L("کارت زرد") } +
                         (e.path("cardReason").s("defaultText")?.let { " · " + tr(it) } ?: ""), 11, color = C.mute, align = textAlign, maxLines = 2)
                 }
                 "Substitution" -> {
                     val sw = e.a("swap").objs()
-                    Ltr(sw.getOrNull(0).s("name") ?: "", style = vz(13.sp, FontWeight.Bold), color = C.win, align = textAlign)
+                    Ltr(sw.getOrNull(0).s("name") ?: "", style = vz(12.sp, FontWeight.Bold), color = C.win, align = textAlign)
                     Ltr(L("بیرون: ") + personName(sw.getOrNull(1).s("name") ?: "") + if (e.b("injuredPlayerOut")) L(" · مصدوم") else "",
                         style = vz(11.sp), color = C.mute, align = textAlign, raw = true)
                 }
@@ -128,7 +128,7 @@ private fun EventLine(e: JSONObject, m: MatchData) {
             }
         }
     }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp)
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = if (goal) 5.dp else 2.dp)
         .then(if (goal) Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp))
             .background(Brush.horizontalGradient(if (scorerOnLeft) listOf(color.copy(alpha = 0.24f), Color.Transparent, Color.Transparent) else listOf(Color.Transparent, Color.Transparent, color.copy(alpha = 0.24f))))
             .padding(vertical = 6.dp) else Modifier),

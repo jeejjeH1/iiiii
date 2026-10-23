@@ -1064,7 +1064,7 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, onOpen: (LP) ->
             val v = p.layout ?: continue
             val x = (v.d("x") ?: 0.5).toFloat(); val y = (v.d("y") ?: 0.5).toFloat()
             // FotMob: y 0.1 (keeper) … 0.87 (strikers); x 0 is the right back: seen from behind the team, that is the right edge
-            val top = 0.95f - (y - 0.1f) / 0.77f * 0.82f
+            val top = 0.86f - (y - 0.1f) / 0.77f * 0.76f
             val left = 0.9f - x * 0.8f
             PitchPlayer(p, color, Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * left - chipW / 2, h * top - 30.dp).width(chipW)) { onOpen(p) }
         }

@@ -4,6 +4,11 @@ package app.goallive.live.data
 fun tr(s: String?): String = if (s == null) "" else if (app.goallive.live.Lang.en) s else T[s] ?: T[s.trim()] ?: s
 
 private val T: Map<String, String> = hashMapOf(
+    // why a card was shown
+    "Foul" to "خطا", "Dissent" to "اعتراض", "Time wasting" to "وقت‌کشی", "Handball" to "هند", "Unsporting behaviour" to "رفتار غیرورزشی",
+    "Unsportsmanlike conduct" to "رفتار غیرورزشی", "Simulation" to "تمارض", "Professional foul" to "خطای عمدی", "Violent conduct" to "رفتار خشن",
+    "Serious foul play" to "خطای شدید", "Second yellow card" to "کارت زرد دوم", "Off the ball foul" to "خطا بدون توپ", "Encroachment" to "ورود زودهنگام",
+    "Entering field" to "ورود بدون اجازه", "Leaving field" to "ترک زمین", "Persistent infringement" to "خطاهای پیاپی", "Delay restart" to "تأخیر در شروع بازی",
     "Top stats" to "آمار کلیدی",
     "Shots" to "شوت‌ها",
     "Expected goals (xG)" to "گل مورد انتظار (xG)",
