@@ -169,7 +169,8 @@ private fun MatchBody(m: MatchData) {
     }
     val tabs = buildList {
         add("summary" to L("خلاصه"))
-        if (m.started) add("live" to L("زنده"))
+        // the live pitch only while the ball is rolling; afterwards just the written commentary, when there is one
+        if (m.live) add("live" to L("زنده")) else if (m.finished && m.hasTicker) add("text" to L("گزارش متنی"))
         if (statViews.isNotEmpty()) add("stats" to L("آمار"))
         if (m.hasLineup) add("lineup" to L("ترکیب"))
         if (!m.cancelled) add("coach" to L("🧠 مربی تو"))
@@ -189,6 +190,7 @@ private fun MatchBody(m: MatchData) {
                         if (m.hasTicker) Seg(listOf("pitch" to L("زمین زنده"), "text" to L("گزارش متنی")), liveView, icons = mapOf("pitch" to Ic.stadium, "text" to Ic.list)) { liveView = it }
                         if (liveView == "pitch" || !m.hasTicker) LivePitch(m) else Commentary(m)
                     }
+                    "text" -> Commentary(m)
                     "stats" -> {
                         if (statViews.size > 1) Seg(statViews, statsView) { statsView = it }
                         when (statsView) {
