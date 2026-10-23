@@ -8,3 +8,6 @@ promo/v2/frames/
 promo/v2/*.wav
 promo/v2/*.mp4
 android/release.jks
+worker/public/
+worker/node_modules/
+worker/.wrangler/
