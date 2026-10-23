@@ -173,7 +173,12 @@ class Screens {
         // the share picture of the finished match
         if (match != null) runCatching {
             val md = runBlocking { app.goallive.live.ui.MatchData(Api.fm("matchDetails", mapOf("matchId" to match.id))) }
-            val bmp = runBlocking { app.goallive.live.ui.drawCard(ctx, md) }
+            // drawn off the main thread: the crests are loaded through the main looper, which settle() keeps turning
+            var drawn: android.graphics.Bitmap? = null
+            val t = Thread { drawn = runBlocking { app.goallive.live.ui.drawCard(ctx, md) } }.apply { start() }
+            var waited = 0L
+            while (t.isAlive && waited < 30_000) { settle(500); waited += 500 }
+            val bmp = drawn ?: error("not drawn in 30 s")
             java.io.File("build/screens").mkdirs()
             java.io.FileOutputStream("build/screens/28-share-card.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }.onFailure { System.err.println("SHOT share card failed: $it") }

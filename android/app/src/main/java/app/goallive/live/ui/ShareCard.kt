@@ -59,8 +59,9 @@ suspend fun shareMatchCard(ctx: Context, m: MatchData) {
     ctx.startActivity(Intent.createChooser(send, L("اشتراک‌گذاری")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
 }
 
+// a crest that doesn't arrive in a few seconds is left out rather than holding up the picture
 private suspend fun crest(ctx: Context, id: Int): Bitmap? = runCatching {
-    ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(teamLogo(id, true)).allowHardware(false).build()).drawable?.toBitmap(300, 300)
+    kotlinx.coroutines.withTimeoutOrNull(6_000) { ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(teamLogo(id, true)).allowHardware(false).build()) }?.drawable?.toBitmap(300, 300)
 }.getOrNull()
 
 internal suspend fun drawCard(ctx: Context, m: MatchData): Bitmap {
