@@ -888,3 +888,4 @@
 887|Following live matches…
 888|⚡ Instant goal alerts are on
 889|Turn off
+890|Off: 

@@ -8,10 +8,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -29,22 +32,27 @@ import app.goallive.live.data.tr
 import org.json.JSONObject
 
 /**
- * "رویدادها": one clear list, newest first while the match is live. Each row shows the minute, what happened, who did it
- * and for which team (crest and a stripe in the team's color); goals stand out with the new score. A switch narrows it to goals,
- * cards or substitutions.
+ * "رویدادها": the match on one timeline down the middle, minutes in the centre, the home side's events on one half and the
+ * away side's on the other (newest first while the match is live). Goals stand out with the team's colour and the new score.
  */
 @Composable
 fun EventsCard(m: MatchData) {
     val all = m.events.filter { it.s("type") in setOf("Goal", "Card", "Substitution", "VAR", "Half", "AddedTime") }
     if (all.none { it.s("type") != "Half" && it.s("type") != "AddedTime" }) return
-    var only by rememberSaveable(m.matchId) { mutableStateOf("all") }
-    val kinds = listOf("all" to L("همه"), "Goal" to L("گل‌ها"), "Card" to L("کارت‌ها"), "Substitution" to L("تعویض‌ها"))
-        .filter { (k, _) -> k == "all" || all.any { it.s("type") == k } }
-    val shown = all.filter { only == "all" || it.s("type") == only }.let { if (m.live) it.reversed() else it }
+    val shown = if (m.live) all.reversed() else all
     Card {
         CardTitle(L("رویدادها"), sub = L("{0} گل · {1} کارت", fa(all.count { it.s("type") == "Goal" }), fa(all.count { it.s("type") == "Card" })))
-        if (kinds.size > 2) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 8.dp)) { Seg(kinds, only) { only = it } }
-        Column(Modifier.padding(bottom = 10.dp)) { shown.forEach { EventLine(it, m) } }
+        // crests over each half so it is clear which side is which
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { Crest(m.homeId, 22.dp) }
+            Spacer(Modifier.width(46.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { Crest(m.awayId, 22.dp) }
+        }
+        val line = C.line2
+        Box(Modifier.padding(bottom = 12.dp).drawBehind {
+            val w = 2.dp.toPx()
+            drawRect(Brush.verticalGradient(listOf(Color.Transparent, line, line, Color.Transparent)), Offset(size.width / 2 - w / 2, 0f), Size(w, size.height))
+        }) { Column { shown.forEach { EventLine(it, m) } } }
     }
 }
 
@@ -55,74 +63,89 @@ private fun EventLine(e: JSONObject, m: MatchData) {
     when (e.s("type")) {
         "Half" -> {
             val label = when (e.s("halfStrShort")) { "HT" -> L("پایان نیمه اول"); "FT" -> L("پایان بازی"); else -> tr(e.s("halfStrShort")) }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.weight(1f).height(1.dp).background(C.line2))
-                T(label, 12, FontWeight.ExtraBold, C.mute)
-                ScoreText(e.i("homeScore") ?: 0, e.i("awayScore") ?: 0, 13, C.mute)
-                Box(Modifier.weight(1f).height(1.dp).background(C.line2))
+            Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                Row(Modifier.clip(RoundedCornerShape(50)).background(C.cardSolid).border(1.dp, C.line2, RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    T(label, 11, FontWeight.ExtraBold, C.mute)
+                    ScoreText(e.i("homeScore") ?: 0, e.i("awayScore") ?: 0, 12, C.ink)
+                }
             }
             return
         }
         "AddedTime" -> {
-            Box(Modifier.fillMaxWidth().padding(vertical = 2.dp), contentAlignment = Alignment.Center) {
-                T(L("+{0} دقیقه وقت اضافه", fa(e.s("minutesAddedInput") ?: "")), 11, FontWeight.Bold, C.faint)
+            Box(Modifier.fillMaxWidth().padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.clip(RoundedCornerShape(50)).background(C.cardSolid).padding(horizontal = 10.dp, vertical = 3.dp)) {
+                    T(L("+{0} دقیقه وقت اضافه", fa(e.s("minutesAddedInput") ?: "")), 10, FontWeight.Bold, C.faint)
+                }
             }
             return
         }
     }
     val type = e.s("type")
     val home = e.b("isHome")
-    val teamId = if (home) m.homeId else m.awayId
     val color = if (home) m.homeColor else m.awayColor
     val goal = type == "Goal"
     val pid = e.o("player").i("id") ?: 0
     val name = e.s("nameStr") ?: e.o("player").s("name") ?: ""
-    val (title, sub) = when (type) {
-        "Goal" -> name to when {
-            e.b("ownGoal") -> L("گل به خودی")
-            isPen(e) -> L("پنالتی")
-            e.s("assistInput") != null -> L("پاس گل: {0}", personName(e.s("assistInput") ?: ""))
-            else -> L("گل")
-        }
-        "Card" -> name to (when (e.s("card")) { "Red" -> L("کارت قرمز"); "YellowRed" -> L("کارت زرد دوم و اخراج"); else -> L("کارت زرد") } +
-            (e.path("cardReason").s("defaultText")?.let { " · " + tr(it) } ?: ""))
-        "Substitution" -> {
-            val sw = e.a("swap").objs()
-            (sw.getOrNull(0).s("name") ?: "") to L("به جای {0}", personName(sw.getOrNull(1).s("name") ?: "")) + if (e.b("injuredPlayerOut")) L(" · مصدوم") else ""
-        }
-        else -> "VAR" to tr(e.path("VAR.decision").s("value") ?: "")
-    }
-    Row(
-        Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 3.dp).clip(RoundedCornerShape(14.dp))
-            .background(if (goal) Brush.horizontalGradient(listOf(color.copy(alpha = 0.22f), Color.Transparent)) else Brush.horizontalGradient(listOf(C.card2.copy(alpha = 0.55f), C.card2.copy(alpha = 0.25f))))
-            .clickable(enabled = pid > 0) { nav.player(pid) }.height(IntrinsicSize.Min),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // the team's stripe on the start edge
-        Box(Modifier.width(4.dp).fillMaxHeight().background(color))
-        Box(Modifier.padding(start = 10.dp).width(38.dp), contentAlignment = Alignment.Center) {
-            T(fa(minuteText(e)) + "'", 13, FontWeight.Black, if (goal) C.ink else C.mute)
-        }
-        Box(Modifier.padding(horizontal = 8.dp).size(32.dp).clip(CircleShape).background(if (goal) accent else C.cardSolid).border(1.dp, C.line, CircleShape),
+    val ico: @Composable () -> Unit = {
+        Box(Modifier.size(30.dp).clip(CircleShape).background(if (goal) color.copy(alpha = 0.22f) else C.card2).border(1.dp, if (goal) color.copy(alpha = 0.6f) else C.line, CircleShape),
             contentAlignment = Alignment.Center) {
             when (type) {
-                "Goal" -> Icon(Ic.ball, null, Modifier.size(18.dp), tint = if (e.b("ownGoal")) C.live else LocalAccentInk.current)
-                "Card" -> Box(Modifier.size(12.dp, 16.dp).clip(RoundedCornerShape(2.5.dp)).background(if (e.s("card") == "Yellow") C.gold else C.live))
-                "Substitution" -> Icon(Ic.swap, null, Modifier.size(16.dp), tint = C.win)
-                else -> T("VAR", 10, FontWeight.Black, C.mute)
+                "Goal" -> Icon(Ic.ball, null, Modifier.size(17.dp), tint = if (e.b("ownGoal")) C.live else C.ink)
+                "Card" -> Box(Modifier.size(11.dp, 15.dp).clip(RoundedCornerShape(2.5.dp)).background(if (e.s("card") == "Yellow") C.gold else C.live))
+                "Substitution" -> Icon(Ic.swap, null, Modifier.size(15.dp), tint = C.win)
+                else -> T("VAR", 9, FontWeight.Black, C.mute)
             }
         }
-        Column(Modifier.weight(1f).padding(vertical = 9.dp)) {
-            if (type == "VAR") T(title, 14, FontWeight.ExtraBold) else Ltr(title, style = vz(14.sp, FontWeight.ExtraBold), color = if (type == "Substitution") C.win else C.ink)
-            T(sub, 12, color = C.mute, maxLines = 2)
-        }
-        if (goal) e.a("newScore")?.takeIf { it.length() == 2 }?.let { sc ->
-            Box(Modifier.padding(end = 6.dp).clip(RoundedCornerShape(10.dp)).background(C.cardSolid).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                ScoreText(sc.optInt(0), sc.optInt(1), 14)
+    }
+    // the text hugs the timeline: towards the centre on both halves
+    val inward = if (home) Alignment.End else Alignment.Start
+    val textAlign = if (home) TextAlign.End else TextAlign.Start
+    val who: @Composable () -> Unit = {
+        Column(Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = pid > 0) { nav.player(pid) }.padding(horizontal = 4.dp, vertical = 2.dp), horizontalAlignment = inward) {
+            when (type) {
+                "Goal" -> {
+                    Ltr(name, style = vz(14.sp, FontWeight.ExtraBold), align = textAlign)
+                    T(when {
+                        e.b("ownGoal") -> L("گل به خودی"); isPen(e) -> L("پنالتی")
+                        e.s("assistInput") != null -> L("پاس گل: {0}", personName(e.s("assistInput") ?: "")); else -> L("گل")
+                    }, 11, color = C.mute, align = textAlign, maxLines = 2)
+                }
+                "Card" -> {
+                    Ltr(name, style = vz(13.sp, FontWeight.Bold), align = textAlign)
+                    T(when (e.s("card")) { "Red" -> L("کارت قرمز"); "YellowRed" -> L("کارت زرد دوم و اخراج"); else -> L("کارت زرد") } +
+                        (e.path("cardReason").s("defaultText")?.let { " · " + tr(it) } ?: ""), 11, color = C.mute, align = textAlign, maxLines = 2)
+                }
+                "Substitution" -> {
+                    val sw = e.a("swap").objs()
+                    Ltr(sw.getOrNull(0).s("name") ?: "", style = vz(13.sp, FontWeight.Bold), color = C.win, align = textAlign)
+                    Ltr(L("بیرون: ") + personName(sw.getOrNull(1).s("name") ?: "") + if (e.b("injuredPlayerOut")) L(" · مصدوم") else "",
+                        style = vz(11.sp), color = C.mute, align = textAlign, raw = true)
+                }
+                else -> { T("VAR", 13, FontWeight.Bold, align = textAlign); T(tr(e.path("VAR.decision").s("value") ?: ""), 11, color = C.mute, align = textAlign) }
             }
         }
-        Box(Modifier.padding(end = 10.dp)) { Crest(teamId, 22.dp) }
+    }
+    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp)
+        .then(if (goal) Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp))
+            .background(Brush.horizontalGradient(if (home) listOf(color.copy(alpha = 0.2f), Color.Transparent, Color.Transparent) else listOf(Color.Transparent, Color.Transparent, color.copy(alpha = 0.2f))))
+            .padding(vertical = 6.dp) else Modifier),
+        verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+            if (home) { Box(Modifier.weight(1f, false)) { who() }; ico() }
+        }
+        Column(Modifier.padding(horizontal = 4.dp).width(46.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Box(Modifier.height(24.dp).widthIn(min = 40.dp)
+                .then(if (goal) Modifier.glow(accent.copy(alpha = 0.35f), 6.dp, RoundedCornerShape(50)) else Modifier)
+                .clip(RoundedCornerShape(50)).background(if (goal) accent else C.cardSolid).border(1.dp, if (goal) Color.Transparent else C.line2, RoundedCornerShape(50))
+                .padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                Ltr(fa(minuteText(e)) + "'", style = vz(11.sp, FontWeight.ExtraBold), color = if (goal) LocalAccentInk.current else C.mute, raw = true)
+            }
+            if (goal) e.a("newScore")?.takeIf { it.length() == 2 }?.let { sc -> ScoreText(sc.optInt(0), sc.optInt(1), 11, C.ink) }
+        }
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start), verticalAlignment = Alignment.CenterVertically) {
+            if (!home) { ico(); Box(Modifier.weight(1f, false)) { who() } }
+        }
     }
 }
 
