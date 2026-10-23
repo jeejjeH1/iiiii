@@ -1,4 +1,5 @@
-# Drives server push: asks the site to check followed matches every 30s and send what changed.
+# Drives server push: asks the site to check followed matches every 2 minutes and send what changed
+# (it was every 30s, which used up the free Vercel allowance).
 # Scheduled runs only fire from the default branch, so each run also loops for ~5.5h and then
 # re-dispatches itself (workflow_dispatch is allowed from GITHUB_TOKEN). Cancel the running job or disable the workflow to stop it.
 name: Push notifications
@@ -24,13 +25,13 @@ jobs:
     env:
       SITE: https://iiiii-psi.vercel.app
     steps:
-      - name: Poll every 30 seconds
+      - name: Poll every 2 minutes
         run: |
           end=$(( $(date +%s) + 330 * 60 ))
           while [ "$(date +%s)" -lt "$end" ]; do
             curl -fsS -m 55 "$SITE/api/push?a=tick" || true
             echo
-            sleep 30
+            sleep 120
           done
       - name: Hand over to the next run
         env:
