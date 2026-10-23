@@ -67,7 +67,7 @@ jobs:
   # Renders every screen with live data so the app's look can be checked against the website.
   screens:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     continue-on-error: true
     defaults:
       run:
@@ -85,7 +85,7 @@ jobs:
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew recordRoborazziDebug --no-daemon 2>&1 | tee test.log | tail -40
+          ./gradlew recordRoborazziDebug --no-daemon 2>&1 | tee test.log | grep --line-buffered -E 'SHOT|FAILED|BUILD|^e: '
       - name: Show test errors
         if: failure()
         run: |

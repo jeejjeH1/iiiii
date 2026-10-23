@@ -58,6 +58,7 @@ class Screens {
     // the whole screen, so bottom sheets and dialogs (their own windows) are included
     @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
     private fun shot(name: String) {
+        Watch.mark(name)
         runCatching { com.github.takahirom.roborazzi.captureScreenRoboImage("build/screens/$name.png") }
             .onFailure { e ->
                 System.err.println("SHOT $name screen capture failed: $e")

@@ -35,6 +35,7 @@ class ScreensBig {
 
     @OptIn(com.github.takahirom.roborazzi.ExperimentalRoborazziApi::class)
     private fun shot(name: String) {
+        Watch.mark(name)
         runCatching { com.github.takahirom.roborazzi.captureScreenRoboImage("build/screens/$name.png") }
             .onFailure { System.err.println("SHOT $name capture failed: $it") }
     }
