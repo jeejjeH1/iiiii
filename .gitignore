@@ -11,3 +11,4 @@ android/release.jks
 worker/public/
 worker/node_modules/
 worker/.wrangler/
+out/
