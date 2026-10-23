@@ -1,10 +1,10 @@
-# Puts the GoalLive server (worker/) and the website on Cloudflare Workers.
+# Puts the GoalLive API (worker/) on Cloudflare Workers.
 # Needs the CLOUDFLARE_API_TOKEN secret (permission: Account → Workers Scripts → Edit); CLOUDFLARE_ACCOUNT_ID is optional.
 name: Cloudflare server
 
 on:
   push:
-    paths: ['worker/**', 'api/**', 'lib/**', 'index.html', 'assets/**', 'icons/**', 'sw.js', 'manifest.webmanifest', '.github/workflows/worker.yml']
+    paths: ['worker/**', 'api/**', 'lib/**', '.github/workflows/worker.yml']
   workflow_dispatch:
 
 concurrency:
@@ -25,10 +25,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Site files
-        run: |
-          mkdir -p public
-          cp -r ../index.html ../assets ../fonts ../icon.svg ../icons ../manifest.webmanifest ../sw.js public/
       - name: Account
         run: |
           if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
@@ -42,5 +38,8 @@ jobs:
         run: |
           url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
           echo "Server: $url"
-          curl -sf "$url/api/today" -o /dev/null -w 'today %{http_code} %{size_download}\n'
-          curl -sf "$url/" -o /dev/null -w 'site %{http_code}\n'
+          d=$(TZ=Asia/Tehran date +%Y%m%d)
+          for p in / "/api/fm?e=matches&date=$d&timezone=Asia/Tehran" /api/fm?e=tltable\&leagueId=47 /api/fm?e=suggest\&term=persepolis /api/today /api/widget?team=8634 /api/hl?q=goal "/api/tts?t=hello&v=ryan"; do
+            curl -s "$url$p" -o out -w "%{http_code} %{size_download}B  $p\n"; head -c 160 out | tr -d '\0' ; echo
+          done
+          curl -sf "$url/api/fm?e=suggest&term=persepolis" -o /dev/null

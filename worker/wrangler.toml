@@ -1,10 +1,6 @@
-# GoalLive's server on Cloudflare Workers: the /api functions (same code as api/*.js) and the website.
+# GoalLive's server on Cloudflare Workers: the /api functions only (same code as api/*.js).
 # Deployed by .github/workflows/worker.yml with the CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID secrets.
 name = "goallive"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
-
-[assets]
-directory = "./public"
-binding = "ASSETS"

@@ -1,6 +1,6 @@
 // GoalLive server on Cloudflare Workers.
 // /api/* runs the same handlers as the Vercel functions in ../api (they are written for Node's req/res, adapted below);
-// everything else is the website from ./public (copied there at deploy time).
+// / lists the endpoints. API only: the app and the website keep their own sources.
 import fm from '../../api/fm.js';
 import today from '../../api/today.js';
 import widget from '../../api/widget.js';
@@ -50,7 +50,25 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const m = url.pathname.match(/^\/api\/([a-z]+)$/);
-    if (!m) return env.ASSETS.fetch(request);
+    if (!m) return Response.json({
+      name: 'GoalLive API',
+      endpoints: {
+        '/api/fm?e=matches&date=YYYYMMDD&timezone=Asia/Tehran': 'all matches of a day',
+        '/api/fm?e=matchDetails&matchId=<id>': 'one match: events, stats, lineups, shots',
+        '/api/fm?e=ltc&matchId=<id>': 'live text commentary',
+        '/api/fm?e=tltable&leagueId=<id>': 'league table',
+        '/api/fm?e=leagues&id=<id>': 'league: fixtures, stats',
+        '/api/fm?e=teams&id=<id>': 'team: squad, fixtures, form',
+        '/api/fm?e=playerData&id=<id>': 'player profile and stats',
+        '/api/fm?e=suggest&term=<text>': 'search teams, players, leagues',
+        '/api/fm?e=allLeagues': 'every league',
+        '/api/today?teams=<id,id>': "today's matches, followed teams first",
+        '/api/widget?team=<id>': "a team's next/live match for widgets",
+        '/api/hl?q=<text>': 'highlight videos (Aparat)',
+        '/api/img?p=<path>': 'team/player images',
+        '/api/tts?t=<text>&v=farid|dilara|ryan|sonia': 'speech (mp3)',
+      },
+    }, { status: url.pathname === '/' ? 200 : 404, headers: { 'Access-Control-Allow-Origin': '*' } });
     const name = m[1];
     let res;
     try {
