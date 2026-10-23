@@ -374,7 +374,7 @@ private fun Scorers(goals: List<JSONObject>, reds: List<JSONObject>, modifier: M
 
 @Composable
 private fun WatchDialog(m: MatchData, onClose: () -> Unit) {
-    val nav = LocalNav.current
+    val ctx = LocalContext.current
     AlertDialog(
         onDismissRequest = onClose, containerColor = C.cardSolid,
         title = { T("تماشای زنده", 18, FontWeight.Black) },
@@ -383,14 +383,14 @@ private fun WatchDialog(m: MatchData, onClose: () -> Unit) {
                 T("${teamName(m.homeId, m.homeName)} - ${teamName(m.awayId, m.awayName)}", 12, FontWeight.ExtraBold, C.mute)
                 STATIONS.forEachIndexed { i, st ->
                     val name = st.name; val sub = st.sub
-                    ListRow(first = i == 0, onClick = { onClose(); nav.web(st.key) },
+                    ListRow(first = i == 0, onClick = { onClose(); openStation(ctx, st) },
                         pad = PaddingValues(vertical = 11.dp)) {
                         Icon(Ic.live, null, Modifier.size(22.dp), tint = C.live)
                         Column(Modifier.weight(1f)) { T(name, 14, FontWeight.Bold); T(sub, 12, color = C.mute) }
                         Icon(Ic.chev, null, Modifier.size(18.dp), tint = C.mute)
                     }
                 }
-                T("سایت رسمی هر سرویس داخل گل‌لایو باز می‌شود؛ با حساب خودتان وارد شوید. هر بازی فقط روی سرویسی پخش می‌شود که حق پخش آن را دارد.", 12, color = C.mute, modifier = Modifier.padding(top = 8.dp))
+                T("برنامه رسمی هر سرویس باز می‌شود (یا سایتش در مرورگر)؛ با حساب خودتان وارد شوید. هر بازی فقط روی سرویسی پخش می‌شود که حق پخش آن را دارد.", 12, color = C.mute, modifier = Modifier.padding(top = 8.dp))
             }
         },
         confirmButton = { TextButton(onClick = onClose) { T("بستن", 14, FontWeight.Bold, LocalAccent.current) } },

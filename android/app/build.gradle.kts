@@ -17,13 +17,24 @@ android {
         versionName = "2.0"
     }
 
+    // permanent store key: the build machine writes it from the KEYSTORE_B64 / KEYSTORE_PASS secrets
+    val storeKey = rootProject.file("release.jks")
+    signingConfigs {
+        if (storeKey.exists()) create("store") {
+            storeFile = storeKey
+            storePassword = System.getenv("KEYSTORE_PASS")
+            keyAlias = "goallive"
+            keyPassword = System.getenv("KEYSTORE_PASS")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // sideloaded build: signed with the debug key so it installs without a store account
-            signingConfig = signingConfigs.getByName("debug")
+            // without the store key (no secrets yet): the old sideload key, so it still installs
+            signingConfig = signingConfigs.findByName("store") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

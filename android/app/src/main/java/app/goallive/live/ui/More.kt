@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -40,7 +41,7 @@ private fun shortcuts(): List<Shortcut> {
     val answered = if (p.getString("quizDay", "") == today) (p.getString("quizAns", "") ?: "").split(',').count { it.isNotEmpty() } else 0
     val fantasy = fantasySub()
     return listOfNotNull(
-        Shortcut("tv", "پخش زنده", "نماوا، آپارات اسپورت و تلوبیون داخل اپ", Ic.tv, null, C.live, true),
+        Shortcut("tv", "پخش زنده", "نماوا، آپارات اسپورت و تلوبیون", Ic.tv, null, C.live, true),
         Shortcut("ai", "دستیار", "سؤال فوتبالی بپرس، با نوشتن یا با صدا", Ic.mic, null, C.home, !Store.tipSeen("assistant")),
         Shortcut("fantasy", "فانتزی", fantasy, null, "⚽", C.win, !fantasy.startsWith("مجموع")),
         Shortcut("quiz", "کوئیز امروز", if (answered >= 6) "انجام شد · فردا دوباره" else if (answered > 0) "ادامه بده" else "۶ سؤال تازه", null, "?", accent, answered < 6),
@@ -98,18 +99,18 @@ fun StoryRow() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StationsSheet(onClose: () -> Unit) {
-    val nav = LocalNav.current
+    val ctx = LocalContext.current
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 LiveDot(); T("پخش زنده", 18, FontWeight.Black)
             }
-            T("سایت خود سرویس داخل گل‌لایو باز می‌شود؛ با حساب خودتان وارد شوید. دکمه تمام‌صفحه پخش، گوشی را افقی می‌کند.", 13, color = C.mute,
+            T("برنامه خود سرویس باز می‌شود (اگر نصب نباشد، سایتش در مرورگر)؛ با حساب خودتان وارد شوید.", 13, color = C.mute,
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp))
             Card {
                 STATIONS.forEachIndexed { i, st ->
-                    ListRow(first = i == 0, onClick = { onClose(); nav.web(st.key) }) {
+                    ListRow(first = i == 0, onClick = { onClose(); openStation(ctx, st) }) {
                         Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (st.key == "namava") C.live else C.card2), contentAlignment = Alignment.Center) {
                             Icon(Ic.tv, null, Modifier.size(22.dp), tint = if (st.key == "namava") Color.White else C.ink)
                         }

@@ -125,9 +125,7 @@ fun Root(openMatch: MutableIntState) {
             Box(Modifier.fillMaxSize()) {
                 Stadium(accent)
                 Column(Modifier.fillMaxSize().statusBarsPadding()) {
-                    // the in-app streaming browser has its own header and uses the whole screen
-                    val immersive = route?.startsWith("web/") == true
-                    if (!immersive) TopBar(canBack = route != null && TABS.none { it.first == route }, nav)
+                    TopBar(canBack = route != null && TABS.none { it.first == route }, nav)
                     SharedTransitionLayout(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalShared provides this) {
                     NavHost(
@@ -152,7 +150,6 @@ fun Root(openMatch: MutableIntState) {
                         }
                         screen("quiz") { QuizScreen() }
                         screen("fantasy") { FantasyScreen() }
-                        screen("web/{key}") { WebScreen(it.arguments?.getString("key") ?: "namava") }
                         screen("calendar") { CalendarScreen() }
                         screen("assistant") { AssistantScreen() }
                         screen("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
@@ -166,7 +163,7 @@ fun Root(openMatch: MutableIntState) {
                     }
                 }
                 // the streaming browser and the assistant's chat use the bottom of the screen themselves
-                if (route?.startsWith("web/") != true && route != "assistant") BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
+                if (route != "assistant") BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
             }
             AskNotifications()
             // first launch: ask for the favourite team, like the site's onboarding sheet

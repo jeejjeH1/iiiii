@@ -34,7 +34,13 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: goallive-signing-key-v1
+      - name: Store key
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
+        run: if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > release.jks; fi
       - name: Build APK
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
         run: |
           chmod +x gradlew
           set -o pipefail
