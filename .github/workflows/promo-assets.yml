@@ -1,0 +1,41 @@
+# Fetches what the promo video needs from the internet (narration voice, Bazaar logo) and publishes it.
+name: promo assets
+on:
+  push:
+    paths: ['promo/voice.mjs', '.github/workflows/promo-assets.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm i --no-save msedge-tts@2.1.0
+      - run: node promo/voice.mjs
+      - name: Bazaar logo (the store's own icons)
+        run: |
+          cd promo/out
+          curl -sL -A "Mozilla/5.0" https://cafebazaar.ir/ -o home.html || true
+          grep -oiE '(href|content)="[^"]+\.(png|svg)[^"]*"' home.html | head -40 || true
+          i=0
+          for u in $(grep -oiE '(href|content)="[^"]+\.(png|svg)[^"]*"' home.html | sed -E 's/^(href|content)="//I; s/"$//' | sort -u | head -20); do
+            case "$u" in http*) ;; //*) u="https:$u" ;; *) u="https://cafebazaar.ir$u" ;; esac
+            i=$((i+1)); ext="${u##*.}"; ext="${ext%%\?*}"
+            curl -sL -A "Mozilla/5.0" "$u" -o "bazaar_$i.$ext" && echo "bazaar_$i.$ext <- $u $(stat -c %s bazaar_$i.$ext)"
+          done
+          for u in https://cafebazaar.ir/favicon.ico https://cafebazaar.ir/apple-touch-icon.png https://cafebazaar.ir/manifest.json; do
+            n=$(basename "$u"); curl -sL -A "Mozilla/5.0" "$u" -o "bz_$n" && echo "bz_$n $(stat -c %s bz_$n)"
+          done
+          grep -oE '"src":"[^"]+"' bz_manifest.json | head || true
+          rm -f home.html
+          ls -la
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: promo-assets
+          name: Promo video assets
+          prerelease: true
+          files: promo/out/*
+          overwrite_files: true
