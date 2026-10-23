@@ -1,6 +1,7 @@
 package app.goallive.live.notify
 
 import app.goallive.live.L
+import app.goallive.live.Lang
 
 import android.content.Context
 import android.media.AudioAttributes
@@ -43,7 +44,7 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
         if (Store.voice != "online") {
             tts = TextToSpeech(app) { status ->
                 val t = tts
-                val r = if (status == TextToSpeech.SUCCESS && t != null) t.setLanguage(if (app.goallive.live.Lang.en) Locale.US else Locale("fa", "IR")) else TextToSpeech.LANG_NOT_SUPPORTED
+                val r = if (status == TextToSpeech.SUCCESS && t != null) t.setLanguage(if (Lang.en) Locale.US else Locale("fa", "IR")) else TextToSpeech.LANG_NOT_SUPPORTED
                 val ok = r != TextToSpeech.LANG_MISSING_DATA && r != TextToSpeech.LANG_NOT_SUPPORTED
                 if (ok) {
                     t!!.setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
@@ -95,13 +96,13 @@ class Speaker(ctx: Context, private val scope: CoroutineScope) {
     /** The server's mp3 for a line; identical lines ("نیمه دوم آغاز شد.") are kept on disk and reused. */
     private suspend fun download(text: String): File? = withContext(Dispatchers.IO) {
         val dir = File(app.cacheDir, "tts").apply { mkdirs() }
-        val f = File(dir, "${Store.voiceName}-${if (app.goallive.live.Lang.en) "en" else "fa"}-${Integer.toHexString(text.hashCode())}.mp3")
+        val f = File(dir, "${Store.voiceName}-${if (Lang.en) "en" else "fa"}-${Integer.toHexString(text.hashCode())}.mp3")
         if (f.length() > 0) return@withContext f
         // keep the cache small
         dir.listFiles()?.takeIf { it.size > 200 }?.sortedBy { it.lastModified() }?.take(100)?.forEach { it.delete() }
         // first straight from the voice service, then through our server
         // the male / female commentator in the app's language
-        val (male, female) = if (app.goallive.live.Lang.en) "en-GB-RyanNeural" to "en-GB-SoniaNeural" else "fa-IR-FaridNeural" to "fa-IR-DilaraNeural"
+        val (male, female) = if (Lang.en) "en-GB-RyanNeural" to "en-GB-SoniaNeural" else "fa-IR-FaridNeural" to "fa-IR-DilaraNeural"
         val voice = if (Store.voiceName == "dilara") female else male
         EdgeVoice.speak(text.take(400), voice)?.let { f.writeBytes(it); return@withContext f }
         // the other commentator rather than silence
