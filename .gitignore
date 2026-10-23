@@ -4,3 +4,6 @@ mobile/node_modules/
 mobile/goallive.apk
 promo/frames/
 promo/out/
+promo/v2/frames/
+promo/v2/*.wav
+promo/v2/*.mp4
