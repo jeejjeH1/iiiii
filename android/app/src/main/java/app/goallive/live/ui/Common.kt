@@ -656,13 +656,3 @@ fun PageHero(c1: Color, pattern: String?, ink: Color = Color.White, content: @Co
         content = content,
     )
 }
-
-/** The maker's signature at the bottom of the main pages. */
-@Composable
-fun MadeBy(modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth().padding(top = 22.dp, bottom = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-        T("ساخته شده توسط ", 13, color = C.mute)
-        T("محمدرضا", 13, FontWeight.Black, LocalAccent.current)
-        T(" 💚", 13)
-    }
-}

@@ -58,6 +58,5 @@ fun FollowingScreen() {
                 }
             }
         }
-        item { MadeBy() }
     }
 }
