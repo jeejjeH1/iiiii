@@ -97,24 +97,50 @@ class FLeague(val id: Int, val players: Map<Int, FPlayer>, val teamNames: Map<In
 
 private val leagueCache = HashMap<Int, FLeague>()
 
+/** Players of a league, kept on the phone for half a day: twenty full team pages are slow to fetch and heavy to read. */
+private fun playersFile(id: Int) = java.io.File(app.goallive.live.data.Store.cacheDir ?: java.io.File("/tmp"), "fantasy-$id.json")
+
+private fun readPlayers(id: Int): Pair<Map<Int, FPlayer>, Map<Int, String>>? = runCatching {
+    val f = playersFile(id)
+    if (System.currentTimeMillis() - f.lastModified() > 12 * 3_600_000L) return null
+    val o = JSONObject(f.readText())
+    val names = o.getJSONObject("teams").let { t -> t.keys().asSequence().associate { it.toInt() to t.getString(it) } }
+    val ps = o.getJSONArray("players").objs().associate { p ->
+        p.getInt("id") to FPlayer(p.getInt("id"), p.getString("n"), p.getInt("t"), p.getInt("p"), p.getDouble("c"), p.optDouble("r").takeIf { !it.isNaN() },
+            p.optInt("g"), p.optInt("a"), p.optBoolean("i"))
+    }
+    if (ps.size < 50) null else ps to names
+}.getOrNull()
+
+private fun writePlayers(id: Int, ps: Map<Int, FPlayer>, names: Map<Int, String>) = runCatching {
+    val arr = JSONArray()
+    ps.values.forEach { p -> arr.put(JSONObject().put("id", p.id).put("n", p.name).put("t", p.teamId).put("p", p.pos).put("c", p.price).put("r", p.rating ?: Double.NaN)
+        .put("g", p.goals).put("a", p.assists).put("i", p.injured)) }
+    playersFile(id).writeText(JSONObject().put("teams", JSONObject(names.mapKeys { it.key.toString() })).put("players", arr).toString())
+}
+
 private suspend fun loadLeague(id: Int): FLeague = leagueCache[id] ?: coroutineScope {
     val d = Api.fm("leagues", mapOf("id" to id, "ccode3" to "IRN"), 3_600_000)
     val rows = d.a("table")?.optJSONObject(0)?.o("data").let { t -> t.o("table").a("all").objs().ifEmpty { t.a("tables").objs().flatMap { it.o("table").a("all").objs() } } }
-    val teamNames = rows.associate { (it.i("id") ?: 0) to (it.s("shortName") ?: it.s("name") ?: "") }
-    val squads = teamNames.keys.map { tid ->
-        async { tid to runCatching { Api.fm("teams", mapOf("id" to tid, "ccode3" to "IRN"), 6 * 3_600_000).o("squad").a("squad").objs() }.getOrDefault(emptyList()) }
-    }.awaitAll()
+    val cached = readPlayers(id)
+    val teamNames = cached?.second ?: rows.associate { (it.i("id") ?: 0) to (it.s("shortName") ?: it.s("name") ?: "") }
+    // five teams at a time, so a phone on a slow line isn't flooded
+    val squads = if (cached != null) emptyList() else teamNames.keys.chunked(5).flatMap { chunk ->
+        chunk.map { tid -> async { tid to runCatching { Api.fm("teams", mapOf("id" to tid, "ccode3" to "IRN"), 6 * 3_600_000).o("squad").a("squad").objs() }.getOrDefault(emptyList()) } }.awaitAll()
+    }
     val lines = mapOf("keepers" to 0, "defenders" to 1, "midfielders" to 2, "attackers" to 3)
     val raw = squads.flatMap { (tid, groups) ->
         groups.flatMap { g -> val pos = lines[g.s("title")] ?: return@flatMap emptyList(); g.a("members").objs().map { Triple(tid, pos, it) } }
     }
     // price from market value, scaled to this league: the most valuable player costs about 13.5M, the cheapest 4M
     val maxV = raw.maxOfOrNull { it.third.l("transferValue") ?: 0L }?.coerceAtLeast(1L) ?: 1L
-    val players = raw.associate { (tid, pos, m) ->
+    val players = cached?.first ?: raw.associate { (tid, pos, m) ->
         val v = (m.l("transferValue") ?: 0L).toDouble()
         val price = ((4.0 + 9.5 * sqrt(v / maxV) + if (pos == 3) 0.5 else 0.0) * 2).roundToInt() / 2.0
-        (m.i("id") ?: 0) to FPlayer(m.i("id") ?: 0, m.s("name") ?: "", tid, pos, price.coerceIn(4.0, 14.0), m.d("rating"), m.i("goals") ?: 0, m.i("assists") ?: 0, m.b("injured"))
-    }
+        // FotMob marks an injured player with an "injury" object
+        (m.i("id") ?: 0) to FPlayer(m.i("id") ?: 0, m.s("name") ?: "", tid, pos, price.coerceIn(4.0, 14.0), m.d("rating"), m.i("goals") ?: 0, m.i("assists") ?: 0,
+            m.opt("injury") is JSONObject)
+    }.also { if (cached == null && it.size >= 50) writePlayers(id, it, teamNames) }
     val all = d.o("fixtures").a("allMatches").objs()
     val rounds = all.groupBy { it.s("round") ?: it.s("roundName") ?: "" }.map { (r, ms) -> r to ms.map { parseMatch(it) }.sortedBy { it.time } }
     val firstIdx = d.o("fixtures").o("firstUnplayedMatch").i("firstUnplayedMatchIndex")
@@ -256,6 +282,21 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
     val livePts = pts.value
     val roundTotal = livePts?.entries?.sumOf { (id, v) -> if (id == captain) v.first * 2 else v.first } ?: 0
     if (locked && livePts != null && relevant.isNotEmpty() && relevant.all { it.finished }) st.recordPoints(roundName, roundTotal)
+    // rounds that ended while the app wasn't open get their points now
+    LaunchedEffect(lg.id, roundName) {
+        for ((r, ms) in lg.rounds.take(lg.current)) {
+            if (r in st.points()) continue
+            val (t, cap) = st.frozen(r) ?: continue
+            val ps = t.mapNotNull { lg.players[it] }
+            val clubs2 = ps.map { it.teamId }.toSet()
+            val played = ms.filter { (it.home.id in clubs2 || it.away.id in clubs2) && it.finished }
+            if (played.isEmpty()) { st.recordPoints(r, 0); continue }
+            val det = coroutineScope { played.map { m -> async { runCatching { Api.fm("matchDetails", mapOf("matchId" to m.id), 6 * 3_600_000) }.getOrNull() } }.awaitAll().filterNotNull() }
+            if (det.size < played.size) continue
+            val total = ps.sumOf { p -> det.filter { d -> d.path("header").a("teams").objs().any { it.i("id") == p.teamId } }.sumOf { score(p, it).first } * if (p.id == cap) 2 else 1 }
+            st.recordPoints(r, total); changed()
+        }
+    }
     val history = st.points()
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -303,7 +344,7 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                 }
                 val problems = buildList {
                     if (spent > BUDGET) add(L("از بودجه بیشتر خرج کرده‌ای"))
-                    perClub.filter { it.value > 3 }.keys.forEach { add(L("بیشتر از ۳ بازیکن از {0}", lg.teamNames[it])) }
+                    perClub.filter { it.value > 3 }.keys.forEach { add(L("بیشتر از ۳ بازیکن از {0}", teamName(it, lg.teamNames[it] ?: ""))) }
                     if (picks.size == 11 && (0..3).any { counts[it] !in POS_RANGE[it] }) add(L("ترکیب پست‌ها مجاز نیست"))
                     if (picks.size == 11 && captain !in team) add(L("کاپیتان انتخاب نشده؛ روی یک بازیکن بزن"))
                 }
@@ -318,7 +359,7 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                     val v = (livePts[p.id]?.first ?: 0) * if (p.id == captain) 2 else 1
                     ListRow(first = i == 0, onClick = { open = p }) {
                         Face(p.id, 34.dp)
-                        Column(Modifier.weight(1f)) { Ltr(p.name + if (p.id == captain) " (C)" else ""); T("${POS[p.pos]} · ${lg.teamNames[p.teamId] ?: ""}", 11, color = C.mute) }
+                        Column(Modifier.weight(1f)) { Ltr(p.name + if (p.id == captain) " (C)" else ""); T("${POS[p.pos]} · ${teamName(p.teamId, lg.teamNames[p.teamId] ?: "")}", 11, color = C.mute) }
                         T("$v", 17, FontWeight.Black, if (v > 0) accent else C.mute)
                     }
                 }
@@ -406,9 +447,10 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
     var q by remember { mutableStateOf("") }
     var sort by remember { mutableStateOf("price") }
     val perClub = picks.groupingBy { it.teamId }.eachCount()
-    val opponent = { tid: Int -> round.firstOrNull { it.home.id == tid || it.away.id == tid }?.let { m -> if (m.home.id == tid) lg.teamNames[m.away.id] + L(" (خانه)") else lg.teamNames[m.home.id] + L(" (بیرون)") } }
+    val opponent = { tid: Int -> round.firstOrNull { it.home.id == tid || it.away.id == tid }?.let { m -> if (m.home.id == tid) teamName(m.away.id, lg.teamNames[m.away.id] ?: "") + L(" (خانه)") else teamName(m.home.id, lg.teamNames[m.home.id] ?: "") + L(" (بیرون)") } }
     val list = lg.players.values.filter { it.pos == pos && picks.none { x -> x.id == it.id } }
-        .filter { q.isBlank() || it.name.contains(q.trim(), true) || (lg.teamNames[it.teamId] ?: "").contains(q.trim(), true) || (Clubs.get(it.teamId)?.fa ?: "").contains(q.trim()) }
+        .filter { q.isBlank() || it.name.contains(q.trim(), true) || (lg.teamNames[it.teamId] ?: "").contains(q.trim(), true) || teamName(it.teamId, lg.teamNames[it.teamId] ?: "").contains(q.trim())
+            || personName(it.name).contains(q.trim()) }
         .sortedByDescending { when (sort) { "rating" -> it.rating ?: 0.0; "goals" -> (it.goals * 3 + it.assists).toDouble(); else -> it.price } }
         .take(80)
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
@@ -431,7 +473,7 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
                             }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                 Crest(p.teamId, 14.dp)
-                                T(listOfNotNull(Clubs.get(p.teamId)?.fa ?: lg.teamNames[p.teamId], L("{0} گل", p.goals), L("{0} پاس", p.assists), opponent(p.teamId)?.let { L("حریف: {0}", it) }).joinToString(" · "), 11, color = C.mute, maxLines = 1)
+                                T(listOfNotNull(teamName(p.teamId, lg.teamNames[p.teamId] ?: ""), L("{0} گل", p.goals), L("{0} پاس", p.assists), opponent(p.teamId)?.let { L("حریف: {0}", it) }).joinToString(" · "), 11, color = C.mute, maxLines = 1)
                             }
                             if (clubFull) T(L("۳ بازیکن از این باشگاه داری"), 10, color = C.loss)
                         }
@@ -454,7 +496,7 @@ private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable:
                 Face(p.id, 56.dp)
                 Column(Modifier.weight(1f)) {
                     Ltr(p.name, style = lat(19.sp, FontWeight.ExtraBold))
-                    T(L("{0} · {1} · قیمت {2}م", POS[p.pos], Clubs.get(p.teamId)?.fa ?: lg.teamNames[p.teamId] ?: "", dec(p.price, 1)), 12, color = C.mute)
+                    T(L("{0} · {1} · قیمت {2}م", POS[p.pos], Clubs.get(p.teamId)?.fa ?: teamName(p.teamId, lg.teamNames[p.teamId] ?: ""), dec(p.price, 1)), 12, color = C.mute)
                 }
                 Rating(p.rating)
             }

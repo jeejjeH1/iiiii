@@ -114,7 +114,8 @@ fun CoachTab(m: MatchData) {
     var version by remember { mutableIntStateOf(0) } // bumps after every change so the screen redraws
     fun changed() { save(m.matchId, plan); version++ }
     @Suppress("UNUSED_VARIABLE") val redraw = version // reading it here redraws the tab after each change
-    val locked = m.started
+    // the eleven lock once the match is on and the eleven are picked; someone who opens it late may still pick until the final whistle
+    val locked = m.finished || (m.started && plan.xi.size == 11)
     val squadL = rememberLoader(plan.team) {
         Api.fm("teams", mapOf("id" to plan.team, "ccode3" to "IRN"), 3_600_000).o("squad").a("squad").objs().flatMap { g ->
             val line = LINES.indexOfFirst { it.first == g.s("title") }
@@ -137,10 +138,15 @@ fun CoachTab(m: MatchData) {
             HelpButton { help = true }
         }
         if (help) HowToSheet("🧠", L("مربی تو هستی چطور کار می‌کند؟"), COACH_STEPS, onClose = { Store.markTip("coach"); help = false })
-        T(if (!locked) L("ترکیب و سیستم {0} را خودت بچین. بعد از اعلام ترکیب رسمی و در طول بازی، تصمیم‌هایت با سرمربی واقعی مقایسه می‌شود.", teamName)
-            else L("بازی شروع شده و ترکیبت قفل شد. حالا می‌توانی تعویض‌هایت را ثبت کنی."), 13, color = C.ink.copy(alpha = 0.85f))
+        T(when {
+            !m.started -> L("ترکیب و سیستم {0} را خودت بچین. بعد از اعلام ترکیب رسمی و در طول بازی، تصمیم‌هایت با سرمربی واقعی مقایسه می‌شود.", teamName)
+            m.finished && plan.xi.size == 11 -> L("بازی تمام شد؛ نمره نهایی مربیگری‌ات را پایین ببین.")
+            m.finished -> L("این بازی تمام شده و برایش ترکیبی نچیده بودی. برای بازی بعدی قبل از سوت شروع ترکیبت را بچین.")
+            plan.xi.size == 11 -> L("بازی شروع شده و ترکیبت قفل شد. حالا می‌توانی تعویض‌هایت را ثبت کنی.")
+            else -> L("بازی شروع شده ولی هنوز ترکیبت را نچیده‌ای؛ همین الان ۱۱ نفر را انتخاب کن تا تعویض‌ها هم فعال شود.")
+        }, 13, color = C.ink.copy(alpha = 0.85f))
     }
-    if (!locked && plan.xi.isEmpty()) Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), if (plan.team == m.homeId) "h" else "a") {
+    if (!m.started && plan.xi.isEmpty()) Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), if (plan.team == m.homeId) "h" else "a") {
         plan = Plan(if (it == "h") m.homeId else m.awayId, plan.formation, mutableListOf(), mutableListOf()); changed()
     }
     if (!locked) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -152,6 +158,7 @@ fun CoachTab(m: MatchData) {
             }
         }
     }
+    if (m.finished && plan.xi.size < 11) { History(); return }
     val squad = squadL.value
     if (squad == null) { if (squadL.state is Load.Err) ErrorView({ squadL.reload() }) else Skeleton(3); return }
     val byId = squad.associateBy { it.id }

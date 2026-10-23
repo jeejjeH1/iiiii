@@ -868,3 +868,6 @@
 867|{0} goals · {1} cards
 868|Second yellow, sent off
 869|for {0}
+870|The match is over; see your final manager rating below.
+871|This match is over and you didn't pick a line-up for it. Pick yours before kick-off next time.
+872|The match has started but you haven't picked your line-up; pick 11 now to unlock substitutions.

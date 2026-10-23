@@ -38,7 +38,11 @@ object Store {
     /** Called whenever follows change, so the alert checker can start or stop. */
     var onFollowChange: (() -> Unit)? = null
 
+    /** The app's cache folder, for files the screens keep (fantasy squads). */
+    var cacheDir: java.io.File? = null; private set
+
     fun init(ctx: Context) {
+        cacheDir = ctx.cacheDir
         p = ctx.getSharedPreferences("goallive", Context.MODE_PRIVATE)
         widgetPrefs = ctx.getSharedPreferences("CapacitorStorage", Context.MODE_PRIVATE)
         teams = readMap("teams")
