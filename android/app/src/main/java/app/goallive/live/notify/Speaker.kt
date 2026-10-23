@@ -1,5 +1,7 @@
 package app.goallive.live.notify
 
+import app.goallive.live.L
+
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer

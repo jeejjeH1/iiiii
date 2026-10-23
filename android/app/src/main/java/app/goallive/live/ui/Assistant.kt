@@ -1,5 +1,7 @@
 package app.goallive.live.ui
 
+import app.goallive.live.L
+
 import android.app.Activity
 import android.content.Intent
 import android.speech.RecognizerIntent

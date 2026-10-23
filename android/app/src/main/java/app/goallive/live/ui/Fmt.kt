@@ -1,5 +1,7 @@
 package app.goallive.live.ui
 
+import app.goallive.live.L
+
 import android.icu.text.SimpleDateFormat
 import android.icu.util.ULocale
 import app.goallive.live.data.MatchItem

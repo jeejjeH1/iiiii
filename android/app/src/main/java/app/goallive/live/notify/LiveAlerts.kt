@@ -1,5 +1,7 @@
 package app.goallive.live.notify
 
+import app.goallive.live.L
+
 import android.Manifest
 import android.app.AlarmManager
 import android.app.NotificationChannel

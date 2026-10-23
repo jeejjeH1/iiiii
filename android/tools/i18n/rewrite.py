@@ -70,7 +70,7 @@ def process(path, apply):
         for a, b, t in reversed(edits): s = s[:a] + t + s[b:]
         s = re.sub(r'\bconst val\b(?=[^\n]*L\()', 'val', s)
         if not java and 'import app.goallive.live.L\n' not in s and not rel.startswith('I18n'):
-            s = re.sub(r'(\npackage [^\n]+\n)', r'\1\nimport app.goallive.live.L\n', s, count=1)
+            s = re.sub(r'(^package [^\n]+\n)', r'\1\nimport app.goallive.live.L\n', s, count=1, flags=re.M)
         if java and 'I18n.L(' in s and 'import app.goallive.live.I18n;' not in s and not s.startswith('package app.goallive.live;'):
             s = re.sub(r'(package [^\n]+;\n)', r'\1\nimport app.goallive.live.I18n;\n', s, count=1)
         open(path, 'w').write(s)

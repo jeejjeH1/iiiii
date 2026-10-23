@@ -1,5 +1,7 @@
 package app.goallive.live.ui
 
+import app.goallive.live.L
+
 import android.content.Intent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring

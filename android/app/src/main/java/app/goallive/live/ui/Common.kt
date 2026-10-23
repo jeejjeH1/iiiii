@@ -1,5 +1,7 @@
 package app.goallive.live.ui
 
+import app.goallive.live.L
+
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*

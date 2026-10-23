@@ -1,5 +1,7 @@
 package app.goallive.live.data
 
+import app.goallive.live.L
+
 /** Competition themes (assets/themes.js COMPS): accent, night background and glow. */
 class Comp(val key: String, val fa: String, val tag: String, val accent: Long, val bg: Long, val glow: Long)
 
