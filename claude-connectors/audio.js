@@ -288,7 +288,7 @@ function readWav(file) {
   }
   throw new Error(`${file}: no data chunk`);
 }
-const VO_DIR = path.join(__dirname, 'voice', 'vo');
+const VO_DIR = process.env.VO_DIR ? path.resolve(process.env.VO_DIR) : path.join(__dirname, 'voice', 'vo');
 const hasVoice = fs.existsSync(VO_DIR);
 if (hasVoice) {
   const sceneStart = (id) => {

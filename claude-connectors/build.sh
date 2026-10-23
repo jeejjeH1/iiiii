@@ -3,7 +3,7 @@
 #   claude_connectors_reel.mp4          music + SFX + Persian voiceover
 #   claude_connectors_reel_sfx_only.mp4 SFX + voiceover (add a trending track inside Instagram)
 #   claude_connectors_reel_novoice.mp4  music + SFX
-# The voiceover phrases in voice/vo are pre-rendered; regenerate them with voice/tts.py
+# The voiceover phrases in voice/vo (or $VO_DIR) are pre-rendered; regenerate them with voice/tts.py
 # (needs Piper: pip install piper-tts, plus a Persian voice such as fa_IR-amir-medium).
 set -euo pipefail
 cd "$(dirname "$0")"

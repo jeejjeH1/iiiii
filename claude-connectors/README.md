@@ -34,6 +34,12 @@ It was picked over the other Persian Piper voices because Whisper transcribed it
 Each phrase is synthesized on its own, trimmed and placed on its beat: «شماره …» lands on the number slam,
 the product name on the logo, and each how-to step on its click. Music ducks under the voice.
 
+Alternate voices (same video, same timing) are in `alt-voices/`, rendered from `voice/vo_amir` and `voice/vo_gyro`:
+- `amir` (`fa_IR-amir-medium`, dataset CC0): a different male speaker, a bit less clear than ganji.
+- `gyro` (`fa_IR-gyro-medium`): clearer than amir; its dataset license is only listed as "see github.com/gyroing", so check it before commercial use.
+
+Use one for the main build with `VO_DIR=voice/vo_amir ./build.sh`.
+
 ```bash
 pip install piper-tts   # then download fa_IR-ganji-medium.onnx + .onnx.json from rhasspy/piper-voices
 python voice/tts.py fa_IR-ganji-medium.onnx voice/vo 0.8 && ./build.sh
