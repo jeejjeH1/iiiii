@@ -201,8 +201,16 @@ fun teamName(id: Int, name: String): String = if (Store.faNames) faTeamName(id, 
 @Composable
 fun TeamText(id: Int, name: String, modifier: Modifier = Modifier, size: Int = 14, w: FontWeight = FontWeight.Bold, color: Color = C.ink,
              maxLines: Int = 1, align: TextAlign? = null, short: String? = null) {
-    val fa = if (Store.faNames) faTeamName(id, name) else null
-    if (fa != null) T(fa, size - 1, if (w >= FontWeight.Bold) FontWeight.ExtraBold else FontWeight.Bold, color, modifier, maxLines, align)
+    val fa = if (Store.faNames) faTeamName(id, name) ?: app.goallive.live.data.FaNames.of(name).takeIf { it != name } else null
+    if (fa != null && maxLines > 1) {
+        // two lines are for two words: when a single word would be split, the name gets a size smaller instead
+        var s by remember(fa, size) { mutableIntStateOf(size - 1) }
+        Text(fa, modifier, color = color, style = vz(s.sp, if (w >= FontWeight.Bold) FontWeight.ExtraBold else FontWeight.Bold), maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis, textAlign = align, onTextLayout = { r ->
+                val split = (0 until r.lineCount - 1).any { i -> val e = r.getLineEnd(i); e in 1 until fa.length && fa[e - 1].isLetter() && fa[e].isLetter() }
+                if ((split || r.hasVisualOverflow) && s > 10) s--
+            })
+    } else if (fa != null) T(fa, size - 1, if (w >= FontWeight.Bold) FontWeight.ExtraBold else FontWeight.Bold, color, modifier, maxLines, align)
     else Ltr(short ?: name, modifier, lat(size.sp, w), color, maxLines = maxLines, align = align)
 }
 
