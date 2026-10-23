@@ -149,7 +149,7 @@ fun SettingsScreen() {
                 ListRow {
                     Icon(Ic.info, null, Modifier.size(20.dp), tint = C.ink)
                     val v = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
-                    T("گل‌لایو $v · داده‌ها از FotMob گرفته می‌شود (غیررسمی). بازی‌های زنده هر ۲۰ ثانیه به‌روز می‌شوند.", 12, color = C.mute, modifier = Modifier.weight(1f))
+                    T("گل‌لایو نسخه $v · اطلاعات و آمار بازی‌ها از FotMob دریافت می‌شود.", 12, color = C.mute, modifier = Modifier.weight(1f))
                 }
             }
         }
