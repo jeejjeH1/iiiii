@@ -84,7 +84,9 @@ public class TodayWidget extends AppWidgetProvider {
     private static void render(Context ctx) throws Exception {
         int[] ids = ScoreWidget.ids(ctx, TodayWidget.class);
         if (ids.length == 0) return;
-        JSONArray list = new JSONObject(ScoreWidget.get(ScoreWidget.SITE + "/api/today?teams=" + teams(ctx))).optJSONArray("matches");
+        String body;
+        try { body = ScoreWidget.get(ScoreWidget.SITE + "/api/today?teams=" + teams(ctx)); } catch (Exception e) { body = DirectData.today(teams(ctx)); }
+        JSONArray list = new JSONObject(body).optJSONArray("matches");
         RemoteViews v = base(ctx);
         int n = list == null ? 0 : Math.min(list.length(), ROW.length);
         boolean anyLive = false;

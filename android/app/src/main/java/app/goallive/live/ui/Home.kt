@@ -380,7 +380,10 @@ fun MyTeamCard(teamId: Int, name: String, today: List<LeagueBlock>? = null) {
     val fromList = today?.flatMap { it.matches }?.firstOrNull { it.home.id == teamId || it.away.id == teamId }
     val l = rememberLoader(teamId, fromList == null, poll = { _ -> 300_000L }) {
         if (fromList != null) null else {
-            val d = Api.obj("/api/widget?team=$teamId", 60_000)
+            val d = runCatching { Api.obj("/api/widget?team=$teamId", 60_000) }.getOrElse {
+                // our server is unreachable: work it out straight from FotMob
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { JSONObject(app.goallive.live.DirectData.widget(teamId.toString())) }
+            }
             val state = d.optString("state")
             d.o("match")?.let { m ->
                 val st = JSONObject().put("started", state == "live" || state == "finished").put("finished", state == "finished")

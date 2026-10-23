@@ -100,7 +100,9 @@ public class ScoreWidget extends AppWidgetProvider {
         }
         JSONObject team = new JSONObject(raw);
         String teamId = team.optString("id");
-        JSONObject data = new JSONObject(get(SITE + "/api/widget?team=" + teamId));
+        String body;
+        try { body = get(SITE + "/api/widget?team=" + teamId); } catch (Exception e) { body = DirectData.widget(teamId); }
+        JSONObject data = new JSONObject(body);
         String state = data.optString("state", "none");
         JSONObject m = data.optJSONObject("match");
 
