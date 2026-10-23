@@ -674,15 +674,21 @@ private fun Commentary(m: MatchData) {
         val evs = r.a("events").objs()
         if (evs.isEmpty()) { EmptyView(L("گزارش لحظه‌به‌لحظه برای این بازی منتشر نشده"), Ic.list); return@LoadBox }
         val accent = LocalAccent.current
+        // FotMob writes it in English only: in Persian each line is translated (once) and shown as soon as it is ready
+        val persian = !app.goallive.live.Lang.en
+        var fa by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+        if (persian) LaunchedEffect(evs.size) {
+            val texts = evs.mapNotNull { it.s("text") }
+            fa = texts.zip(app.goallive.live.data.Translate.toPersian(texts)).toMap()
+        }
         Card {
             CardTitle(L("گزارش لحظه‌به‌لحظه")) {
                 if (m.live) Pill(L("زنده"), PillKind.Live, dot = true)
-                T(L("متن به انگلیسی · FotMob"), 11, color = C.mute)
             }
             evs.forEach { e ->
                 val (ic, label, cls) = LTC[e.s("type")] ?: Triple("", "", "")
                 val t = e.o("time")?.let { tm -> (tm.s("main") ?: "").filter(Char::isDigit) + "'" + (tm.s("added")?.takeIf { it != "0" }?.let { "+$it" } ?: "") } ?: ""
-                val side = when (e.s("teamEvent")) { "home" -> m.homeName; "away" -> m.awayName; else -> null }
+                val side = when (e.s("teamEvent")) { "home" -> teamName(m.homeId, m.homeName); "away" -> teamName(m.awayId, m.awayName); else -> null }
                 Divider()
                 Row(Modifier.fillMaxWidth().background(
                     when (cls) { "goal" -> Brush.horizontalGradient(listOf(accent.copy(alpha = 0.14f), Color.Transparent)); "sum" -> Brush.horizontalGradient(listOf(C.card2, C.card2)); else -> Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent)) })
@@ -693,11 +699,14 @@ private fun Commentary(m: MatchData) {
                     }
                     Column(Modifier.weight(1f)) {
                         if (label.isNotEmpty()) {
-                            val players = e.a("players").objs().mapNotNull { it.s("name") }
+                            val players = e.a("players").objs().mapNotNull { it.s("name")?.let(::personName) }
                             T(label + (if (players.isNotEmpty() && cls != "sum") " · " + players.joinToString(" ← ") else "") + (if (side != null && cls != "sum") " ($side)" else ""),
                                 13, FontWeight.Black, when (cls) { "goal" -> accent; "red" -> C.live; "hl" -> C.gold; else -> C.ink })
                         }
-                        Ltr(e.s("text") ?: "", style = vz(if (cls == "sum") 14.sp else 13.sp).copy(lineHeight = 22.sp), color = C.ink.copy(alpha = 0.88f), maxLines = 40, align = TextAlign.Left)
+                        val text = e.s("text") ?: ""
+                        val shown = if (persian) fa[text] ?: app.goallive.live.data.Translate.cached(text) else null
+                        if (shown != null) T(shown, if (cls == "sum") 14 else 13, color = C.ink.copy(alpha = 0.88f))
+                        else Ltr(text, style = vz(if (cls == "sum") 14.sp else 13.sp).copy(lineHeight = 22.sp), color = C.ink.copy(alpha = if (persian) 0.5f else 0.88f), maxLines = 40, align = TextAlign.Left)
                     }
                 }
             }
