@@ -426,6 +426,8 @@ private fun Summary(m: MatchData) {
         CardTitle(L("خلاصه و گل‌ها"))
         Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) { Highlights(m, compact = true) }
     }
+    // what happened comes first after the video
+    if (m.started) EventsCard(m)
     MatchStory(m)
     if (m.started) AttackZones(m)
     // before kick-off (and during the match) the radar is the most useful thing on this tab
@@ -437,14 +439,6 @@ private fun Summary(m: MatchData) {
         Spacer(Modifier.height(14.dp))
     }
     if (m.started && !m.cancelled) WinProbability(m)
-    val evs = if (m.live) m.events.reversed() else m.events
-    if (evs.isNotEmpty()) Card {
-        CardTitle(L("رویدادها"))
-        Box(Modifier.padding(bottom = 12.dp).drawBehind {
-            // the vertical timeline through the middle
-            drawRect(Brush.verticalGradient(listOf(Color.Transparent, C.line2, C.line2, Color.Transparent)), Offset(size.width / 2 - 1f, 0f), Size(2.dp.toPx(), size.height))
-        }) { Column { evs.forEach { EventRow(it) } } }
-    }
     m.facts.o("playerOfTheMatch")?.takeIf { (it.i("id") ?: 0) > 0 }?.let { p ->
         Card {
             Row(Modifier.fillMaxWidth().drawBehind {
@@ -491,7 +485,9 @@ private fun Summary(m: MatchData) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(androidx.compose.foundation.layout.IntrinsicSize.Min),
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.width(4.dp).fillMaxSize().clip(RoundedCornerShape(4.dp)).background(parseColor(i.s("color")) ?: LocalAccent.current))
-                Ltr(i.s("text") ?: "", Modifier.weight(1f), style = vz(13.sp), maxLines = 6, align = TextAlign.Left)
+                (i.i("teamId") ?: 0).takeIf { it > 0 }?.let { Crest(it, 18.dp) }
+                if (app.goallive.live.Lang.en) Ltr(insightText(i, m), Modifier.weight(1f), style = vz(13.sp), maxLines = 6)
+                else T(insightText(i, m), 13, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -527,88 +523,6 @@ fun FormChips(arr: JSONArray?) {
             Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(c), contentAlignment = Alignment.Center) {
                 T(when (r) { "W" -> L("ب"); "L" -> L("ش"); else -> L("م") }, 11, FontWeight.Black, Color.White)
             }
-        }
-    }
-}
-
-@Composable
-private fun EventRow(e: JSONObject) {
-    val nav = LocalNav.current
-    val accent = LocalAccent.current
-    when (e.s("type")) {
-        "Half" -> {
-            val label = when (e.s("halfStrShort")) { "HT" -> L("پایان نیمه اول"); "FT" -> L("پایان بازی"); else -> tr(e.s("halfStrShort")) }
-            DividerChip("$label   ${e.i("homeScore") ?: 0} - ${e.i("awayScore") ?: 0}")
-            return
-        }
-        "AddedTime" -> { DividerChip(L("+{0} دقیقه وقت اضافه", e.s("minutesAddedInput") ?: "")); return }
-    }
-    val type = e.s("type")
-    val pid = e.o("player").i("id") ?: 0
-    val name = e.s("nameStr") ?: e.o("player").s("name") ?: ""
-    if (type !in setOf("Goal", "Card", "Substitution", "VAR") && name.isEmpty()) return
-    val goal = type == "Goal"
-    val home = e.b("isHome")
-    val ico: @Composable () -> Unit = {
-        Box(Modifier.size(28.dp).clip(CircleShape).background(if (goal) accent.copy(alpha = 0.14f) else C.card2), contentAlignment = Alignment.Center) {
-            when (type) {
-                "Goal" -> Icon(Ic.ball, null, Modifier.size(16.dp), tint = if (e.b("ownGoal")) C.live else accent)
-                "Card" -> Box(Modifier.size(11.dp, 15.dp).clip(RoundedCornerShape(2.5.dp)).background(
-                    when (e.s("card")) { "Red" -> C.live; "YellowRed" -> C.live; else -> C.gold }))
-                "Substitution" -> Icon(Ic.swap, null, Modifier.size(15.dp), tint = accent)
-                else -> Icon(Ic.info, null, Modifier.size(15.dp), tint = C.mute)
-            }
-        }
-    }
-    val who: @Composable () -> Unit = {
-        Column(Modifier.clickable(enabled = pid > 0) { nav.player(pid) }, horizontalAlignment = if (home) Alignment.End else Alignment.Start) {
-            when (type) {
-                "Goal" -> {
-                    val sc = e.a("newScore")
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        if (sc != null && sc.length() == 2) ScoreText(sc.optInt(0), sc.optInt(1), 12)
-                        Ltr(name, style = lat(14.sp))
-                    }
-                    T(when { e.b("ownGoal") -> L("گل به خودی"); isPen(e) -> L("پنالتی"); e.s("assistInput") != null -> L("پاس گل: {0}", e.s("assistInput")); else -> L("گل") }, 11, color = C.mute)
-                }
-                "Card" -> {
-                    Ltr(name, style = lat(14.sp))
-                    T(when (e.s("card")) { "Red" -> L("کارت قرمز"); "YellowRed" -> L("کارت زرد دوم"); else -> L("کارت زرد") } +
-                        (e.path("cardReason").s("defaultText")?.let { " · " + tr(it) } ?: ""), 11, color = C.mute)
-                }
-                "Substitution" -> {
-                    val sw = e.a("swap").objs()
-                    Ltr(sw.getOrNull(0).s("name") ?: "", style = lat(14.sp), color = accent)
-                    Ltr((sw.getOrNull(1).s("name") ?: "") + if (e.b("injuredPlayerOut")) L(" · مصدوم") else "", style = vz(11.sp), color = C.mute)
-                }
-                "VAR" -> { T("VAR", 14, FontWeight.Bold); Ltr(e.path("VAR.decision").s("value") ?: "", style = vz(11.sp), color = C.mute) }
-                else -> { Ltr(name, style = lat(14.sp)); Ltr(type ?: "", style = vz(11.sp), color = C.mute) }
-            }
-        }
-    }
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-        // home events on the right half, away on the left; the icon sits next to the timeline
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-            if (home) { Box(Modifier.weight(1f, false)) { who() }; ico() }
-        }
-        Box(Modifier.padding(horizontal = 3.dp).width(40.dp).height(26.dp)
-            .then(if (goal) Modifier.glow(accent.copy(alpha = 0.35f), 6.dp, RoundedCornerShape(50)) else Modifier)
-            .clip(RoundedCornerShape(50)).background(if (goal) accent else C.cardSolid).border(1.dp, if (goal) Color.Transparent else C.line2, RoundedCornerShape(50)),
-            contentAlignment = Alignment.Center) {
-            Ltr(minuteText(e) + "'", style = vz(11.sp, FontWeight.ExtraBold), color = if (goal) LocalAccentInk.current else C.mute)
-        }
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start), verticalAlignment = Alignment.CenterVertically) {
-            if (!home) { ico(); Box(Modifier.weight(1f, false)) { who() } }
-        }
-    }
-}
-
-// in RTL, a Row's "End" is the left edge: home content must hug the timeline, which is the left side of its half
-@Composable
-private fun DividerChip(text: String) {
-    Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.clip(RoundedCornerShape(50)).background(C.cardSolid).border(1.dp, C.line2, RoundedCornerShape(50)).padding(horizontal = 14.dp, vertical = 4.dp)) {
-            T(text, 11, FontWeight.ExtraBold, C.mute)
         }
     }
 }

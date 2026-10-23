@@ -863,3 +863,8 @@
 862|{0}, {1} (attacking left to right).
 863|📋 {0} on the tactics board
 864|Line up, draw arrows and share
+865|Cards
+866|Subs
+867|{0} goals · {1} cards
+868|Second yellow, sent off
+869|for {0}
