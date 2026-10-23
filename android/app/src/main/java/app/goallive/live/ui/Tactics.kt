@@ -69,7 +69,7 @@ fun DrawScope.grass(vertical: Boolean = false) {
 
 /* ---------- 1. where each team attacked ---------- */
 
-/** "نقشه حمله": share of attacks down the left, the middle and the right, per team, with one plain sentence each. */
+/** "نقشه حمله": both teams side by side, each seen from behind its attackers; the busiest lane glows, with one plain line under it. */
 @Composable
 fun AttackZones(m: MatchData) {
     val az = m.content.o("attackingZones") ?: return
@@ -78,62 +78,63 @@ fun AttackZones(m: MatchData) {
     var part by rememberSaveable(m.matchId) { mutableStateOf(parts.first().first) }
     Card {
         CardTitle(L("🗺️ نقشه حمله"), sub = L("هر تیم از کدام طرف حمله کرد"))
-        if (parts.size > 1) Box(Modifier.padding(horizontal = 12.dp)) { Seg(parts, part) { part = it } }
-        for ((key, home) in listOf("home" to true, "away" to false)) {
-            val z = az.o(key)?.o(part) ?: continue
-            val l = z.i("left") ?: 0; val c = z.i("center") ?: 0; val r = z.i("right") ?: 0
-            val id = if (home) m.homeId else m.awayId
-            val name = teamName(id, if (home) m.homeName else m.awayName)
-            val opp = teamName(if (home) m.awayId else m.homeId, if (home) m.awayName else m.homeName)
-            val color = if (home) m.homeColor else m.awayColor
-            Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                ZonePitch(l, c, r, color, Modifier.width(118.dp).height(92.dp))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (parts.size > 1) Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp)) { Seg(parts, part) { part = it } }
+        Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            for ((key, home) in listOf("home" to true, "away" to false)) {
+                val z = az.o(key)?.o(part) ?: continue
+                val l = z.i("left") ?: 0; val c = z.i("center") ?: 0; val r = z.i("right") ?: 0
+                val id = if (home) m.homeId else m.awayId
+                val name = teamName(id, if (home) m.homeName else m.awayName)
+                val color = if (home) m.homeColor else m.awayColor
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Crest(id, 18.dp); T(name, 13, FontWeight.ExtraBold, maxLines = 1)
                     }
-                    T(zoneSentence(name, opp, l, c, r), 12, color = C.mute)
+                    ZonePitch(l, c, r, color, Modifier.fillMaxWidth().aspectRatio(0.82f))
+                    T(zoneLine(l, c, r), 12, color = C.mute, align = TextAlign.Center, maxLines = 2)
                 }
             }
         }
-        T(L("درصد حمله‌ها از هر طرف زمین، از نگاه تیمی که حمله می‌کند (FotMob)."), 11, color = C.faint, modifier = Modifier.padding(16.dp))
     }
 }
 
-private fun zoneSentence(team: String, opp: String, l: Int, c: Int, r: Int): String {
+/** The busiest side in a few words. */
+private fun zoneLine(l: Int, c: Int, r: Int): String {
     val top = maxOf(l, c, r)
-    if (top - minOf(l, c, r) < 8) return L("{0} حمله‌هایش را بین هر سه طرف زمین پخش کرد.", team)
-    return when (top) {
-        l -> L("{0} بیشتر از جناح چپ حمله کرد ({1}٪)؛ مدافع راست {2} بیشترین کار را داشت.", team, fa(l), opp)
-        r -> L("{0} بیشتر از جناح راست حمله کرد ({1}٪)؛ مدافع چپ {2} بیشترین کار را داشت.", team, fa(r), opp)
-        else -> L("{0} بیشتر از وسط زمین حمله کرد ({1}٪)؛ مدافعان میانی {2} زیر فشار بودند.", team, fa(c), opp)
-    }
+    if (top - minOf(l, c, r) < 8) return L("حمله از هر سه طرف")
+    return when (top) { l -> L("بیشتر از جناح چپ"); r -> L("بیشتر از جناح راست"); else -> L("بیشتر از وسط") }
 }
 
-/** The attacking half seen from behind the attackers: three lanes, the busiest one brightest, with an arrow and its share. */
+/** The attacking half seen from behind the attackers: three lanes, each with an arrow as thick as its share; the busiest one glows. */
 @Composable
 private fun ZonePitch(l: Int, c: Int, r: Int, color: Color, modifier: Modifier) {
     // left and right are the attackers' own: drawn the same in both languages
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Box(modifier.clip(RoundedCornerShape(12.dp))) {
+        Box(modifier.clip(RoundedCornerShape(14.dp))) {
+            val top = maxOf(l, c, r).coerceAtLeast(1)
             Canvas(Modifier.fillMaxSize()) {
                 grass(vertical = true)
-                val top = maxOf(l, c, r).coerceAtLeast(1)
+                // the goal they attack, at the top
+                drawRect(Color.White.copy(alpha = 0.8f), Offset(size.width * 0.38f, 0f), Size(size.width * 0.24f, 4.dp.toPx()))
                 listOf(l, c, r).forEachIndexed { k, v ->
                     val x = size.width * k / 3f
-                    drawRect(color.copy(alpha = 0.15f + 0.6f * v / top), Offset(x + 3f, 4f), Size(size.width / 3f - 6f, size.height - 8f))
-                    // arrow up the lane
+                    val share = v / top.toFloat()
+                    drawRoundRect(color.copy(alpha = 0.12f + 0.55f * share), Offset(x + 3f, 6.dp.toPx()), Size(size.width / 3f - 6f, size.height - 12.dp.toPx()),
+                        CornerRadius(8.dp.toPx()))
                     val cx = x + size.width / 6f
-                    val a = Color.White.copy(alpha = 0.5f + 0.5f * v / top)
-                    drawLine(a, Offset(cx, size.height * 0.85f), Offset(cx, size.height * 0.2f), 3.dp.toPx())
-                    drawLine(a, Offset(cx, size.height * 0.2f), Offset(cx - 7.dp.toPx(), size.height * 0.2f + 8.dp.toPx()), 3.dp.toPx())
-                    drawLine(a, Offset(cx, size.height * 0.2f), Offset(cx + 7.dp.toPx(), size.height * 0.2f + 8.dp.toPx()), 3.dp.toPx())
+                    val head = size.height * 0.2f
+                    val a = Color.White.copy(alpha = 0.35f + 0.65f * share)
+                    val sw = (2f + 5f * share).dp.toPx()
+                    drawLine(a, Offset(cx, size.height * 0.72f), Offset(cx, head + 4.dp.toPx()), sw, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                    val p = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(cx, head - 6.dp.toPx()); lineTo(cx - (6f + 5f * share).dp.toPx(), head + 8.dp.toPx()); lineTo(cx + (6f + 5f * share).dp.toPx(), head + 8.dp.toPx()); close()
+                    }
+                    drawPath(p, a)
                 }
             }
-            Row(Modifier.fillMaxWidth().align(Alignment.Center)) {
+            Row(Modifier.fillMaxWidth().align(Alignment.BottomCenter).padding(bottom = 10.dp)) {
                 for (v in listOf(l, c, r)) Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text2(fa(v) + "٪", if (v == maxOf(l, c, r)) Color.White else Color.White.copy(alpha = 0.85f))
+                    Text2(fa(v) + "٪", if (v == top) Color.White else Color.White.copy(alpha = 0.8f))
                 }
             }
         }
@@ -151,33 +152,50 @@ private fun Text2(s: String, color: Color) {
 
 private class Moment(val minute: Int, val icon: String, val text: String, val home: Boolean?)
 
-/** "داستان بازی": who had the upper hand when, and the moments that turned it, in a few plain lines. */
+/** Momentum from FotMob, wherever this match has it. */
+fun momentumOf(m: MatchData): List<JSONObject> =
+    m.content.path("momentum.main").a("data").objs().ifEmpty { m.facts.path("momentum.main").a("data").objs() }
+
+/**
+ * "مومنتوم بازی": who was on top minute by minute (bars above the line for the home side, below for the away side), the goals and
+ * red cards marked on it, one line saying who had the better of it, and the few moments that turned the match.
+ */
 @Composable
-fun MatchStory(m: MatchData) {
-    val mom = m.content.path("momentum.main").a("data").objs()
-    if (!m.started || mom.size < 15) return
+fun MomentumCard(m: MatchData) {
+    val mom = momentumOf(m)
+    if (!m.started || mom.size < 6) return
     val hn = teamName(m.homeId, m.homeName); val an = teamName(m.awayId, m.awayName)
     val moments = remember(m.d) { storyMoments(m, mom, hn, an) }
     val overall = mom.sumOf { it.d("value") ?: 0.0 } / mom.size
+    var more by rememberSaveable(m.matchId) { mutableStateOf(false) }
     Card {
-        CardTitle(if (m.finished) L("📖 داستان بازی در ۳۰ ثانیه") else L("📖 داستان بازی تا اینجا"))
+        CardTitle(L("مومنتوم بازی")) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                for ((c, n) in listOf(m.homeColor to hn, m.awayColor to an)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.size(9.dp).clip(RoundedCornerShape(3.dp)).background(c)); T(n, 11, FontWeight.Bold, C.mute, maxLines = 1)
+                }
+            }
+        }
         T(when {
             overall > 12 -> L("{0} در بیشتر زمان بازی برتر بود.", hn)
             overall < -12 -> L("{0} در بیشتر زمان بازی برتر بود.", an)
             else -> L("بازی متعادل بود و هیچ تیمی مدت زیادی برتری نداشت.")
         }, 13, FontWeight.Bold, modifier = Modifier.padding(horizontal = 16.dp))
-        StoryChart(mom, moments, m.homeColor, m.awayColor)
-        moments.forEach { mo ->
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically,
+        MomentumBars(mom, moments, m.homeColor, m.awayColor)
+        val shown = if (more) moments else moments.take(3)
+        shown.forEach { mo ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(Modifier.width(40.dp).clip(RoundedCornerShape(50)).background(C.card2).padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.width(38.dp).clip(RoundedCornerShape(50)).background(C.card2).padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
                     T(fa(mo.minute) + "'", 12, FontWeight.ExtraBold, C.mute)
                 }
-                T(mo.icon, 16)
+                T(mo.icon, 14)
                 T(mo.text, 13, modifier = Modifier.weight(1f))
             }
         }
-        Spacer(Modifier.height(12.dp))
+        if (moments.size > 3) T(if (more) L("کمتر") else L("لحظه‌های بیشتر ({0})", fa(moments.size - 3)), 12, FontWeight.Bold, LocalAccent.current,
+            Modifier.fillMaxWidth().clickable { more = !more }.padding(vertical = 8.dp), align = TextAlign.Center)
+        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -223,28 +241,35 @@ private fun storyMoments(m: MatchData, mom: List<JSONObject>, hn: String, an: St
 }
 
 @Composable
-private fun StoryChart(mom: List<JSONObject>, moments: List<Moment>, hc: Color, ac: Color) {
+private fun MomentumBars(mom: List<JSONObject>, moments: List<Moment>, hc: Color, ac: Color) {
     val maxMin = maxOf(90.0, mom.maxOf { it.d("minute") ?: 0.0 }).toFloat()
-    val gold = C.gold
-    // time runs left to right in both languages, like the momentum chart
-    Canvas(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp).height(96.dp)) {
-        val mid = size.height / 2
-        drawLine(C.line, Offset(0f, mid), Offset(size.width, mid), 2f)
-        val path = androidx.compose.ui.graphics.Path()
-        mom.forEachIndexed { i, p ->
-            val x = (p.d("minute") ?: 0.0).toFloat() / maxMin * size.width
-            val y = mid - ((p.d("value") ?: 0.0).toFloat() / 100f) * (mid - 6)
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+    val gold = C.gold; val line = C.line; val red = C.live
+    // time runs left to right in both languages
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(110.dp)) {
+            val mid = size.height / 2
+            val bw = size.width / (maxMin + 1)
+            drawLine(line, Offset(0f, mid), Offset(size.width, mid), 2f)
+            val ht = 45f / (maxMin + 1) * size.width
+            drawLine(line, Offset(ht, 4f), Offset(ht, size.height - 4f), 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
+            for (p in mom) {
+                val v = (p.d("value") ?: 0.0).toFloat()
+                val h = abs(v) / 100f * (mid - 10)
+                val x = (p.d("minute") ?: 0.0).toFloat() / (maxMin + 1) * size.width
+                drawRoundRect(if (v >= 0) hc else ac, Offset(x, if (v >= 0) mid - h else mid), Size(maxOf(bw - 1f, 1.5f), h), CornerRadius(1.5f))
+            }
+            // goals and red cards on the side of the team they belong to
+            for (mo in moments) if (mo.icon != "🔥") {
+                val x = mo.minute / (maxMin + 1) * size.width
+                val y = if (mo.home == false) size.height - 5.dp.toPx() else 5.dp.toPx()
+                drawCircle(Color.Black.copy(alpha = 0.5f), 5.5.dp.toPx(), Offset(x, y))
+                drawCircle(if (mo.icon == "⚽") gold else red, 4.dp.toPx(), Offset(x, y))
+            }
         }
-        // home above the line, away below
-        drawRect(hc.copy(alpha = 0.10f), Offset.Zero, Size(size.width, mid))
-        drawRect(ac.copy(alpha = 0.10f), Offset(0f, mid), Size(size.width, mid))
-        drawPath(path, Color.White.copy(alpha = 0.85f), style = Stroke(2.dp.toPx()))
-        for (mo in moments) {
-            val x = mo.minute / maxMin * size.width
-            val y = if (mo.home == false) size.height - 8f else 8f
-            drawLine(gold.copy(alpha = 0.5f), Offset(x, 0f), Offset(x, size.height), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 6f)))
-            drawCircle(if (mo.icon == "⚽") gold else if (mo.icon == "🟥") C.live else Color.White, 5.dp.toPx(), Offset(x, y))
+        Row(Modifier.fillMaxWidth()) {
+            Ltr("${maxMin.toInt()}'", style = vz(11.sp), color = C.mute); Spacer(Modifier.weight(1f))
+            Ltr("45'", style = vz(11.sp), color = C.mute); Spacer(Modifier.weight(1f))
+            Ltr("0'", style = vz(11.sp), color = C.mute)
         }
     }
 }

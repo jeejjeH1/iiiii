@@ -96,11 +96,15 @@ fun Highlights(m: MatchData, compact: Boolean = false) {
     LoadBox(l, if (compact) 1 else 3) { vids ->
         if (vids.isEmpty()) {
             val body: @Composable () -> Unit = {
-                T(L("ویدیوی خلاصه هنوز پیدا نشد؛ معمولاً یکی دو ساعت بعد از بازی منتشر می‌شود."), 14, color = C.mute,
+                // in the summary just one row; the full card explains when videos usually appear
+                if (!compact) T(L("ویدیوی خلاصه هنوز پیدا نشد؛ معمولاً یکی دو ساعت بعد از بازی منتشر می‌شود."), 14, color = C.mute,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp), align = androidx.compose.ui.text.style.TextAlign.Center)
-                ListRow(onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.aparat.com/search/${enc(q)}"))) } }) {
+                ListRow(first = compact, onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.aparat.com/search/${enc(q)}"))) } }) {
                     Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Color(0xFFED145B)), contentAlignment = Alignment.Center) { T(L("آ"), 15, FontWeight.Black, Color.White) }
-                    T(L("جستجو در آپارات"), 14, FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Column(Modifier.weight(1f)) {
+                        T(L("جستجو در آپارات"), 14, FontWeight.Bold)
+                        if (compact) T(L("ویدیوی خلاصه هنوز نیامده"), 12, color = C.mute)
+                    }
                     Icon(Ic.chev, null, Modifier.size(18.dp), tint = C.mute)
                 }
             }

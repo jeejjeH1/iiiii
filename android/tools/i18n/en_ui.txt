@@ -889,3 +889,12 @@
 888|⚡ Instant goal alerts are on
 889|Turn off
 890|Off: 
+891|C
+892|More moments ({0})
+893|Less
+894|More notes ({0})
+895|Spread over all three lanes
+896|Mostly down the left
+897|Mostly down the right
+898|Mostly through the middle
+899|No highlights video yet
