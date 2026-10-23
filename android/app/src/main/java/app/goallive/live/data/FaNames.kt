@@ -17,7 +17,7 @@ object FaNames {
 
     /** A short run of Latin words: no digits, no Persian, no all-capital abbreviation like VAR or PSG. */
     fun looksLikeName(t: String): Boolean {
-        if (t.length > 48 || t.isBlank()) return false
+        if (t.length > 48 || t.isBlank() || t.trim() in NOT_NAMES) return false
         var latin = false
         for (ch in t) {
             if (ch.isDigit() || ch in '؀'..'ۿ') return false
@@ -108,6 +108,7 @@ object FaNames {
         return b.toString()
     }
 
+    private val NOT_NAMES = setOf("xG", "xGOT", "xA", "xGA", "npxG", "FotMob", "YouTube", "GoalLive", "Opta", "LIVE FOOTBALL")
     private const val VOWELS = "aeiou"
     private val FOLD = mapOf('ø' to "o", 'æ' to "ae", 'ß' to "ss", 'ł' to "l", 'đ' to "dj", 'ı' to "i", 'ś' to "sh", 'ş' to "sh", 'š' to "sh",
         'ž' to "zh", 'ź' to "z", 'ż' to "zh", 'č' to "ch", 'ć' to "ch", 'ç' to "s", 'ğ' to "gh", 'ñ' to "ny", 'œ' to "oe", 'þ' to "th")
