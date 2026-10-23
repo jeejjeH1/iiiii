@@ -11,11 +11,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
@@ -119,7 +121,10 @@ fun GoalLiveTheme(accent: Color, content: @Composable () -> Unit) {
         surfaceContainer = C.cardSolid, surfaceContainerHigh = C.cardSolid, surfaceContainerLow = C.cardSolid, error = C.live,
     )
     MaterialTheme(colorScheme = scheme, typography = Type) {
+        // very large system text would burst the match rows and cards: follow it, but only up to 115%
+        val d = LocalDensity.current
         CompositionLocalProvider(
+            LocalDensity provides Density(d.density, d.fontScale.coerceAtMost(1.15f)),
             LocalLayoutDirection provides if (app.goallive.live.Lang.en) LayoutDirection.Ltr else LayoutDirection.Rtl, LocalAccent provides accent, LocalAccentInk provides a.ink,
             content = content,
         )
