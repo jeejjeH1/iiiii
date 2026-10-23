@@ -778,3 +778,43 @@
 777|official
 778|predicted
 779|Everything in English: menus, team, player and league names, and the audio commentary.
+780|Legendary oracle
+781|Oracle
+782|Football pundit
+783|Sharp fan
+784|Rookie
+785|+3 · Exact score! 🎯
+786|+1 · Right result ✓
+787|0 · Not this time
+788|🔮 Your prediction
+789|Guess the score
+790|Tap + and − to save your prediction. Exact score 3 points, right result 1 point.
+791|✓ Saved; you can change it until kick-off.
+792|Your prediction
+793|Exact so far!
+794|Right so far
+795|Not so far
+796|All my predictions
+797|Share card
+798|🔮 My predictions
+799|points · {0}
+800|{0} points to "{1}"
+801|Predictions
+802|Exact
+803|Correct
+804|In a row
+805|Exact score 3 points, right result (or draw) 1 point. Predictions are saved on this phone.
+806|You haven't predicted anything yet
+807|Open a match and guess the score under "Your prediction".
+808|Waiting for the result
+809|Finished
+810| · result {0}
+811|Pending
+812|Guess the scores and earn points
+813|{0} pts · {1}
+814|Live football scores on GoalLive
+815|Pre-match
+816|My prediction: {0}
+817|  🎯 +3
+818|  ✓ +1
+819|Live football scores on GoalLive · get it on Bazaar

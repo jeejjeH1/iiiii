@@ -70,7 +70,7 @@ class ScreensEn {
         ctx.getSharedPreferences("goallive", Context.MODE_PRIVATE).edit().putString("lang", "en").commit()
         Lang.init(ctx)
         Api.init(ctx)
-        Store.init(ctx)
+        Store.init(ctx); app.goallive.live.data.Predictions.init(ctx)
         Store.onboarded = true
         Store.prefs().edit().putBoolean("askedNotify", true).apply()
         Store.pickMyTeam(app.goallive.live.data.MyTeam(8634, "Barcelona", null))

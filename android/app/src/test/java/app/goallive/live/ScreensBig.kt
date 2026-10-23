@@ -42,7 +42,7 @@ class ScreensBig {
     @Test
     fun bigText() {
         val ctx = ApplicationProvider.getApplicationContext<Application>()
-        Api.init(ctx); Store.init(ctx)
+        Api.init(ctx); Store.init(ctx); app.goallive.live.data.Predictions.init(ctx)
         Store.onboarded = true
         Store.prefs().edit().putBoolean("askedNotify", true).apply()
         Store.pickMyTeam(app.goallive.live.data.MyTeam(8634, "Barcelona", null))

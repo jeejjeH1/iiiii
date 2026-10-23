@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.goallive.live.data.Clubs
+import app.goallive.live.data.Predictions
 import app.goallive.live.data.Store
 
 /** One shortcut: a story circle on home and a row on the "بیشتر" tab. */
@@ -45,6 +46,8 @@ private fun shortcuts(): List<Shortcut> {
     return listOfNotNull(
         Shortcut("tv", L("پخش زنده"), L("نماوا، آپارات اسپورت و تلوبیون"), Ic.tv, null, C.live, true),
         Shortcut("ai", L("دستیار"), L("سؤال فوتبالی بپرس، با نوشتن یا با صدا"), Ic.mic, null, C.home, !Store.tipSeen("assistant")),
+        Shortcut("predict", L("پیش‌بینی"), if (Predictions.all.isEmpty()) L("نتیجه بازی‌ها را حدس بزن و امتیاز بگیر") else L("{0} امتیاز · {1}", fa(Predictions.total), predictLevel(Predictions.total).first),
+            null, "🔮", C.gold, Predictions.all.isEmpty()),
         Shortcut("fantasy", L("فانتزی"), fantasy, null, "⚽", C.win, !fantasy.startsWith(L("مجموع"))),
         Shortcut("quiz", L("کوئیز امروز"), if (answered >= 6) L("انجام شد · فردا دوباره") else if (answered > 0) L("ادامه بده") else L("۶ سؤال تازه"), null, "?", accent, answered < 6),
         Shortcut("calendar", L("تقویم"), Store.myTeam?.let { L("بازی‌های ") + (Clubs.get(it.id)?.fa ?: it.name) } ?: L("بازی‌های تیم‌های دنبال‌شده"), Ic.cal, null, C.home, false),
@@ -55,6 +58,7 @@ private fun shortcuts(): List<Shortcut> {
 private fun go(key: String, nav: Nav, tv: () -> Unit) = when (key) {
     "tv" -> tv()
     "fantasy" -> nav.fantasy()
+    "predict" -> nav.predictions()
     "quiz" -> nav.quiz()
     "calendar" -> nav.calendar()
     "ai" -> { Store.markTip("assistant"); nav.assistant() }

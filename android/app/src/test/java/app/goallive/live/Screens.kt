@@ -83,7 +83,7 @@ class Screens {
     fun screens() {
         val ctx = ApplicationProvider.getApplicationContext<Application>()
         Api.init(ctx)
-        Store.init(ctx)
+        Store.init(ctx); app.goallive.live.data.Predictions.init(ctx)
         Store.onboarded = true
         Store.prefs().edit().putBoolean("askedNotify", true).apply()
         Store.pickMyTeam(app.goallive.live.data.MyTeam(8634, "Barcelona", null))
@@ -150,7 +150,21 @@ class Screens {
             "پرسپولیس و استقلال را مقایسه کن", "بازی بعدیش کی است؟", "گلزن برتر سپاهان کیست؟", "مصدوم های رئال مادرید",
             "تیم چهارم لالیگا", "طارمی امسال چند گل زده؟", "مسی و رونالدو را مقایسه کن", "بازی های فردا", "افتخارات بارسا",
         ).forEachIndexed { k, q -> askAssistant(q); settle(12000); shot("22q$k-assistant") }
-        if (upcoming != null) { NavHook.nav?.match(upcoming.id); settle(20000); shot("23-match-radar") }
+        if (upcoming != null) {
+            NavHook.nav?.match(upcoming.id); settle(20000); shot("23-match-radar")
+            // a prediction: two goals for the home side, one for the away side
+            tap("+", exact = true); settle(300); tap("+", exact = true); settle(300)
+            runCatching { rule.onAllNodesWithText("+", substring = false)[0].performSemanticsAction(SemanticsActions.OnClick) }
+            settle(1500); shot("26-predict")
+        }
+        NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
+        // the share picture of the finished match
+        if (match != null) runCatching {
+            val md = runBlocking { app.goallive.live.ui.MatchData(Api.fm("matchDetails", mapOf("matchId" to match.id))) }
+            val bmp = runBlocking { app.goallive.live.ui.drawCard(ctx, md) }
+            java.io.File("build/screens").mkdirs()
+            java.io.FileOutputStream("build/screens/28-share-card.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        }.onFailure { System.err.println("SHOT share card failed: $it") }
         // Iran's league: a match of the day and the league page
         list.firstOrNull { it.primaryId == 523 }?.matches?.firstOrNull()?.let { NavHook.nav?.match(it.id); settle(20000); shot("24-iran-match") }
         NavHook.nav?.league(523); settle(9000); shot("25-iran-league")

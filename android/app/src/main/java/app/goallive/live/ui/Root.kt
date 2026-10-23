@@ -154,6 +154,7 @@ fun Root(openMatch: MutableIntState) {
                         screen("fantasy") { FantasyScreen() }
                         screen("calendar") { CalendarScreen() }
                         screen("assistant") { AssistantScreen() }
+                        screen("predictions") { PredictionsScreen() }
                         screen("player/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PlayerScreen(it.arguments?.getInt("id") ?: 0) }
                     }
                     }

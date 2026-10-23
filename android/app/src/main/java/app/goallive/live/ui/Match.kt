@@ -89,6 +89,7 @@ import app.goallive.live.data.path
 import app.goallive.live.data.s
 import app.goallive.live.data.strs
 import app.goallive.live.data.tr
+import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
@@ -249,10 +250,10 @@ private fun Hero(m: MatchData) {
                 Spacer(Modifier.weight(1f))
                 StarButton(m.matchId in Store.matches, { Store.toggleMatch(m.matchId) }, 18.dp, Color.White, 40.dp)
                 Spacer(Modifier.width(2.dp))
+                // the match as a story-size picture with the app's name on it
+                val shareScope = rememberCoroutineScope()
                 IconBtn(Ic.share, L("اشتراک‌گذاری"), Color.White, Color.Black.copy(alpha = 0.2f), 18.dp) {
-                    val score = if (m.started) "${m.home.i("score") ?: 0}-${m.away.i("score") ?: 0}" else timeOf(m.time)
-                    val text = "${m.homeName} $score ${m.awayName}\n${m.general.s("leagueName") ?: ""}\n${Api.SITE}/#/match/${m.matchId}"
-                    ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), L("اشتراک‌گذاری")))
+                    shareScope.launch { shareMatchCard(ctx, m) }
                 }
             }
             Comps.get(m.leagueId)?.let { c ->
@@ -419,6 +420,7 @@ fun isPen(e: JSONObject) = e.s("goalDescriptionKey") == "penalty" || e.s("suffix
 @Composable
 private fun Summary(m: MatchData) {
     val nav = LocalNav.current
+    PredictCard(m)
     if (m.started || m.finished) Card {
         CardTitle(L("خلاصه و گل‌ها"))
         Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) { Highlights(m, compact = true) }
