@@ -125,8 +125,11 @@ fun SettingsScreen() {
                     else LiveAlerts.notify(ctx, 1, LiveAlerts.CH_GOALS, "⚽ گل! اعلان‌ها فعال است", "اعلان‌های گل این‌طور نمایش داده می‌شوند", 0)
                 }
                 if (!batteryFree) SetRow(Ic.live, "اعلان سریع‌تر وقتی گوشی قفل است", "بهینه‌سازی باتری را برای گل‌لایو خاموش کنید") {
-                    runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}"))) }
-                        .onFailure { runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } }
+                    runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+                }
+                val am = ctx.getSystemService(android.app.AlarmManager::class.java)
+                if (Build.VERSION.SDK_INT >= 31 && am?.canScheduleExactAlarms() == false) SetRow(Ic.bell, "اعلان گل سر وقت", "اجازه «زنگ هشدار و یادآوری» را به گل‌لایو بدهید") {
+                    runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))) }
                 }
                 SubHead("ظاهر")
                 Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
