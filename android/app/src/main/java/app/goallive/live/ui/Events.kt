@@ -98,6 +98,8 @@ private fun EventLine(e: JSONObject, m: MatchData) {
             }
         }
     }
+    // gradients are drawn left to right whatever the language; home sits on the start side (right in Persian)
+    val scorerOnLeft = home == (androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Ltr)
     // the text hugs the timeline: towards the centre on both halves
     val inward = if (home) Alignment.End else Alignment.Start
     val textAlign = if (home) TextAlign.End else TextAlign.Start
@@ -108,7 +110,7 @@ private fun EventLine(e: JSONObject, m: MatchData) {
                     Ltr(name, style = vz(14.sp, FontWeight.ExtraBold), align = textAlign)
                     T(when {
                         e.b("ownGoal") -> L("گل به خودی"); isPen(e) -> L("پنالتی")
-                        e.s("assistInput") != null -> L("پاس گل: {0}", personName(e.s("assistInput") ?: "")); else -> L("گل")
+                        e.s("assistInput") != null -> L("پاس گل: {0}", personName(e.s("assistInput") ?: "")); else -> if (app.goallive.live.Lang.en) "Goal" else "گل"
                     }, 11, color = C.mute, align = textAlign, maxLines = 2)
                 }
                 "Card" -> {
@@ -128,7 +130,7 @@ private fun EventLine(e: JSONObject, m: MatchData) {
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 5.dp)
         .then(if (goal) Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp))
-            .background(Brush.horizontalGradient(if (home) listOf(color.copy(alpha = 0.2f), Color.Transparent, Color.Transparent) else listOf(Color.Transparent, Color.Transparent, color.copy(alpha = 0.2f))))
+            .background(Brush.horizontalGradient(if (scorerOnLeft) listOf(color.copy(alpha = 0.24f), Color.Transparent, Color.Transparent) else listOf(Color.Transparent, Color.Transparent, color.copy(alpha = 0.24f))))
             .padding(vertical = 6.dp) else Modifier),
         verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {

@@ -132,6 +132,14 @@ class Screens {
             tap("رودررو", exact = true); settle(3000); shot("05-match-h2h")
             tap("جدول", exact = true); settle(6000); shot("06-match-table")
         }
+        // a big finished match with every part of the match page: summary, momentum, attack map, stats and both line-ups
+        NavHook.nav?.match(5795484); settle(12000); shot("40-big-summary")
+        repeat(4) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("40-big-down$k") }
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(6) { swipeDown(durationMillis = 200) } } }; settle(800)
+        tap("آمار", exact = true); settle(2500); shot("41-big-stats")
+        tap("ترکیب", exact = true); settle(3000); shot("42-big-lineup")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("42-big-lineup-down")
+        tap("ناتینگهام فارست", exact = true); settle(2000); shot("43-big-lineup-away")
         NavHook.nav?.team(8634); settle(9000); shot("07-team")
         tap("تاریخچه"); settle(2000); shot("08-team-story")
         NavHook.nav?.league(47); settle(9000); shot("09-league")
