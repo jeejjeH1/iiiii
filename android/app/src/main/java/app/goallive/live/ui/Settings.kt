@@ -84,6 +84,7 @@ fun SettingsScreen() {
     val ctx = LocalContext.current
     var picker by remember { mutableStateOf(false) }
     var widgetHelp by remember { mutableStateOf(false) }
+    var sources by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
     // re-read permission/battery state whenever the user comes back from system settings
     var refresh by remember { mutableIntStateOf(0) }
@@ -146,6 +147,10 @@ fun SettingsScreen() {
                 SetRow(Ic.cal, "ویجت‌های صفحه اصلی", "نتیجه زنده تیم من (بزرگ و کوچک) و بازی‌های امروز", first = true, chev = true) { widgetHelp = true }
                 SubHead("داده‌ها")
                 SetRow(Ic.x, "پاک کردن علاقه‌مندی‌ها", null, first = true) { confirmClear = true }
+                SetRow(Ic.list, "منابع", "منبع اطلاعات، تصاویر، ویدیوها و صدا", chev = true) { sources = true }
+                SetRow(Ic.people, "حریم خصوصی", "گل‌لایو اطلاعات شخصی شما را دریافت نمی‌کند", chev = true) {
+                    runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) }
+                }
                 ListRow {
                     Icon(Ic.info, null, Modifier.size(20.dp), tint = C.ink)
                     val v = runCatching { ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName }.getOrNull() ?: ""
@@ -155,6 +160,12 @@ fun SettingsScreen() {
         }
     }
     if (picker) TeamPicker { picker = false }
+    if (sources) AlertDialog(
+        onDismissRequest = { sources = false }, containerColor = C.cardSolid,
+        title = { T("منابع", 16, FontWeight.ExtraBold) },
+        text = { T(SOURCES, 13) },
+        confirmButton = { TextButton(onClick = { sources = false }) { T("باشه", 14, FontWeight.Bold, LocalAccent.current) } },
+    )
     if (widgetHelp) AlertDialog(
         onDismissRequest = { widgetHelp = false }, containerColor = C.cardSolid,
         title = { T("ویجت صفحه اصلی", 16, FontWeight.ExtraBold) },
@@ -268,3 +279,12 @@ fun TeamPicker(onClose: () -> Unit) {
         }
     }
 }
+
+const val PRIVACY_URL = "https://github.com/jeejjeH1/iiiii/blob/ccr-addbae8c-95x58c/store/PRIVACY.md"
+
+/** Where everything shown in the app comes from (the store asks for this inside the app). */
+private const val SOURCES = "• نتایج، آمار، ترکیب تیم‌ها، جدول لیگ‌ها و نشان باشگاه‌ها و عکس بازیکنان: FotMob\nhttps://www.fotmob.com\n\n" +
+    "• ویدیوی خلاصه بازی‌ها: آپارات\nhttps://www.aparat.com\n\n" +
+    "• صدای گوینده گزارش صوتی: سرویس تبدیل متن به صدای مایکروسافت (Microsoft Edge)\nhttps://www.microsoft.com\n\n" +
+    "• پخش زنده: برنامه یا سایت رسمی هر سرویس؛ گل‌لایو ویدیویی پخش نمی‌کند\nhttps://www.namava.ir · https://sport.aparat.com · https://telewebion.com\n\n" +
+    "• نام فارسی تیم‌ها، دستیار، رادار حریف، کوئیز و صداهای اعلان: ساخته خود گل‌لایو"
