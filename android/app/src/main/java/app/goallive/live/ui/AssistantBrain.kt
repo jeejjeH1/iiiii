@@ -270,7 +270,7 @@ class Brain {
         val clubs = Clubs.ids.mapNotNull { id -> Clubs.get(id)?.let { id to it.fa } }
         // in English the names to look for are FotMob's own ones
         val named = (clubs.map { Triple(it.first, it.second, null as String?) } +
-            (if (app.goallive.live.Lang.en) TEAMS_FA.keys.map { Triple(0, it, it) } + EN_NICKS.map { Triple(0, it.key, it.value) }
+            (if (app.goallive.live.Lang.en) TEAMS_FA.keys.flatMap { k -> listOf(k, k.replace(Regex(" (FC|SC|F\\.C\\.|CF)$"), "")).distinct().map { Triple(0, it, k) } } + EN_NICKS.map { Triple(0, it.key, it.value) }
             else TEAMS_FA.entries.map { Triple(0, it.value, it.key) } + NICKS.entries.map { Triple(0, it.key, it.value) })).sortedByDescending { it.second.length }
         for ((id, fa, en) in named) {
             val n = norm(fa)

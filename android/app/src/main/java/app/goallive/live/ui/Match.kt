@@ -353,8 +353,8 @@ private fun HeroTeam(id: Int, name: String, faName: String?, modifier: Modifier,
         Crest(id, 68.dp, large = true, shareKey = shareKey)
         TeamText(id, name, size = 16, w = FontWeight.ExtraBold, color = Color.White, maxLines = 2, align = TextAlign.Center)
         // the other spelling underneath
-        val other = if (Store.faNames) name.takeIf { faTeamName(id, name) != null } else faName
-        if (other != null) Ltr(other, style = vz(12.sp, FontWeight.Bold), color = Color.White.copy(alpha = 0.8f), align = TextAlign.Center)
+        val other = if (app.goallive.live.Lang.en) null else name.takeIf { faTeamName(id, name) != null }
+        if (other != null) Ltr(other, style = vz(12.sp, FontWeight.Bold), color = Color.White.copy(alpha = 0.8f), align = TextAlign.Center, raw = true)
     }
 }
 

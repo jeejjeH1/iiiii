@@ -101,7 +101,7 @@ private fun TeamBody(id: Int, d: JSONObject) {
                     Column(Modifier.weight(1f)) {
                         if (club != null) T(club.fa, 22, FontWeight.Black, ink) else Ltr(name, style = lat(26.sp, FontWeight.ExtraBold), color = ink, maxLines = 2)
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            if (club != null) { Ltr(name, style = lat(15.sp), color = ink.copy(alpha = 0.85f)); T("· ${club.nick}", 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f), maxLines = 1) }
+                            if (club != null) { if (!app.goallive.live.Lang.en) Ltr(name, style = lat(15.sp), color = ink.copy(alpha = 0.85f), raw = true); T("· ${club.nick}", 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f), maxLines = 1) }
                             else det.s("country")?.let { T(it, 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f)) }
                         }
                         league?.s("leagueName")?.let { ln ->

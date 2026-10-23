@@ -28,12 +28,12 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * The same app in English. Its own device qualifiers give it a fresh sandbox, so the language is read from scratch
+ * The same app in English. Another Android version gives it a fresh sandbox (new statics), so the language is read from scratch
  * (the app reads it once at start-up).
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], application = TestApp::class, qualifiers = "en-w400dp-h860dp-xhdpi")
+@Config(sdk = [33], application = TestApp::class, qualifiers = "en-w400dp-h860dp-xhdpi")
 class ScreensEn {
     @get:Rule val rule = createComposeRule()
 

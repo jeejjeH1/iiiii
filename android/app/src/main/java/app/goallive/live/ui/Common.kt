@@ -179,9 +179,10 @@ fun Face(id: Int, size: Dp = 38.dp, ring: Color? = null, ringWidth: Dp = 2.dp) {
 @Composable
 fun Ltr(
     text: String, modifier: Modifier = Modifier, style: TextStyle = lat(15.sp), color: Color = C.ink,
-    weight: FontWeight? = null, maxLines: Int = 1, align: TextAlign? = null,
+    weight: FontWeight? = null, maxLines: Int = 1, align: TextAlign? = null, raw: Boolean = false,
 ) {
-    val shown = if (app.goallive.live.Lang.en) text else app.goallive.live.data.FaNames.of(text)
+    // all-Persian mode: Latin names in Persian letters ([raw] keeps an English spelling shown on purpose)
+    val shown = if (app.goallive.live.Lang.en || raw) text else app.goallive.live.data.FaNames.of(text)
     Text(shown, modifier, color = color, style = style.copy(textDirection = TextDirection.ContentOrLtr), fontWeight = weight,
         maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
 }
@@ -581,12 +582,12 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
             // home (right)
             Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Crest(m.home.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-h" else null)
-                TeamText(m.home.id, m.home.name, Modifier.weight(1f, false), 14, if (homeLose) FontWeight.SemiBold else FontWeight.Bold, if (homeLose) C.mute else C.ink)
+                TeamText(m.home.id, m.home.name, Modifier.weight(1f, false), 14, if (homeLose) FontWeight.SemiBold else FontWeight.Bold, if (homeLose) C.mute else C.ink, maxLines = 2)
             }
             Box(Modifier.clearAndSetSemantics {}) { ScoreBox(m) }
             // away (left): crest on the outer edge
             Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
-                TeamText(m.away.id, m.away.name, Modifier.weight(1f, false), 14, if (awayLose) FontWeight.SemiBold else FontWeight.Bold, if (awayLose) C.mute else C.ink)
+                TeamText(m.away.id, m.away.name, Modifier.weight(1f, false), 14, if (awayLose) FontWeight.SemiBold else FontWeight.Bold, if (awayLose) C.mute else C.ink, maxLines = 2)
                 Crest(m.away.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-a" else null)
             }
             if (star) StarButton(Store.follows(m), { Store.toggleMatch(m.id) }, 16.dp, box = 26.dp) else Spacer(Modifier.width(26.dp))
