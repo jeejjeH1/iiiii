@@ -882,3 +882,9 @@
 881|colour = how hard
 882|Away
 883|Red: top-of-table opponent · yellow: mid-table · green: bottom
+884|⚡ Instant goal alerts
+885|While your teams are playing, scores are checked every 10 seconds — usually ahead of the TV picture. A quiet notification shows the score.
+886|Instant goal alerts
+887|Following live matches…
+888|⚡ Instant goal alerts are on
+889|Turn off

@@ -112,8 +112,8 @@ fun HomeScreen() {
     val loader = rememberLoader(
         day,
         peek = { (Api.peek(url) as? JSONObject)?.let(::parseMatchList) },
-        poll = { list -> if (day == 0) (if (list.any { b -> b.matches.any { it.live } }) 20_000L else 60_000L) else if (day > 0) 300_000L else null },
-    ) { parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(dayStart)), 15_000)) }
+        poll = { list -> if (day == 0) (if (list.any { b -> b.matches.any { it.live } }) 10_000L else 60_000L) else if (day > 0) 300_000L else null },
+    ) { parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(dayStart)), 8_000)) }
 
     // flash rows whose score just went up (".m.goal")
     val lastScores = remember { HashMap<Int, Int>() }

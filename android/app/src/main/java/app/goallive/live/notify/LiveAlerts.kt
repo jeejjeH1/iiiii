@@ -133,20 +133,30 @@ object LiveAlerts {
     }
 
     suspend fun run(ctx: Context) {
-        val next = lock.withLock {
-            Store.prefs().edit().putLong("alertsLast", System.currentTimeMillis()).apply()
-            runCatching { tick(ctx) }.getOrElse { 3 * 60_000L }
-        }
+        val next = check(ctx, fast = false)
         if (next != null) schedule(ctx, next)
+        // live (or about to kick off) and the user wants instant alerts: hand over to the ten-second watcher
+        if (Store.fastAlerts && liveSoon) LiveWatchService.start(ctx)
     }
 
+    /** One locked check; [fast] reads the scores fresher (the ten-second watcher). */
+    suspend fun check(ctx: Context, fast: Boolean): Long? = lock.withLock {
+        Store.prefs().edit().putLong("alertsLast", System.currentTimeMillis()).apply()
+        runCatching { tick(ctx, if (fast) 4_000 else 10_000) }.getOrElse { 3 * 60_000L }
+    }
+
+    /** Followed matches being played right now, for the watcher's notification. */
+    @Volatile var liveNow: List<MatchItem> = emptyList(); private set
+    /** A followed match is live or kicks off within ten minutes. */
+    @Volatile var liveSoon = false; private set
+
     /** One check. Returns the delay until the next one, or null when nothing is followed. */
-    private suspend fun tick(ctx: Context): Long? {
-        if (Store.teams.isEmpty() && Store.matches.isEmpty() && Store.myTeam == null) return null
+    private suspend fun tick(ctx: Context, maxAge: Long): Long? {
+        if (Store.teams.isEmpty() && Store.matches.isEmpty() && Store.myTeam == null) { liveNow = emptyList(); liveSoon = false; return null }
         val now = System.currentTimeMillis()
         // yesterday + today covers late-night matches that run past midnight
         val lists = listOf(now - 86_400_000L, now).map { t ->
-            runCatching { parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(t)), 10_000)) }.getOrDefault(emptyList())
+            runCatching { parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(t)), if (t == now) maxAge else 10 * 60_000L)) }.getOrDefault(emptyList())
         }
         val followed = lists.flatten().flatMap { it.matches }.filter { Store.follows(it) }.distinctBy { it.id }
             .filter { it.live || it.finished || (it.time - now in -3_600_000L..36 * 3_600_000L) }
@@ -187,6 +197,8 @@ object LiveAlerts {
         // forget matches older than two days
         state.keys().asSequence().toList().forEach { k -> if (now - (state.optJSONObject(k)?.optLong("t") ?: 0) > 2 * 86_400_000L) state.remove(k) }
         Store.prefs().edit().putString("alertsState", state.toString()).apply()
+        liveNow = followed.filter { it.live }
+        liveSoon = liveNow.isNotEmpty() || followed.any { !it.started && !it.cancelled && it.time - now in -15 * 60_000L..10 * 60_000L }
 
         return when {
             followed.any { it.live } -> 60_000L

@@ -26,6 +26,8 @@ object Store {
     var notifyGoals by mutableStateOf(true); private set
     var notifyLineups by mutableStateOf(true); private set
     var notifyStartEnd by mutableStateOf(true); private set
+    /** "اعلان فوری": while a followed match is live, a foreground service checks every ten seconds. */
+    var fastAlerts by mutableStateOf(false); private set
 
     /** Team names in Persian (پرسپولیس) instead of the broadcast English (Persepolis). */
     var faNames by mutableStateOf(true); private set
@@ -54,6 +56,7 @@ object Store {
         notifyGoals = p.getBoolean("nGoals", true)
         notifyLineups = p.getBoolean("nLineups", true)
         notifyStartEnd = p.getBoolean("nStartEnd", true)
+        fastAlerts = p.getBoolean("fastAlerts", false)
         // English: FotMob's own names; Persian: Persian names everywhere
         faNames = !app.goallive.live.Lang.en
         voice = p.getString("voice", "auto")!!
@@ -124,6 +127,8 @@ object Store {
     var onboarded: Boolean
         get() = p.getBoolean("onboarded", false)
         set(v) { p.edit().putBoolean("onboarded", v).apply() }
+
+    fun useFastAlerts(on: Boolean) { fastAlerts = on; p.edit().putBoolean("fastAlerts", on).apply() }
 
     fun setNotify(goals: Boolean = notifyGoals, lineups: Boolean = notifyLineups, startEnd: Boolean = notifyStartEnd) {
         notifyGoals = goals; notifyLineups = lineups; notifyStartEnd = startEnd

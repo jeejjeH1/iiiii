@@ -17,6 +17,8 @@
     <!-- spoken live commentary keeps talking with the screen off -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <!-- "instant goal alerts": scores checked every ten seconds while a followed match is live -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <application
         android:name=".GoalLiveApp"
@@ -79,6 +81,11 @@
             android:name=".notify.CommentaryService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
+
+        <service
+            android:name=".notify.LiveWatchService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <receiver
             android:name=".notify.LiveAlerts$Receiver"

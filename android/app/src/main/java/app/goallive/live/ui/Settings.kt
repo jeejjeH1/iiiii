@@ -122,6 +122,11 @@ fun SettingsScreen() {
                 SetRow(Ic.ball, L("گل‌ها"), L("با نام گلزن و دقیقه"), on = Store.notifyGoals) { Store.setNotify(goals = !Store.notifyGoals) }
                 SetRow(Ic.shirt, L("اعلام ترکیب"), L("حدود یک ساعت قبل از بازی"), on = Store.notifyLineups) { Store.setNotify(lineups = !Store.notifyLineups) }
                 SetRow(Ic.whistle, L("شروع و پایان بازی"), null, on = Store.notifyStartEnd) { Store.setNotify(startEnd = !Store.notifyStartEnd) }
+                SetRow(Ic.live, L("⚡ اعلان فوری گل"), L("وقتی بازی تیم‌هایت زنده است هر ۱۰ ثانیه چک می‌شود؛ معمولاً زودتر از تصویر تلویزیون. یک اعلان ثابت نتیجه را نشان می‌دهد."),
+                    on = Store.fastAlerts) {
+                    Store.useFastAlerts(!Store.fastAlerts)
+                    if (Store.fastAlerts) app.goallive.live.notify.LiveWatchService.start(ctx)
+                }
                 SetRow(Ic.info, L("ارسال اعلان آزمایشی"), L("برای اطمینان از رسیدن اعلان‌ها")) {
                     if (!granted && Build.VERSION.SDK_INT >= 33) ask.launch(Manifest.permission.POST_NOTIFICATIONS)
                     else LiveAlerts.notify(ctx, 1, LiveAlerts.CH_GOALS, L("⚽ گل! اعلان‌ها فعال است"), L("اعلان‌های گل این‌طور نمایش داده می‌شوند"), 0)
