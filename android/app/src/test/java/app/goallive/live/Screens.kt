@@ -144,7 +144,7 @@ class Screens {
         tap("آمار", exact = true); settle(2500); shot("41-big-stats")
         runCatching { val n = rule.onAllNodesWithText("شوت‌ها"); val c = n.fetchSemanticsNodes().size; System.err.println("SHOT shots nodes: $c"); repeat(c) { k -> runCatching { n[k].performClick() } } }
         settle(2500); shot("41b-big-shots")
-        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1200); shot("41c-big-shots-down")
+        repeat(3) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.45f, durationMillis = 500) } }; settle(1200); shot("41c-big-shots-$k") }
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(4) { swipeDown(durationMillis = 200) } } }; settle(600)
         tap("ترکیب", exact = true); settle(3000); shot("42-big-lineup")
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("42-big-lineup-down")
