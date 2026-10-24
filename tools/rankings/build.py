@@ -30,6 +30,7 @@ SEASONS = [
 BIG_STAGE = {42: 1.5, 77: 1.5, 73: 1.2}
 # the Iranian league has no line-ups or player numbers in the data, so it cannot be rated (kept out of the world list if it ever appears)  # Champions League and World Cup matches count more for the Ballon d'Or pick
 IRAN = 523
+NATIONAL = {77, 50, 44, 289}
 
 
 def fotmob(path, **params):
@@ -122,7 +123,8 @@ def aggregate(matches, keep, stage_weight=None):
             a['apps'] += 1; a['minutes'] += mins; a['goals'] += goals; a['assists'] += assists
             a['wsum'] += rating * mins * sw; a['wmin'] += mins * sw
             a['roles'][role] = a['roles'].get(role, 0) + mins
-            if m['date'] >= a['last']: a['last'] = m['date']; a['team'] = team; a['teamName'] = team_name; a['name'] = name
+            # the club from his latest club game (a World Cup game would show the national team)
+            if m['league'] not in NATIONAL and m['date'] >= a['last']: a['last'] = m['date']; a['team'] = team; a['teamName'] = team_name; a['name'] = name
             if mins >= 30 and (a['best'] is None or rating > a['best']['rating']): a['best'] = dict(match=int(mid), rating=rating, date=m['date'])
     return agg
 
