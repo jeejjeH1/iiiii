@@ -211,6 +211,8 @@ def honours(ms, ongoing):
         best = {}
         for m in ms.values():
             if m['league'] != cid: continue
+            # European cup knockouts are played February to June; summer qualifiers have rounds called "final" too
+            if cid in (42, 73) and not ('02' <= m['date'][4:6] <= '06'): continue
             lvl = stage_level(m.get('stage') or '')
             if not lvl: continue
             for t in (m['h'], m['a']):
@@ -234,6 +236,7 @@ def ballon(ms, ongoing):
     knock = {}
     for m in ms.values():
         lvl = stage_level(m.get('stage') or '') if m['league'] in CUP_WEIGHT else 0
+        if m['league'] in (42, 73) and not ('02' <= m['date'][4:6] <= '06'): lvl = 0
         for pid, p in m['players'].items():
             k = (pid, p[1], m['league'])
             play[k] = play.get(k, 0) + p[4]
