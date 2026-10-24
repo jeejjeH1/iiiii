@@ -64,11 +64,11 @@ private fun seasonLabel(s: String) = "\u2066" + fa(s.replace("/", "-").let { if 
 
 @Composable
 private fun BestPlayers(d: JSONObject) {
-    val cur = d.s("current") ?: ""; val last = d.s("last") ?: ""
+    val cur = d.s("current") ?: ""
     var season by rememberSaveable { mutableStateOf(cur) }
     var group by rememberSaveable { mutableStateOf("all") }
     val sd = d.o("seasons")?.o(season)
-    Seg(listOf(cur to L("این فصل"), last to L("فصل گذشته")), season) { season = it }
+    SeasonChips(d, season, LocalAccent.current) { season = it }
     androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val groups = listOf("all" to L("همه"), "ATT" to L("مهاجم"), "MID" to L("هافبک"), "DEF" to L("مدافع"), "GK" to L("دروازه‌بان"))
         items(groups.size) { k ->
@@ -110,39 +110,178 @@ private fun RankRow(rank: Int, p: JSONObject, first: Boolean, score: Double? = p
     }
 }
 
+/** Season chips, newest first: "2027 (so far)", "2026", … */
+@Composable
+private fun SeasonChips(d: JSONObject, selected: String, color: Color, ballon: Boolean = false, onPick: (String) -> Unit) {
+    val order = d.a("order")?.let { arr -> (0 until arr.length()).map { arr.optString(it) } }.orEmpty()
+    val cur = d.s("current")
+    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(order.size) { k ->
+            val key = order[k]
+            val on = key == selected
+            val label = if (ballon) fa(key.takeLast(4)) + if (key == cur) " " + L("(تا الان)") else ""
+                else if (key == cur) L("این فصل") else seasonLabel(key)
+            Box(Modifier.clip(RoundedCornerShape(50)).background(if (on) color else C.card2).border(1.dp, if (on) color else C.line, RoundedCornerShape(50))
+                .clickable { onPick(key) }.padding(horizontal = 14.dp, vertical = 7.dp)) {
+                T(label, 13, FontWeight.Bold, if (on) Color(0xFF231A00) else C.ink, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** A golden ball drawn by hand: a gold sphere with darker panels, a soft shine and a glow around it. */
+@Composable
+fun GoldenBall(size: androidx.compose.ui.unit.Dp) {
+    androidx.compose.foundation.Canvas(Modifier.size(size)) {
+        val r = this.size.minDimension / 2 * 0.86f
+        val c = center
+        drawCircle(Brush.radialGradient(listOf(GOLD.copy(alpha = 0.45f), Color.Transparent), c, r * 1.25f), r * 1.25f, c)
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFFFF4C2), Color(0xFFF5C542), Color(0xFFB8860B), Color(0xFF6B4A06)),
+            androidx.compose.ui.geometry.Offset(c.x - r * 0.35f, c.y - r * 0.4f), r * 1.5f), r, c)
+        fun pentagon(cx: Float, cy: Float, rad: Float, turn: Float) = androidx.compose.ui.graphics.Path().apply {
+            for (k in 0 until 5) {
+                val a = Math.toRadians((turn + k * 72 - 90).toDouble())
+                val x = cx + rad * kotlin.math.cos(a).toFloat(); val y = cy + rad * kotlin.math.sin(a).toFloat()
+                if (k == 0) moveTo(x, y) else lineTo(x, y)
+            }
+            close()
+        }
+        val panel = Color(0xFF8A6208).copy(alpha = 0.75f)
+        val clip = androidx.compose.ui.graphics.Path().apply { addOval(androidx.compose.ui.geometry.Rect(c, r)) }
+        androidx.compose.ui.graphics.drawscope.clipPath(clip) {
+            drawPath(pentagon(c.x, c.y, r * 0.3f, 0f), panel)
+            for (k in 0 until 5) {
+                val a = Math.toRadians((k * 72 - 90).toDouble())
+                drawPath(pentagon(c.x + r * 0.78f * kotlin.math.cos(a).toFloat(), c.y + r * 0.78f * kotlin.math.sin(a).toFloat(), r * 0.27f, 36f), panel)
+                drawLine(panel, androidx.compose.ui.geometry.Offset(c.x + r * 0.3f * kotlin.math.cos(a).toFloat(), c.y + r * 0.3f * kotlin.math.sin(a).toFloat()),
+                    androidx.compose.ui.geometry.Offset(c.x + r * 0.55f * kotlin.math.cos(a).toFloat(), c.y + r * 0.55f * kotlin.math.sin(a).toFloat()), r * 0.05f)
+            }
+        }
+        // shine
+        drawOval(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.75f), Color.Transparent), androidx.compose.ui.geometry.Offset(c.x - r * 0.38f, c.y - r * 0.45f), r * 0.45f),
+            androidx.compose.ui.geometry.Offset(c.x - r * 0.75f, c.y - r * 0.8f), androidx.compose.ui.geometry.Size(r * 0.75f, r * 0.55f))
+        drawCircle(Color(0xFFFFE9A3).copy(alpha = 0.6f), r, c, style = androidx.compose.ui.graphics.drawscope.Stroke(r * 0.04f))
+    }
+}
+
+private fun compName(id: Int) = when (id) {
+    47 -> L("لیگ برتر انگلیس"); 87 -> L("لالیگا"); 55 -> L("سری آ"); 54 -> L("بوندسلیگا"); 53 -> L("لوشامپیونه")
+    42 -> L("لیگ قهرمانان اروپا"); 73 -> L("لیگ اروپا"); 77 -> L("جام جهانی"); 50 -> L("یورو"); 44 -> L("کوپا آمریکا"); else -> ""
+}
+
+/** "L:87:1" → "قهرمان لالیگا", "C:42:5" → "فینالیست لیگ قهرمانان اروپا". */
+private fun honourText(code: String): String {
+    val (kind, id, lvl) = code.split(':').let { Triple(it[0], it.getOrNull(1)?.toIntOrNull() ?: 0, it.getOrNull(2)?.toIntOrNull() ?: 0) }
+    val name = compName(id)
+    return if (kind == "L") { if (lvl == 1) L("قهرمان {0}", name) else L("رتبه {0} {1}", fa(lvl), name) }
+    else when (lvl) { 6 -> L("قهرمان {0}", name); 5 -> L("فینالیست {0}", name); 4 -> L("نیمه‌نهایی {0}", name); 3 -> L("یک‌چهارم نهایی {0}", name); else -> L("یک‌هشتم نهایی {0}", name) }
+}
+
+/** Gold-trimmed card for the Ballon d'Or tab. */
+@Composable
+private fun GoldCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Brush.verticalGradient(listOf(Color(0xFF1E1606), Color(0xFF110D05))))
+        .border(1.dp, GOLD.copy(alpha = 0.35f), RoundedCornerShape(22.dp)), content = content)
+}
+
 @Composable
 private fun BallonDor(d: JSONObject) {
     val nav = LocalNav.current
-    val last = d.s("last") ?: ""
-    val pick = d.o("seasons")?.o(last)?.a("ballonDor").objs()
-    val year = last.takeLast(4)
-    if (pick.isNotEmpty()) {
+    val cur = d.s("current") ?: ""
+    var season by rememberSaveable { mutableStateOf(d.s("last") ?: cur) }
+    SeasonChips(d, season, GOLD, ballon = true) { season = it }
+    val sd = d.o("seasons")?.o(season)
+    val pick = sd?.a("ballonDor").objs().orEmpty()
+    val year = sd?.i("ballonYear") ?: season.takeLast(4).toIntOrNull() ?: 0
+    val ongoing = season == cur
+    if (pick.isEmpty()) {
+        GoldCard { T(L("هنوز بازی کافی در این فصل انجام نشده است."), 13, color = C.mute, modifier = Modifier.padding(20.dp)) }
+    } else {
         val w = pick.first()
-        // the winner, big and golden
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
-            .background(Brush.verticalGradient(listOf(GOLD.copy(alpha = 0.35f), GOLD.copy(alpha = 0.08f), C.card)))
-            .border(1.dp, GOLD.copy(alpha = 0.5f), RoundedCornerShape(26.dp)).clickable { nav.player(w.i("id") ?: 0) }.padding(20.dp),
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xFF3A2A06), Color(0xFF1A1305), Color(0xFF0D0A04))))
+            .border(1.5.dp, Brush.linearGradient(listOf(Color(0xFFFFE9A3), GOLD, Color(0xFF8A6208))), RoundedCornerShape(28.dp))
+            .clickable { nav.player(w.i("id") ?: 0) }.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            T(L("توپ طلای {0} از نگاه گل‌لایو", fa(year)), 14, FontWeight.ExtraBold, GOLD)
-            Box(Modifier.padding(top = 6.dp).size(112.dp).clip(CircleShape).background(GOLD.copy(alpha = 0.25f)).padding(5.dp)) { Face(w.i("id") ?: 0, 102.dp, GOLD, 3.dp) }
-            T(personName(w.s("name") ?: ""), 22, FontWeight.Black)
+            GoldenBall(84.dp)
+            T(if (ongoing) L("توپ طلای {0} گل‌لایو · تا این لحظه", fa(year)) else L("توپ طلای {0} گل‌لایو", fa(year)), 15, FontWeight.Black, GOLD)
+            Box(Modifier.padding(top = 4.dp).size(116.dp).clip(CircleShape).background(Brush.radialGradient(listOf(GOLD.copy(alpha = 0.5f), Color.Transparent))).padding(6.dp)) {
+                Face(w.i("id") ?: 0, 104.dp, GOLD, 3.dp)
+            }
+            T(personName(w.s("name") ?: ""), 24, FontWeight.Black, Color(0xFFFFF4D6))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (w.i("team") ?: 0).takeIf { it > 0 }?.let { Crest(it, 18.dp) }
-                T(teamName(w.i("team") ?: 0, w.s("teamName") ?: ""), 13, FontWeight.Bold, C.mute)
+                T(teamName(w.i("team") ?: 0, w.s("teamName") ?: ""), 13, FontWeight.Bold, Color(0xFFE8D9A8))
             }
+            val hon = w.a("honours")?.let { arr -> (0 until arr.length()).map { arr.optString(it) } }.orEmpty()
+            if (hon.isNotEmpty()) FlowRowGold(hon.take(4).map { "🏆 " + honourText(it) })
             Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((label, v) in listOf(L("نمره فصل") to fa(dec(w.d("score") ?: 0.0, 2)), L("بازی") to fa(w.i("apps") ?: 0), L("گل") to fa(w.i("goals") ?: 0), L("پاس گل") to fa(w.i("assists") ?: 0)))
-                    Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.18f)).padding(vertical = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) { T(v, 16, FontWeight.Black); T(label, 10, color = C.mute, maxLines = 1) }
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(GOLD.copy(alpha = 0.1f)).border(1.dp, GOLD.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                        .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        T(v, 16, FontWeight.Black, Color(0xFFFFF4D6)); T(label, 10, color = Color(0xFFBFAE7A), maxLines = 1)
+                    }
             }
         }
-        Card {
-            CardTitle(L("نامزدهای گل‌لایو"))
-            pick.drop(1).forEachIndexed { k, p -> RankRow(k + 2, p, first = k == 0) }
+        if (pick.size > 1) GoldCard {
+            T(L("نامزدهای گل‌لایو"), 15, FontWeight.ExtraBold, GOLD, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp))
+            pick.drop(1).forEachIndexed { k, p ->
+                val hon = p.a("honours")?.let { arr -> (0 until arr.length()).map { arr.optString(it) } }.orEmpty()
+                ListRow(first = k == 0, onClick = { nav.player(p.i("id") ?: 0) }) {
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(if (k == 0) Color(0xFFC9D1D9) else if (k == 1) Color(0xFFD08C4A) else GOLD.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center) { T(fa(k + 2), 12, FontWeight.Black, if (k < 2) Color(0xFF231A00) else GOLD) }
+                    Face(p.i("id") ?: 0, 42.dp, GOLD.copy(alpha = 0.6f))
+                    Column(Modifier.weight(1f)) {
+                        T(personName(p.s("name") ?: ""), 14, FontWeight.ExtraBold, Color(0xFFFFF4D6), maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            (p.i("team") ?: 0).takeIf { it > 0 }?.let { Crest(it, 14.dp) }
+                            T(teamName(p.i("team") ?: 0, p.s("teamName") ?: ""), 11, color = Color(0xFFBFAE7A), maxLines = 1)
+                        }
+                        T(listOfNotNull(L("{0} گل · {1} پاس گل", fa(p.i("goals") ?: 0), fa(p.i("assists") ?: 0)), hon.firstOrNull()?.let { honourText(it) }).joinToString(" · "),
+                            11, color = Color(0xFFBFAE7A), maxLines = 1)
+                    }
+                    Rating(p.d("score"))
+                }
+            }
+            Spacer(Modifier.height(6.dp))
         }
     }
-    AwardHistory(L("برندگان توپ طلا"), d.o("awards")?.a("ballonDor").objs()) { x ->
-        fa(x.i("year") ?: 0) to (if (x.s("name") == null) L("برگزار نشد") else null)
+    GoldHistory(d.o("awards")?.a("ballonDor").objs().orEmpty())
+}
+
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun FlowRowGold(items: List<String>) {
+    FlowRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        for (t in items) Box(Modifier.clip(RoundedCornerShape(50)).background(GOLD.copy(alpha = 0.14f)).border(1.dp, GOLD.copy(alpha = 0.45f), RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 4.dp)) { T(t, 12, FontWeight.Bold, Color(0xFFFFE9A3)) }
+    }
+}
+
+/** Every Ballon d'Or since 1956, gold-styled, ten at a time. */
+@Composable
+private fun GoldHistory(list: List<JSONObject>) {
+    val nav = LocalNav.current
+    if (list.isEmpty()) return
+    var all by rememberSaveable { mutableStateOf(false) }
+    GoldCard {
+        Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            GoldenBall(26.dp); Spacer(Modifier.width(8.dp)); T(L("همه برندگان توپ طلا"), 15, FontWeight.ExtraBold, GOLD)
+        }
+        (if (all) list else list.take(10)).forEachIndexed { k, x ->
+            val id = x.i("id") ?: 0
+            ListRow(first = k == 0, onClick = if (id > 0) ({ nav.player(id) }) else null) {
+                Box(Modifier.width(48.dp)) { T(fa(x.i("year") ?: 0), 14, FontWeight.Black, GOLD, maxLines = 1) }
+                if (id > 0) Face(id, 36.dp, GOLD.copy(alpha = 0.5f)) else GoldenBall(36.dp)
+                Column(Modifier.weight(1f)) {
+                    if (x.s("name") == null) T(L("برگزار نشد"), 14, FontWeight.ExtraBold, Color(0xFFBFAE7A))
+                    else T(personName(x.s("name") ?: ""), 14, FontWeight.ExtraBold, Color(0xFFFFF4D6), maxLines = 1)
+                    x.s("team")?.let { T(it.split(" / ").joinToString(" / ") { t -> teamName(0, t) }, 11, color = Color(0xFFBFAE7A), maxLines = 1) }
+                }
+            }
+        }
+        T(if (all) L("کمتر") else L("همه ({0})", fa(list.size)), 13, FontWeight.Bold, GOLD,
+            Modifier.fillMaxWidth().clickable { all = !all }.padding(vertical = 12.dp), align = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 

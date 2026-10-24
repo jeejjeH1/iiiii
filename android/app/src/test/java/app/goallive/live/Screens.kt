@@ -188,8 +188,11 @@ class Screens {
         }
         NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
         NavHook.nav?.rankings(); settle(9000); shot("50-rank-best")
-        tap("فصل گذشته", exact = true); settle(1500); shot("50b-rank-best-last")
         tap("توپ طلا", exact = true); settle(1500); shot("51-rank-ballon")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1200); shot("51b-rank-ballon-down")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500); swipeUp(durationMillis = 500) } }; settle(1200); shot("51c-rank-ballon-history")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(5) { swipeDown(durationMillis = 200) } } }; settle(800)
+        tap("۲۰۲۳", exact = true); settle(1200); shot("51d-rank-ballon-2023")
         tap("کفش طلا", exact = true); settle(1500); shot("52-rank-shoe")
         if (match != null) { NavHook.nav?.board(match.id, "h"); settle(6000); shot("29-board") }
         if (upcoming != null) {

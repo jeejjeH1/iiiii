@@ -1018,3 +1018,15 @@
 1017|Golden Shoe winners
 1018|All ({0})
 1019|World ranking, Ballon d’Or and Golden Shoe
+1020|(so far)
+1021|{0} winner
+1022|#{0} in {1}
+1023|{0} finalist
+1024|{0} semi-final
+1025|{0} quarter-final
+1026|{0} round of 16
+1027|Not enough games played this season yet.
+1028|GoalLive Ballon d’Or {0} · so far
+1029|GoalLive Ballon d’Or {0}
+1030|{0} goals · {1} assists
+1031|Every Ballon d’Or winner
