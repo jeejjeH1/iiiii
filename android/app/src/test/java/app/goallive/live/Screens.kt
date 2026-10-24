@@ -4,6 +4,7 @@ import android.app.Application
 import android.os.Looper
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
@@ -144,7 +145,7 @@ class Screens {
         tap("کاونتری", exact = true); settle(800); tap("تاتنهام", exact = true); settle(800)
         tap("مادیسون", exact = true); settle(6000); shot("44-heatmap")
         // the sheet's own scroll is the last scrollable node on screen
-        fun sheetUp(n: Int) = repeat(n) { runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction()).let { it[it.fetchSemanticsNodes().size - 1] }.performTouchInput { swipeUp(durationMillis = 400) } }; settle(900) }
+        fun sheetUp(n: Int) = repeat(n) { runCatching { rule.onNodeWithTag("player-sheet").performTouchInput { swipeUp(startY = bottom * 0.8f, endY = bottom * 0.3f, durationMillis = 500) } }; settle(900) }
         sheetUp(1); shot("44b-sheet-heat")
         tap("بزرگ", exact = true); settle(1500); shot("46-heatmap-full")
         tap("افقی", exact = true); settle(800)
