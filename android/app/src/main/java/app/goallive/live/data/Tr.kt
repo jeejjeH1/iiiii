@@ -4,6 +4,12 @@ package app.goallive.live.data
 fun tr(s: String?): String = if (s == null) "" else if (app.goallive.live.Lang.en) s else T[s] ?: T[s.trim()] ?: s
 
 private val T: Map<String, String> = hashMapOf(
+    // positions on a player's page
+    "Goalkeeper" to "دروازه‌بان", "Keeper" to "دروازه‌بان", "Centre-Back" to "مدافع میانی", "Center Back" to "مدافع میانی", "Left-Back" to "مدافع چپ",
+    "Right-Back" to "مدافع راست", "Left Back" to "مدافع چپ", "Right Back" to "مدافع راست", "Left Wing-Back" to "وینگ‌بک چپ", "Right Wing-Back" to "وینگ‌بک راست",
+    "Defensive Midfielder" to "هافبک دفاعی", "Central Midfielder" to "هافبک میانی", "Attacking Midfielder" to "هافبک هجومی",
+    "Left Midfielder" to "هافبک چپ", "Right Midfielder" to "هافبک راست", "Left Winger" to "وینگر چپ", "Right Winger" to "وینگر راست",
+    "Striker" to "مهاجم", "Centre-Forward" to "مهاجم نوک", "Second Striker" to "مهاجم دوم", "Defender" to "مدافع", "Midfielder" to "هافبک", "Forward" to "مهاجم",
     // a player's physical numbers and fantasy points
     "Physical metrics" to "آمار بدنی", "Distance covered" to "مسافت طی‌شده", "Running" to "دویدن", "Sprinting" to "دوی سرعت",
     "Number of sprints" to "تعداد دوی سرعت", "Walking" to "راه رفتن", "Jogging" to "آهسته دویدن", "High intensity runs" to "دوی پرشدت",

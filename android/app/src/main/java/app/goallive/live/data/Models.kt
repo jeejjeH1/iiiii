@@ -27,6 +27,8 @@ data class MatchItem(
 
 fun parseTime(s: String?): Long {
     if (s.isNullOrEmpty()) return 0
+    // a bare date ("2028-12-31") is midday UTC, so it stays the same day in Iran
+    if (s.length == 10 && s[4] == '-') return runCatching { Instant.parse(s + "T12:00:00Z").toEpochMilli() }.getOrDefault(0)
     return runCatching { Instant.parse(s).toEpochMilli() }.getOrElse {
         runCatching { Instant.parse(s.replace(".000", "")).toEpochMilli() }.getOrDefault(0)
     }

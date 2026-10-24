@@ -89,7 +89,7 @@ private fun PlayerBody(id: Int, p: JSONObject) {
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (team != null) Row(Modifier.clickable { nav.team(teamId) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Crest(teamId, 18.dp)
-                                T((club?.fa ?: team.s("teamName") ?: "") + if (team.b("onLoan")) L(" (قرضی)") else "", 13, FontWeight.SemiBold, ink.copy(alpha = 0.9f), maxLines = 1)
+                                T((club?.fa ?: teamName(teamId, team.s("teamName") ?: "")) + if (team.b("onLoan")) L(" (قرضی)") else "", 13, FontWeight.SemiBold, ink.copy(alpha = 0.9f), maxLines = 1)
                             }
                             val pos = tr(p.path("positionDescription.primaryPosition").s("label"))
                             T(listOf(pos, if (p.b("isCaptain")) L("کاپیتان") else "").filter { it.isNotEmpty() }.joinToString(" · ").let { if (it.isNotEmpty()) "· $it" else "" },
@@ -111,6 +111,7 @@ private fun PlayerBody(id: Int, p: JSONObject) {
                 "Market value" -> money(v.l("numberValue"))
                 "Height" -> L("{0} سانتی‌متر", v.i("numberValue"))
                 "Age" -> L("{0} سال", v.i("numberValue"))
+                "Country" -> personName(v.s("fallback") ?: "")
                 else -> v.s("dateValue")?.let { persianDate(parseTime(it), "d MMMM yyyy") } ?: tr(v.s("fallback") ?: v.s("numberValue"))
             }
         }
