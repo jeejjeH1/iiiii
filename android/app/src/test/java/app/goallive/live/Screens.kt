@@ -90,7 +90,7 @@ class Screens {
         Api.init(ctx)
         Store.init(ctx); app.goallive.live.data.Predictions.init(ctx)
         Store.onboarded = true
-        Store.prefs().edit().putBoolean("askedNotify", true).apply()
+        Store.prefs().edit().putBoolean("askedNotify", true).putInt("askedBattery", 3).apply()
         Store.pickMyTeam(app.goallive.live.data.MyTeam(8634, "Barcelona", null))
         rule.mainClock.autoAdvance = false
         // the online commentator voice, straight from the voice service

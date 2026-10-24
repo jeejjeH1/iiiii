@@ -281,6 +281,7 @@ private fun Intro() {
 /** Ask once for the notification permission (Android 13+), right after the first launch. */
 @Composable
 private fun AskNotifications() {
+    AskBackground()
     if (android.os.Build.VERSION.SDK_INT < 33) return
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(Unit) {
@@ -290,4 +291,29 @@ private fun AskNotifications() {
         p.edit().putBoolean("askedNotify", true).apply()
         launcher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
+}
+
+/**
+ * Alerts with the app closed: Android stops the score checks of a closed app unless it may run in the background.
+ * Asked (with one line of why) a little after start, at most three times, a week apart, and only while it isn't allowed yet.
+ */
+@Composable
+private fun AskBackground() {
+    val ctx = LocalContext.current
+    var show by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val p = Store.prefs()
+        val n = p.getInt("askedBattery", 0); val last = p.getLong("askedBatteryAt", 0)
+        if (batteryFree(ctx) || n >= 3 || System.currentTimeMillis() - last < 7 * 86_400_000L) return@LaunchedEffect
+        delay(if (p.getBoolean("askedNotify", false)) 4000 else 9000)
+        p.edit().putInt("askedBattery", n + 1).putLong("askedBatteryAt", System.currentTimeMillis()).apply()
+        show = true
+    }
+    if (show) androidx.compose.material3.AlertDialog(
+        onDismissRequest = { show = false }, containerColor = C.bg,
+        title = { T(L("🔔 اعلان گل حتی وقتی برنامه بسته است"), 16, FontWeight.Black) },
+        text = { T(L("اندروید برنامه‌های بسته را از کار می‌اندازد و اعلان گل نمی‌رسد. در پنجره‌ی بعد «اجازه» را بزنید تا گل‌لایو در پس‌زمینه نتایج را چک کند (مصرف باتری بسیار کم است)."), 14, color = C.mute) },
+        confirmButton = { androidx.compose.material3.TextButton({ show = false; askBatteryFree(ctx) }) { T(L("اجازه بده"), 14, FontWeight.ExtraBold, LocalAccent.current) } },
+        dismissButton = { androidx.compose.material3.TextButton({ show = false }) { T(L("بعداً"), 14, color = C.mute) } },
+    )
 }

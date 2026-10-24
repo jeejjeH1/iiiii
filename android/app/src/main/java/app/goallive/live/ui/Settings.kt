@@ -132,7 +132,10 @@ fun SettingsScreen() {
                     else LiveAlerts.notify(ctx, 1, LiveAlerts.CH_GOALS, L("⚽ گل! اعلان‌ها فعال است"), L("اعلان‌های گل این‌طور نمایش داده می‌شوند"), 0)
                 }
                 if (!batteryFree) SetRow(Ic.live, L("اعلان سریع‌تر وقتی گوشی قفل است"), L("بهینه‌سازی باتری را برای گل‌لایو خاموش کنید")) {
-                    runCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+                    askBatteryFree(ctx)
+                }
+                SetRow(Ic.info, L("اعلان وقتی برنامه بسته است"), L("در گوشی‌های شیائومی، هواوی، سامسونگ و … «اجرای خودکار / فعالیت در پس‌زمینه» را برای گل‌لایو روشن کنید")) {
+                    openAutoStart(ctx)
                 }
                 val am = ctx.getSystemService(android.app.AlarmManager::class.java)
                 if (Build.VERSION.SDK_INT >= 31 && am?.canScheduleExactAlarms() == false) SetRow(Ic.bell, L("اعلان گل سر وقت"), L("اجازه «زنگ هشدار و یادآوری» را به گل‌لایو بدهید")) {
@@ -303,3 +306,33 @@ private val SOURCES = L("• نتایج، آمار، ترکیب تیم‌ها، 
     L("• صدای گوینده گزارش صوتی: سرویس تبدیل متن به صدای مایکروسافت (Microsoft Edge)\nhttps://www.microsoft.com\n\n") +
     L("• پخش زنده: برنامه یا سایت رسمی هر سرویس؛ گل‌لایو ویدیویی پخش نمی‌کند\nhttps://www.namava.ir · https://sport.aparat.com · https://telewebion.com\n\n") +
     L("• نام فارسی تیم‌ها، دستیار، رادار حریف، کوئیز و صداهای اعلان: ساخته خود گل‌لایو")
+
+/** Asks the system to let GoalLive run its alert checks in the background (one system dialog); falls back to the list. */
+@android.annotation.SuppressLint("BatteryLife")
+fun askBatteryFree(ctx: android.content.Context) {
+    runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        .recoverCatching { ctx.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+fun batteryFree(ctx: android.content.Context) =
+    ctx.getSystemService(android.os.PowerManager::class.java)?.isIgnoringBatteryOptimizations(ctx.packageName) ?: true
+
+/** The phone maker's own "auto start" page where there is one (they kill closed apps otherwise), else the app's settings page. */
+fun openAutoStart(ctx: android.content.Context) {
+    val pages = listOf(
+        "com.miui.securitycenter" to "com.miui.permcenter.autostart.AutoStartManagementActivity",
+        "com.huawei.systemmanager" to "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity",
+        "com.huawei.systemmanager" to "com.huawei.systemmanager.optimize.process.ProtectActivity",
+        "com.coloros.safecenter" to "com.coloros.safecenter.permission.startup.StartupAppListActivity",
+        "com.oppo.safe" to "com.oppo.safe.permission.startup.StartupAppListActivity",
+        "com.vivo.permissionmanager" to "com.vivo.permissionmanager.activity.BgStartUpManagerActivity",
+        "com.transsion.phonemaster" to "com.cyin.himgr.autostart.AutoStartActivity",
+        "com.samsung.android.lool" to "com.samsung.android.sm.battery.ui.BatteryActivity",
+        "com.oneplus.security" to "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity",
+    )
+    for ((pkg, cls) in pages) {
+        val i = Intent().setComponent(android.content.ComponentName(pkg, cls)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (runCatching { ctx.startActivity(i) }.isSuccess) return
+    }
+    runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}

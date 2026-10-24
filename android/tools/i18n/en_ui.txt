@@ -1073,3 +1073,8 @@
 1072| | Round {0}
 1073|Live | {0}
 1074|GoalLive | live football scores
+1075|Alerts with the app closed
+1076|On Xiaomi, Huawei, Samsung and others, turn on "Autostart / background activity" for GoalLive
+1077|🔔 Goal alerts even with the app closed
+1078|Android stops closed apps, so goal alerts don't arrive. Tap "Allow" in the next window so GoalLive can check scores in the background (it uses very little battery).
+1079|Allow

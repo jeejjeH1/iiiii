@@ -337,6 +337,8 @@ fun LeaguesScreen() {
             Card { Store.leagues.entries.forEachIndexed { i, (id, name) -> row(JSONObject().put("id", id).put("name", name), i == 0) } }
         }
         val iran = countries.firstOrNull { it.s("ccode") == "IRN" }?.a("leagues")?.objs().orEmpty()
+            // the qualifying round of the Persian Gulf league ("پرسیان گلف لیگ حرفه‌ای مقدماتی") has no data worth a row
+            .filterNot { (it.s("name") ?: "").contains("Qualification", true) }
         if (iran.isNotEmpty()) item { SectionTitle(L("ایران")); Card { iran.forEachIndexed { i, it -> row(it, i == 0) } } }
         item { SectionTitle(L("محبوب")); Card { popular.forEachIndexed { i, it -> row(it, i == 0) } } }
         item { SectionTitle(L("بین‌المللی")); Card { intl.forEachIndexed { i, it -> row(it, i == 0) } } }

@@ -13,7 +13,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- goal alerts run on exact alarms when the user allows them; otherwise on inexact ones -->
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <!-- Android 13+: exact alarms without asking, so goal checks keep running with the app closed (not on Google Play) -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- one tap to let the alert checks run in the background (the system asks the user) -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- spoken live commentary keeps talking with the screen off -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
