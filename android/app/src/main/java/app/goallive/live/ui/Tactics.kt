@@ -386,8 +386,11 @@ class HeatPlayer(val id: Int, val name: String, val home: Boolean)
  */
 @Composable
 fun PlayerHeatmap(matchId: Int, playerId: Int, name: String, others: List<HeatPlayer>) {
-    val l = rememberLoader(matchId, "heat") { heatPoints(matchId) }
-    val all = l.value ?: return
+    // loaded straight away (not tied to the screen's lifecycle): the player sheet is its own window
+    val loaded by produceState<Map<Int, List<Pair<Float, Float>>>?>(heatCache[matchId], matchId) {
+        if (value == null) value = runCatching { heatPoints(matchId) }.getOrNull()?.also { heatCache[matchId] = it }
+    }
+    val all = loaded ?: return
     val pts = all[playerId] ?: return
     if (pts.size < 3) return
     var big by remember { mutableStateOf(false) }
@@ -557,6 +560,8 @@ private fun heatSentence(pts: List<Pair<Float, Float>>): String {
     val side = when (lane.indexOf(lane.max())) { 0 -> L("سمت چپ"); 1 -> L("وسط"); else -> L("سمت راست") }
     return L("{0} و {1} بازی کرد (جهت حمله از چپ به راست است).", where, side)
 }
+
+private val heatCache = java.util.concurrent.ConcurrentHashMap<Int, Map<Int, List<Pair<Float, Float>>>>()
 
 /** Every player's heatmap points in a match: FotMob draws them as circles on a 105×68 pitch. */
 private suspend fun heatPoints(matchId: Int): Map<Int, List<Pair<Float, Float>>> {
