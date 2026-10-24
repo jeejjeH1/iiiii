@@ -510,9 +510,12 @@ private fun StackBar(v: List<Int>, labels: List<String>, accent: Color) {
                     }
                 }
             }
+            // names in three equal columns, so a thin slice still gets its whole label
             Row(Modifier.fillMaxWidth().padding(top = 3.dp)) {
-                v.forEachIndexed { k, x ->
-                    Box(Modifier.weight(x.coerceAtLeast(9).toFloat()), contentAlignment = Alignment.Center) { T(labels[k], 10, color = C.mute, maxLines = 1) }
+                labels.forEachIndexed { k, label ->
+                    Box(Modifier.weight(1f), contentAlignment = when (k) { 0 -> Alignment.CenterStart; 2 -> Alignment.CenterEnd; else -> Alignment.Center }) {
+                        T(label, 11, color = C.mute, maxLines = 1)
+                    }
                 }
             }
         }

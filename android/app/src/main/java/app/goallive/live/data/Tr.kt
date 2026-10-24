@@ -4,6 +4,10 @@ package app.goallive.live.data
 fun tr(s: String?): String = if (s == null) "" else if (app.goallive.live.Lang.en) s else T[s] ?: T[s.trim()] ?: s
 
 private val T: Map<String, String> = hashMapOf(
+    // a player's physical numbers and fantasy points
+    "Physical metrics" to "آمار بدنی", "Distance covered" to "مسافت طی‌شده", "Running" to "دویدن", "Sprinting" to "دوی سرعت",
+    "Number of sprints" to "تعداد دوی سرعت", "Walking" to "راه رفتن", "Jogging" to "آهسته دویدن", "High intensity runs" to "دوی پرشدت",
+    "Fantasy points" to "امتیاز فانتزی",
     // why a card was shown
     "Foul" to "خطا", "Dissent" to "اعتراض", "Time wasting" to "وقت‌کشی", "Handball" to "هند", "Unsporting behaviour" to "رفتار غیرورزشی",
     "Unsportsmanlike conduct" to "رفتار غیرورزشی", "Simulation" to "تمارض", "Professional foul" to "خطای عمدی", "Violent conduct" to "رفتار خشن",
