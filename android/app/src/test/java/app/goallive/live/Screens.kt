@@ -13,6 +13,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.test.core.app.ApplicationProvider
 import app.goallive.live.data.Api
@@ -137,7 +138,12 @@ class Screens {
         NavHook.nav?.match(5795484); settle(12000); shot("40-big-summary")
         repeat(4) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("40-big-down$k") }
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(6) { swipeDown(durationMillis = 200) } } }; settle(800)
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performScrollToNode(androidx.compose.ui.test.hasText("مومنتوم بازی")) }; settle(1200); shot("40m-big-momentum")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(6) { swipeDown(durationMillis = 200) } } }; settle(800)
         tap("آمار", exact = true); settle(2500); shot("41-big-stats")
+        tap("شوت‌ها", exact = true); settle(2000); shot("41b-big-shots")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1200); shot("41c-big-shots-down")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(4) { swipeDown(durationMillis = 200) } } }; settle(600)
         tap("ترکیب", exact = true); settle(3000); shot("42-big-lineup")
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("42-big-lineup-down")
         tap("ناتینگهام فارست", exact = true); settle(2000); shot("43-big-lineup-away")
