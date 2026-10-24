@@ -116,9 +116,27 @@ private fun goalNote(diff: Int, minute: Int): String {
     return what + " · " + L("دقیقه {0}", fa(minute)) + if (minute >= 80 && diff in -1..0) L(" · دقیقه‌های حساس پایانی") else ""
 }
 
-// fitted on finished matches of the big leagues: raw sum → FotMob-like scale
-private const val FIT_A = 6.0
-private const val FIT_B = 0.78
+// fitted on finished matches of the big leagues (strict: an ordinary game is about 6.4, 8 and above is the best few percent)
+private const val FIT_A = 6.5
+private const val FIT_B = 0.62
+private const val KNEE = 8.0
+private const val ABOVE = 0.7
+/** Evens out the roles, so a centre-back is not marked lower than a winger for an equally good game. */
+private val ROLE_FIX = mapOf("GK" to -0.3, "CB" to 0.25, "FB" to 0.15, "DM" to 0.05)
+
+/** What a player in each role usually does in 90 minutes (FotMob, top five leagues 2026/27): only more than that earns points. */
+private class Base(val tk: Double, val ic: Double, val cl: Double, val rc: Double, val bl: Double, val box: Double, val kp: Double, val dr: Double,
+                   val lbp: Double, val f3: Double, val ap: Double, val aw: Double, val gw: Double, val lb: Double, val cr: Double, val acc: Double)
+private val BASE = mapOf(
+    "GK" to Base(0.0, 0.0, 1.2, 8.8, 0.0, 0.0, 0.0, 0.0, 2.9, 5.2, 23.6, 0.3, 0.2, 6.2, 0.0, 0.70),
+    "CB" to Base(1.5, 1.3, 5.5, 3.8, 0.8, 1.0, 0.3, 0.2, 4.1, 6.0, 50.1, 2.4, 2.4, 2.6, 0.1, 0.88),
+    "FB" to Base(2.0, 1.0, 2.7, 4.0, 0.4, 1.3, 1.0, 0.5, 3.3, 5.6, 34.3, 1.0, 3.5, 1.5, 0.7, 0.83),
+    "DM" to Base(1.9, 1.2, 1.6, 4.7, 0.4, 1.4, 1.0, 0.7, 4.5, 6.4, 42.6, 0.9, 3.6, 2.0, 0.4, 0.86),
+    "CM" to Base(1.9, 1.0, 1.4, 4.4, 0.3, 2.1, 1.1, 0.7, 2.1, 4.7, 32.2, 0.8, 3.8, 1.5, 0.6, 0.84),
+    "AM" to Base(1.1, 0.4, 0.6, 3.7, 0.1, 3.6, 1.5, 1.3, 2.9, 4.1, 29.6, 0.7, 4.0, 1.2, 0.5, 0.83),
+    "W" to Base(1.5, 0.6, 0.7, 3.8, 0.1, 4.0, 1.6, 1.4, 2.0, 2.9, 24.2, 0.7, 4.2, 1.0, 0.7, 0.81),
+    "ST" to Base(0.7, 0.2, 0.9, 2.2, 0.1, 4.8, 1.1, 0.8, 0.8, 2.1, 14.7, 2.1, 2.8, 0.5, 0.2, 0.76),
+)
 
 /** Every player's GoalLive rating in this match, by FotMob player id (empty when FotMob has no player stats). */
 fun rateMatch(m: MatchData): Map<Int, PlayerRating> {
@@ -181,58 +199,68 @@ fun rateMatch(m: MatchData): Map<Int, PlayerRating> {
                 if (e.i("playerId") == id && !e.b("ownGoal")) {
                     val d = diffAt(g.minute, home)
                     val pen = isPen(e)
-                    add("att", if (pen) L("گل پنالتی") else L("گل"), 0.95 * (GOAL[role] ?: 1.0) * stateWeight(d, g.minute, "goal") * (if (pen) 0.75 else 1.0), 1, goalNote(d, g.minute))
+                    add("att", if (pen) L("گل پنالتی") else L("گل"), 1.15 * (GOAL[role] ?: 1.0) * stateWeight(d, g.minute, "goal") * (if (pen) 0.75 else 1.0), 1, goalNote(d, g.minute))
                 }
                 if (e.i("assistPlayerId") == id) {
                     val d = diffAt(g.minute, home)
-                    add("cre", L("پاس گل"), 0.7 * stateWeight(d, g.minute, "goal"), 1, goalNote(d, g.minute))
+                    add("cre", L("پاس گل"), 0.85 * stateWeight(d, g.minute, "goal"), 1, goalNote(d, g.minute))
                 }
-                if (e.b("ownGoal") && e.i("playerId") == id) add("disc", L("گل به خودی"), -1.0, 1, L("دقیقه {0}", fa(g.minute)))
+                if (e.b("ownGoal") && e.i("playerId") == id) add("disc", L("گل به خودی"), -1.2, 1, L("دقیقه {0}", fa(g.minute)))
             }
+            val base = BASE[role] ?: BASE.getValue("CM"); val f90 = mins / 90.0
+            // a count against what the role usually does in these minutes: more earns up to [cap], less costs up to [floor]
+            fun over(value: Double, usual: Double, per: Double, cap: Double, floor: Double = 0.2): Double {
+                val exp = usual * f90
+                return max(-floor, min(cap, per * (value - exp) * (if (value > exp) scale else 1.0)))
+            }
+            fun usual(x: Double) = L("معمول این پست: {0}", fa(dec(x * f90, 1)))
             // attack
             val xg = v("expected_goals_non_penalty").takeIf { it > 0 } ?: v("expected_goals")
             add("att", L("کیفیت موقعیت‌ها (xG)"), 0.45 * xg, note = "xG " + fa(dec(xg, 2)))
             add("att", L("کیفیت ضربه (xGOT منهای xG)"), 0.35 * (v("expected_goals_on_target_variant") - v("expected_goals")))
             add("att", L("شوت در چارچوب"), min(0.4, 0.08 * v("ShotsOnTarget") * scale), n("ShotsOnTarget"))
-            add("att", L("شوت به بیرون"), -0.03 * v("ShotsOffTarget"), n("ShotsOffTarget"))
+            add("att", L("شوت به بیرون"), -0.05 * v("ShotsOffTarget"), n("ShotsOffTarget"))
+            add("att", L("موقعیت مسلم از دست رفته"), -0.3 * v("big_chance_missed_title"), n("big_chance_missed_title"))
             val dr = v("dribbles_succeeded"); val drt = tot("dribbles_succeeded")
-            add("att", L("دریبل موفق"), min(0.5, 0.1 * dr * scale), dr.toInt())
-            add("att", L("دریبل ناموفق"), -0.04 * max(0.0, drt - dr), (drt - dr).toInt())
-            add("att", L("لمس در محوطه حریف"), min(0.3, 0.025 * v("touches_opp_box") * scale), n("touches_opp_box"))
+            add("att", L("دریبل موفق"), over(dr, base.dr, 0.1, 0.5, 0.1), dr.toInt(), usual(base.dr))
+            add("att", L("دریبل ناموفق"), -0.07 * max(0.0, drt - dr), (drt - dr).toInt())
+            add("att", L("لمس در محوطه حریف"), over(v("touches_opp_box"), base.box, 0.03, 0.3, 0.15), n("touches_opp_box"), usual(base.box))
             add("att", L("خطا روی او"), min(0.25, 0.04 * v("was_fouled")), n("was_fouled"))
-            add("att", L("آفساید"), -0.05 * v("Offsides"), n("Offsides"))
-            add("att", L("از دست دادن توپ"), -0.05 * v("dispossessed"), n("dispossessed"))
+            add("att", L("آفساید"), -0.06 * v("Offsides"), n("Offsides"))
+            add("att", L("از دست دادن توپ"), -0.08 * v("dispossessed"), n("dispossessed"))
             val missedPens = m.shots.count { it.i("playerId") == id && it.s("situation") == "Penalty" && it.s("eventType") != "Goal" }
-            add("att", L("پنالتی از دست رفته"), -0.7 * missedPens, missedPens)
+            add("att", L("پنالتی از دست رفته"), -0.9 * missedPens, missedPens)
             // chances
             add("cre", L("کیفیت پاس‌ها (xA)"), 0.5 * v("expected_assists"), note = "xA " + fa(dec(v("expected_assists"), 2)))
-            add("cre", L("پاس کلیدی"), min(0.6, 0.13 * v("chances_created") * scale), n("chances_created"))
+            add("cre", L("پاس کلیدی"), over(v("chances_created"), base.kp, 0.13, 0.6, 0.15), n("chances_created"), usual(base.kp))
             add("cre", L("موقعیت عالی ساخته"), 0.2 * v("big_chance_created_team_title"), n("big_chance_created_team_title"))
             // passing
             val ap = v("accurate_passes"); val at = tot("accurate_passes")
-            if (at >= 8) add("pas", L("دقت پاس"), max(-0.4, min(0.35, (ap / at - 0.8) * 1.6)) * min(1.0, at / 35), note = L("{0} از {1}", fa(ap.toInt()), fa(at.toInt())))
-            add("pas", L("پاس سالم"), min(0.35, 0.004 * ap * scale), ap.toInt())
-            add("pas", L("پاس خط‌شکن"), min(0.4, 0.04 * v("line_breaking_passes") * scale), n("line_breaking_passes"))
-            add("pas", L("پاس به یک‌سوم حمله"), min(0.3, 0.025 * v("passes_into_final_third") * scale), n("passes_into_final_third"))
+            if (at >= 8) add("pas", L("دقت پاس"), max(-0.45, min(0.3, (ap / at - base.acc) * 2.0)) * min(1.0, at / 35),
+                note = L("{0} از {1}", fa(ap.toInt()), fa(at.toInt())) + " · " + L("معمول این پست: {0}٪", fa((base.acc * 100).toInt())))
+            add("pas", L("پاس سالم"), over(ap, base.ap, 0.006, 0.3), ap.toInt(), usual(base.ap))
+            add("pas", L("پاس خط‌شکن"), over(v("line_breaking_passes"), base.lbp, 0.04, 0.4), n("line_breaking_passes"), usual(base.lbp))
+            add("pas", L("پاس به یک‌سوم حمله"), over(v("passes_into_final_third"), base.f3, 0.03, 0.3), n("passes_into_final_third"), usual(base.f3))
             val lb = v("long_balls_accurate"); val lbt = tot("long_balls_accurate")
-            add("pas", L("پاس بلند"), min(0.25, 0.035 * lb) - 0.015 * max(0.0, lbt - lb), lb.toInt(), L("{0} از {1}", fa(lb.toInt()), fa(lbt.toInt())))
+            add("pas", L("پاس بلند"), over(lb, base.lb, 0.035, 0.25, 0.1) - 0.025 * max(0.0, lbt - lb), lb.toInt(), L("{0} از {1}", fa(lb.toInt()), fa(lbt.toInt())))
             val cr = v("accurate_crosses"); val crt = tot("accurate_crosses")
-            add("pas", L("سانتر"), min(0.3, 0.07 * cr) - 0.02 * max(0.0, crt - cr), cr.toInt(), L("{0} از {1}", fa(cr.toInt()), fa(crt.toInt())))
+            add("pas", L("سانتر"), over(cr, base.cr, 0.07, 0.3, 0.1) - 0.03 * max(0.0, crt - cr), cr.toInt(), L("{0} از {1}", fa(cr.toInt()), fa(crt.toInt())))
             // defending
-            add("de", L("تکل"), min(0.5, 0.1 * v("matchstats.headers.tackles") * scale), n("matchstats.headers.tackles"))
-            add("de", L("قطع توپ"), min(0.5, 0.1 * v("interceptions") * scale), n("interceptions"))
-            add("de", L("بلاک شوت"), min(0.4, 0.12 * v("shot_blocks")), n("shot_blocks"))
-            add("de", L("دفع توپ"), min(0.4, 0.04 * v("clearances") * scale), n("clearances"))
-            add("de", L("بازپس‌گیری توپ"), min(0.3, 0.03 * v("recoveries") * scale), n("recoveries"))
+            add("de", L("تکل"), over(v("matchstats.headers.tackles"), base.tk, 0.1, 0.5), n("matchstats.headers.tackles"), usual(base.tk))
+            add("de", L("قطع توپ"), over(v("interceptions"), base.ic, 0.1, 0.5), n("interceptions"), usual(base.ic))
+            add("de", L("بلاک شوت"), over(v("shot_blocks"), base.bl, 0.12, 0.4, 0.1), n("shot_blocks"), usual(base.bl))
+            add("de", L("دفع توپ"), over(v("clearances"), base.cl, 0.04, 0.4), n("clearances"), usual(base.cl))
+            add("de", L("بازپس‌گیری توپ"), over(v("recoveries"), base.rc, 0.03, 0.3), n("recoveries"), usual(base.rc))
             add("de", L("تکل نفر آخر"), 0.5 * v("last_man_tackle"), n("last_man_tackle"))
-            add("de", L("دریبل خورد"), -0.09 * v("dribbled_past"), n("dribbled_past"))
+            add("de", L("دریبل خورد"), -0.12 * v("dribbled_past"), n("dribbled_past"))
             // duels
             val aw = v("aerials_won"); val awt = tot("aerials_won"); val gw = v("ground_duels_won"); val gwt = tot("ground_duels_won")
-            add("du", L("نبرد هوایی برده"), min(0.35, 0.06 * aw), aw.toInt())
-            add("du", L("نبرد هوایی باخته"), -0.03 * max(0.0, awt - aw), (awt - aw).toInt())
-            add("du", L("نبرد زمینی برده"), min(0.35, 0.04 * gw), gw.toInt())
-            add("du", L("نبرد زمینی باخته"), -0.03 * max(0.0, gwt - gw), (gwt - gw).toInt())
-            add("du", L("خطا"), -0.07 * v("fouls"), n("fouls"))
+            add("du", L("نبرد هوایی برده"), over(aw, base.aw, 0.06, 0.35, 0.1), aw.toInt(), usual(base.aw))
+            add("du", L("نبرد هوایی باخته"), -0.05 * max(0.0, awt - aw), (awt - aw).toInt())
+            add("du", L("نبرد زمینی برده"), over(gw, base.gw, 0.05, 0.35, 0.1), gw.toInt(), usual(base.gw))
+            add("du", L("نبرد زمینی باخته"), -0.05 * max(0.0, gwt - gw), (gwt - gw).toInt())
+            add("du", L("خطا"), -0.08 * v("fouls"), n("fouls"))
+            add("disc", L("پنالتی داده"), -0.6 * v("conceded_penalties"), n("conceded_penalties"))
             // goalkeeping: every save weighed by how dangerous the shot was and the score at that moment
             if (role == "GK") {
                 val saves = m.shots.filter { it.i("keeperId") == id && it.b("isOnTarget") && it.s("eventType") != "Goal" && !it.b("isBlocked") }
@@ -249,27 +277,32 @@ fun rateMatch(m: MatchData): Map<Int, PlayerRating> {
             val onPitch = min(tout, 95) - tin
             val cs = mapOf("GK" to 0.6, "CB" to 0.5, "FB" to 0.4, "DM" to 0.25, "CM" to 0.12)[role]
             if (cs != null && onPitch >= 60 && conceded == 0) add("team", L("کلین‌شیت"), cs)
-            val per = mapOf("GK" to 0.3, "CB" to 0.25, "FB" to 0.2, "DM" to 0.1)[role]
+            val per = mapOf("GK" to 0.35, "CB" to 0.3, "FB" to 0.25, "DM" to 0.12)[role]
             if (per != null) add("team", L("گل خورده وقتی در زمین بود"), -per * conceded, conceded)
             val fd = finalDiff(home)
-            add("team", if (fd > 0) L("برد تیم") else L("باخت تیم"), if (fd > 0) 0.15 else if (fd < 0) -0.1 else 0.0)
+            add("team", if (fd > 0) L("برد تیم") else if (fd <= -3) L("باخت سنگین تیم") else L("باخت تیم"), if (fd > 0) 0.2 else if (fd <= -3) -0.35 else if (fd < 0) -0.2 else 0.0)
             // discipline and mistakes
             for (e in m.events) if (e.s("type") == "Card" && e.o("player").i("id") == id) {
                 val t = e.i("time") ?: 0
-                if (e.s("card") == "Yellow") add("disc", L("کارت زرد"), -0.25, 1, L("دقیقه {0}", fa(t)))
-                else add("disc", L("اخراج"), -1.4 * stateWeight(diffAt(t, home), t, "red"), 1, L("دقیقه {0}", fa(t)))
+                if (e.s("card") == "Yellow") add("disc", L("کارت زرد"), -0.35, 1, L("دقیقه {0}", fa(t)))
+                else add("disc", L("اخراج"), -1.8 * stateWeight(diffAt(t, home), t, "red"), 1, L("دقیقه {0}", fa(t)))
             }
-            add("disc", L("اشتباه منجر به گل"), -1.2 * v("errors_led_to_goal"), n("errors_led_to_goal"))
+            add("disc", L("اشتباه منجر به گل"), -1.6 * v("errors_led_to_goal"), n("errors_led_to_goal"))
             // work rate (small)
             val dist = v("physical_metrics_distance_covered")
             if (dist > 0 && mins >= 20) add("phys", L("مسافت دویده"), max(-0.1, min(0.15, (dist / mins * 90 - 10500) / 10000)), note = L("{0} کیلومتر", fa(dec(dist / 1000, 1))))
             val spr = v("physical_metrics_number_of_sprints")
             if (spr > 0 && mins >= 20) add("phys", L("دوی سرعت"), max(0.0, min(0.1, (spr / mins * 90 - 20) / 100)), spr.toInt())
+            // 9 and above only for a match-deciding performance: an equaliser or a go-ahead goal (scored or set up), three goal involvements,
+            // or a keeper who kept his side from losing
+            val involved = goals.filter { it.homeScored == home && ((it.e.i("playerId") == id && !it.e.b("ownGoal")) || it.e.i("assistPlayerId") == id) }
+            val decisive = involved.any { diffAt(it.minute, home) in -1..0 } || involved.size >= 3 || (role == "GK" && v("goals_prevented") >= 1.0 && fd >= 0)
 
             val w = WEIGHTS[role].orEmpty()
             val weighted = items.map { RatingItem(it.group, it.label, it.points * (w[it.group] ?: 1.0) * FIT_B, it.count, it.note) }
-            var r = FIT_A + weighted.sumOf { it.points }
-            if (r > 8.3) r = 8.3 + (r - 8.3) * 0.7
+            var r = FIT_A + (ROLE_FIX[role] ?: 0.0) + weighted.sumOf { it.points }
+            if (r > KNEE) r = KNEE + (r - KNEE) * ABOVE
+            if (!decisive) r = min(r, 8.9)
             r = r.coerceIn(3.0, 10.0)
             // a short game says less: the margin grows as the minutes fall
             val margin = 0.25 + 0.9 * max(0.0, 1 - mins / 90.0)

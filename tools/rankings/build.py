@@ -305,7 +305,7 @@ def main(store_path, out_path):
     global STORE_PATH
     STORE_PATH = store_path
     store = json.load(open(store_path)) if os.path.exists(store_path) else dict(days={}, matches={})
-    if store.get('v') != 2: store = dict(v=2, days={}, matches={})  # results and stages are needed now: rate again
+    if store.get('v') != 3: store = dict(v=3, days={}, matches={})  # the rating formula changed (stricter): rate everything again
     collect(store)
     json.dump(store, open(store_path, 'w'), separators=(',', ':'))
     awards = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'awards.json')))

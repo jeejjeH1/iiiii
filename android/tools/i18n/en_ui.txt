@@ -1079,3 +1079,8 @@
 1078|Android stops closed apps, so goal alerts don't arrive. Tap "Allow" in the next window so GoalLive can check scores in the background (it uses very little battery).
 1079|Allow
 1080|FT
+1081|Usual for the role: {0}
+1082|Big chance missed
+1083|Usual for the role: {0}%
+1084|Penalty conceded
+1085|Heavy team defeat
