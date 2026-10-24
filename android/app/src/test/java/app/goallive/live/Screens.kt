@@ -203,13 +203,27 @@ class Screens {
         if (match != null) runCatching {
             val md = runBlocking { app.goallive.live.ui.MatchData(Api.fm("matchDetails", mapOf("matchId" to match.id))) }
             // drawn off the main thread: the crests are loaded through the main looper, which settle() keeps turning
-            var drawn: android.graphics.Bitmap? = null
-            val t = Thread { drawn = runBlocking { app.goallive.live.ui.drawCard(ctx, md) } }.apply { start() }
+            var drawn: List<Pair<String, android.graphics.Bitmap>>? = null
+            val t = Thread {
+                drawn = runBlocking {
+                    val best = app.goallive.live.ui.bestOf(md)
+                    val art = app.goallive.live.ui.cardAssets(ctx, md, best)
+                    val ui = app.goallive.live.ui.CardOptions()
+                    app.goallive.live.ui.CARD_THEMES.mapIndexed { k, th ->
+                        val f = app.goallive.live.ui.CardFormat.values()[k % 3]
+                        val o = ui.copy(theme = th, format = f, caption = if (k == 1) "بهترین بازی فصل!" else "", sticker = if (k == 2) "🔥" else "")
+                        "28${'a' + k}-share-$th-${f.name.lowercase()}" to app.goallive.live.ui.drawCard(ctx, md, o, art, best, 0.6f)
+                    }
+                }
+            }.apply { start() }
             var waited = 0L
-            while (t.isAlive && waited < 30_000) { settle(500); waited += 500 }
-            val bmp = drawn ?: error("not drawn in 30 s")
+            while (t.isAlive && waited < 40_000) { settle(500); waited += 500 }
             java.io.File("build/screens").mkdirs()
-            java.io.FileOutputStream("build/screens/28-share-card.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            for ((name, bmp) in drawn ?: error("not drawn in 40 s"))
+                java.io.FileOutputStream("build/screens/$name.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            // the studio itself
+            app.goallive.live.ui.ShareStudio.match = md; settle(8000); shot("28z-share-studio")
+            app.goallive.live.ui.ShareStudio.match = null; settle(800)
         }.onFailure { System.err.println("SHOT share card failed: $it") }
         // Iran's league: a match of the day and the league page
         list.firstOrNull { it.primaryId == 523 }?.matches?.firstOrNull()?.let { NavHook.nav?.match(it.id); settle(20000); shot("24-iran-match") }

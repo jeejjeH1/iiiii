@@ -1036,3 +1036,37 @@
 1035|Official winner
 1036|Not announced yet
 1037|GoalLive’s ranking for this year
+1038|Shots
+1039|{0} shots
+1040|{0} shots
+1041|Tap a shot for details · bigger circle = better chance
+1042|Team colours
+1043|Night
+1044|Gold
+1045|Light
+1046|Pitch
+1047|Neon
+1048|✨ Share studio
+1049|Making…
+1050|Size
+1051|Story
+1052|Portrait post
+1053|Square post
+1054|Design
+1055|Show on the picture
+1056|Scorers
+1057|Key stats
+1058|Best player
+1059|Momentum
+1060|My prediction
+1061|Your caption
+1062|e.g. Game of the season! 🔥
+1063|Sticker
+1064|Please wait…
+1065|Save to gallery
+1066|Saved to gallery
+1067|Could not save; use Share instead
+1068|Possession
+1069|GoalLive player of the match
+1070|GoalLive · live football scores
+1071|Get it on Cafe Bazaar
