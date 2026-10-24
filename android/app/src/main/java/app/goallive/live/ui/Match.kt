@@ -1136,12 +1136,15 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
             }
             if (m.started) {
                 // everyone else in this match, own team first, to compare with
+                // heatmaps are keyed by Opta's player id, which the match's player stats carry
+                val stats = m.content.o("playerStats")
+                fun opta(id: Int) = stats?.optJSONObject(id.toString())?.s("optaId")?.toIntOrNull() ?: 0
                 val lu = m.content.o("lineup")
                 val others = listOf(true, false).sortedByDescending { it == p.home }.flatMap { home ->
                     val t = lu?.o(if (home) "homeTeam" else "awayTeam")
-                    (t.a("starters").objs() + t.a("subs").objs()).map { HeatPlayer(it.i("id") ?: 0, it.s("name") ?: "", home) }
+                    (t.a("starters").objs() + t.a("subs").objs()).map { val id = it.i("id") ?: 0; HeatPlayer(id, opta(id), it.s("name") ?: "", home) }
                 }
-                PlayerHeatmap(m.matchId, p.id, p.name, others)
+                PlayerHeatmap(m.matchId, p.id, opta(p.id), p.name, others)
             }
             val groups = ps?.a("stats").objs()
             if (groups.isNullOrEmpty()) T(L("آمار این بازیکن در این بازی ثبت نشده"), 13, color = C.mute, modifier = Modifier.fillMaxWidth().padding(24.dp), align = TextAlign.Center)

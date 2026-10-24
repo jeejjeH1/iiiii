@@ -377,25 +377,25 @@ private fun DuelRow(d: Duel, ac: Color, dc: Color) {
 
 /* ---------- 4. a player's heatmap ---------- */
 
-/** A player who can be put next to the one being looked at. */
-class HeatPlayer(val id: Int, val name: String, val home: Boolean)
+/** A player who can be put next to the one being looked at; [opta] is the id FotMob's heatmaps use. */
+class HeatPlayer(val id: Int, val opta: Int, val name: String, val home: Boolean)
 
 /**
  * "نقشه حرارتی": where a player was during the match, as a smooth heat layer over the whole pitch (attacking left to right),
  * the share of his time in each third and lane, a full-screen view, and a second player from the match next to him.
  */
 @Composable
-fun PlayerHeatmap(matchId: Int, playerId: Int, name: String, others: List<HeatPlayer>) {
+fun PlayerHeatmap(matchId: Int, playerId: Int, opta: Int, name: String, others: List<HeatPlayer>) {
     // loaded straight away (not tied to the screen's lifecycle): the player sheet is its own window
     val loaded by produceState<Map<Int, List<Pair<Float, Float>>>?>(heatCache[matchId], matchId) {
         if (value == null) value = runCatching { heatPoints(matchId) }.getOrNull()?.also { heatCache[matchId] = it }
     }
     val all = loaded ?: return
-    val pts = all[playerId] ?: return
+    val pts = all[opta] ?: return
     if (pts.size < 3) return
     var big by remember { mutableStateOf(false) }
     var vs by rememberSaveable(playerId) { mutableStateOf<Int?>(null) }
-    val rivals = others.filter { it.id != playerId && (all[it.id]?.size ?: 0) >= 3 }
+    val rivals = others.filter { it.id != playerId && (all[it.opta]?.size ?: 0) >= 3 }
     val other = rivals.firstOrNull { it.id == vs }
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         T(L("نقشه حرارتی"), 12, FontWeight.ExtraBold, C.mute, Modifier.weight(1f))
@@ -418,7 +418,7 @@ fun PlayerHeatmap(matchId: Int, playerId: Int, name: String, others: List<HeatPl
         }
     }
     if (other != null) {
-        val op = all[other.id]!!
+        val op = all[other.opta]!!
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Face(other.id, 26.dp); Spacer(Modifier.width(8.dp)); T(personName(other.name), 13, FontWeight.ExtraBold)
         }
@@ -563,7 +563,7 @@ private fun heatSentence(pts: List<Pair<Float, Float>>): String {
 
 private val heatCache = java.util.concurrent.ConcurrentHashMap<Int, Map<Int, List<Pair<Float, Float>>>>()
 
-/** Every player's heatmap points in a match: FotMob draws them as circles on a 105×68 pitch. */
+/** Every player's heatmap points in a match, by Opta player id: FotMob draws them as circles on a 105×68 pitch. */
 private suspend fun heatPoints(matchId: Int): Map<Int, List<Pair<Float, Float>>> {
     val url = java.net.URLEncoder.encode("https://pub.fotmob.com/prod/db/api/heatmap/match/$matchId", "UTF-8")
     val d = Api.fotmob("data/heatmap/match/$matchId/heatmaps?heatmapUrl=$url")
