@@ -335,7 +335,7 @@ internal fun drawCard(ctx: Context, m: MatchData, o: CardOptions, a: CardAssets,
     // both crests, huge and faint, behind everything
     val wm = W * 0.95f
     for ((bm, x, y0) in listOf(Triple(a.home, homeX, H * 0.05f), Triple(a.away, awayX, H * 0.55f))) bm?.let {
-        p.alpha = if (o.theme == "light") 16 else 22
+        p.alpha = if (o.theme == "light") 13 else 18
         c.drawBitmap(it, null, RectF(x - wm / 2, y0, x + wm / 2, y0 + wm), p); p.alpha = 255
     }
     grain(c, W, H, o.theme == "light")
@@ -699,7 +699,7 @@ private fun background(c: Canvas, theme: String, W: Int, H: Int, hc: Int, ac: In
         "light" -> {
             p.color = 0xFFF7F4EE.toInt(); c.drawRect(0f, 0f, w, h, p)
             // a band in both colours across the top
-            p.shader = LinearGradient(0f, 0f, w, 0f, intArrayOf(hc, hc, ac, ac), floatArrayOf(0f, 0.48f, 0.52f, 1f), Shader.TileMode.CLAMP)
+            p.shader = LinearGradient(0f, 0f, w, 0f, if (Lang.en) intArrayOf(hc, hc, ac, ac) else intArrayOf(ac, ac, hc, hc), floatArrayOf(0f, 0.48f, 0.52f, 1f), Shader.TileMode.CLAMP)
             val band = Path().apply { moveTo(0f, 0f); lineTo(w, 0f); lineTo(w, h * 0.16f); lineTo(0f, h * 0.24f); close() }
             c.drawPath(band, p); p.shader = null
             radial(w / 2, h * 0.42f, w * 0.6f, 0xFFFFFFFF.toInt(), 0xFF)
