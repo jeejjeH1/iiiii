@@ -342,8 +342,6 @@ fun RatingWhy(r: PlayerRating, all: List<PlayerRating>, open: Boolean, onToggle:
             T(L("نمره نهایی"), 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             T(fa(dec(r.value, 1)) + if (r.minutes < 60) "  ± " + fa(dec(r.margin, 1)) else "", 15, FontWeight.Black, accent)
         }
-        T(L("نمره‌های خیلی بالا کمی فشرده می‌شوند تا ۹ و ۱۰ کمیاب بمانند. هرچه کمتر بازی کرده باشد، بازه‌ی ± بزرگ‌تر است."), 11, color = C.mute,
-            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
     }
 }
 
@@ -354,7 +352,7 @@ fun TopRated(m: MatchData) {
     val top = LocalRatings.current.values.filter { it.minutes >= 20 }.sortedByDescending { it.value }.take(3)
     if (top.size < 3) return
     Card {
-        CardTitle(L("⭐ برترین‌های گل‌لایو"), sub = L("نمره خودمان، از روی آمار همین بازی"))
+        CardTitle(L("⭐ برترین‌های گل‌لایو"))
         top.forEachIndexed { k, r ->
             val reason = r.items.filter { it.points > 0 }.maxByOrNull { it.points }
             ListRow(first = k == 0, onClick = { nav.player(r.id) }) {

@@ -1163,7 +1163,6 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                         Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = mine != null) { why = !why }) { BigRating(rating, if (mine != null) L("نمره گل‌لایو") else L("نمره")) }
                         mine?.let { r ->
                             if (r.minutes < 60) T("± " + fa(dec(r.margin, 1)), 11, FontWeight.Bold, C.mute)
-                            r.fotmob?.let { T(L("فوت‌موب {0}", fa(dec(it, 1))), 10, color = C.mute) }
                         }
                     }
                 }
