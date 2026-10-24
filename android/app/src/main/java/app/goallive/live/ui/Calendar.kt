@@ -199,7 +199,7 @@ private fun title(m: MatchItem) = "⚽ ${m.home.name} - ${m.away.name}"
 
 private fun addEvent(m: MatchItem) = Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
     .putExtra(CalendarContract.Events.TITLE, title(m))
-    .putExtra(CalendarContract.Events.DESCRIPTION, "${m.leagueName}\n${Api.SITE}/#/match/${m.id}")
+    .putExtra(CalendarContract.Events.DESCRIPTION, "${m.leagueName}\n${BAZAAR_URL}")
     .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, m.time)
     .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, m.time + 2 * 3_600_000L)
 

@@ -56,7 +56,8 @@ object Store {
         notifyGoals = p.getBoolean("nGoals", true)
         notifyLineups = p.getBoolean("nLineups", true)
         notifyStartEnd = p.getBoolean("nStartEnd", true)
-        fastAlerts = p.getBoolean("fastAlerts", false)
+        // on unless turned off: without it Android may hold alarms for minutes while the phone sleeps, and goal alerts arrive late
+        fastAlerts = p.getBoolean("fastAlerts", true)
         // English: FotMob's own names; Persian: Persian names everywhere
         faNames = !app.goallive.live.Lang.en
         voice = p.getString("voice", "auto")!!

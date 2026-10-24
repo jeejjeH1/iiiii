@@ -149,7 +149,16 @@ fun MatchScreen(id: Int) {
     val l = rememberLoader(
         id,
         peek = { (Api.peek(url) as? JSONObject)?.let(::MatchData) },
-        poll = { m -> if (m.live) 8_000L else if (!m.finished && m.time - System.currentTimeMillis() < 2 * 3_600_000) 60_000L else null },
+        poll = { m ->
+            val toGo = m.time - System.currentTimeMillis()
+            when {
+                m.live -> 8_000L
+                // around kick-off and while line-ups are due: every 15 seconds
+                !m.finished && toGo < 90 * 60_000L -> 15_000L
+                !m.finished && toGo < 2 * 3_600_000 -> 60_000L
+                else -> null
+            }
+        },
     ) { MatchData(Api.fm("matchDetails", mapOf("matchId" to id), 5_000)) }
     Box(Modifier.fillMaxSize()) {
         Refreshable(l) { LoadBox(l, 6) { m -> MatchBody(m) } }

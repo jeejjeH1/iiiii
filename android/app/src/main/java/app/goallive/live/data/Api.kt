@@ -18,12 +18,13 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
- * The app talks only to its own server (the Vercel functions in /api), which proxies FotMob and Aparat.
+ * Match data comes straight from FotMob (the quickest way: no stop on the way); our Cloudflare server is the fallback for it and
+ * the only source for Aparat highlights, speech and the widget.
  * Responses are kept in memory for [maxAge] and the last copy of each is saved to disk,
  * so screens open instantly with old data and still work when the network drops.
  */
 object Api {
-    const val SITE = "https://iiiii-psi.vercel.app"
+    const val SITE = "https://goallive.gelsa.workers.dev"
 
     private lateinit var http: OkHttpClient
     private lateinit var snapDir: File
@@ -81,8 +82,8 @@ object Api {
         }
     }
 
-    /** Set when our server fails (down, out of quota, filtered): FotMob is then asked directly for a while. */
-    @Volatile private var serverDownUntil = 0L
+    /** Set when FotMob can't be reached directly (filtered, network trouble): our server is asked first for a little while. */
+    @Volatile private var directDownUntil = 0L
 
     /** FotMob paths behind /api/fm?e=… (same list as api/fm.js). */
     private val FM_PATHS = mapOf(
@@ -113,14 +114,14 @@ object Api {
 
     fun fetch(url: String): String {
         if (url.startsWith("https://www.fotmob.com/")) return fetchRaw(url, fotmob = true)
-        val direct = directUrl(url)
-        if (direct != null && System.currentTimeMillis() < serverDownUntil) return fetchRaw(direct, fotmob = true)
+        val direct = directUrl(url) ?: return fetchRaw(url, fotmob = false)
+        // FotMob first: every second counts for goals, cards and line-ups; our server only when FotMob can't be reached
+        if (System.currentTimeMillis() < directDownUntil) return runCatching { fetchRaw(url, fotmob = false) }.getOrElse { fetchRaw(direct, fotmob = true) }
         return try {
-            fetchRaw(url, fotmob = false)
-        } catch (e: IOException) {
-            if (direct == null) throw e
-            serverDownUntil = System.currentTimeMillis() + 10 * 60_000
             fetchRaw(direct, fotmob = true)
+        } catch (e: IOException) {
+            directDownUntil = System.currentTimeMillis() + 2 * 60_000
+            fetchRaw(url, fotmob = false)
         }
     }
 

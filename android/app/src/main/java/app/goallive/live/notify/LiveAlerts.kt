@@ -202,7 +202,8 @@ object LiveAlerts {
 
         return when {
             followed.any { it.live } -> 60_000L
-            followed.any { !it.started && it.time - now in 0..90 * 60_000L } -> 3 * 60_000L
+            // line-ups come out about an hour before kick-off: look every minute then
+            followed.any { !it.started && it.time - now in 0..90 * 60_000L } -> 60_000L
             else -> followed.filter { !it.started && it.time > now }.minOfOrNull { it.time - now - 85 * 60_000L }
                 ?.coerceIn(3 * 60_000L, 30 * 60_000L) ?: 60 * 60_000L
         }
