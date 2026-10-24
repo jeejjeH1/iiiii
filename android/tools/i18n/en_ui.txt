@@ -923,3 +923,79 @@
 922|{0} km
 923|{0} m
 924|{0} km/h
+925|Attack and scoring
+926|Chance creation
+927|Passing and build-up
+928|Duels
+929|Goalkeeping
+930|Team while on the pitch
+931|Discipline and mistakes
+932|Work rate
+933|Centre-back
+934|Full-back
+935|Defensive midfielder
+936|Central midfielder
+937|Attacking midfielder
+938|Winger
+939|Equaliser
+940|Go-ahead goal
+941|Goal to lead by two
+942|Game already won
+943|Consolation goal
+944|minute {0}
+945| · decisive late minutes
+946|Chance quality (xG)
+947|Shot quality (xGOT minus xG)
+948|Shots on target
+949|Shots off target
+950|Successful dribbles
+951|Failed dribbles
+952|Touches in the box
+953|Fouled
+954|Offside
+955|Dispossessed
+956|Missed penalty
+957|Pass quality (xA)
+958|Key passes
+959|Big chances created
+960|Pass accuracy
+961|Completed passes
+962|Line-breaking passes
+963|Passes into the final third
+964|Long balls
+965|Crosses
+966|Tackles
+967|Interceptions
+968|Blocked shots
+969|Clearances
+970|Recoveries
+971|Last-man tackle
+972|Dribbled past
+973|Aerial duels won
+974|Aerial duels lost
+975|Ground duels won
+976|Ground duels lost
+977|Fouls
+978|Saves
+979|Goals prevented
+980|High claims
+981|Punches
+982|Sweeper actions
+983|Conceded while on the pitch
+984|Team won
+985|Team lost
+986|Error leading to a goal
+987|Distance covered
+988|Sprints
+989|GoalLive rating: why {0}?
+990|Ranked {0} of {1} in this match · {2}
+991|Best: {0}
+992|Weakest: {0}
+993|Every player starts at
+994|Final rating
+995|Very high ratings are squeezed a little so 9s and 10s stay rare. The fewer minutes played, the wider the ± range.
+996|⭐ GoalLive top three
+997|Our own rating, from this match’s stats
+998|GoalLive
+999|FotMob {0}
+1000|Defending

@@ -146,6 +146,9 @@ class Screens {
         tap("مادیسون", exact = true); settle(6000); shot("44-heatmap")
         // the sheet's own scroll is the last scrollable node on screen
         fun sheetUp(n: Int) = repeat(n) { runCatching { rule.onNodeWithTag("player-sheet").performTouchInput { swipeUp(startY = bottom * 0.8f, endY = bottom * 0.3f, durationMillis = 500) } }; settle(900) }
+        tap("نمره گل‌لایو: چرا"); settle(1200); shot("48-rating-why")
+        tap("حمله و گلزنی"); settle(800); sheetUp(1); shot("48b-rating-why-open")
+        tap("حمله و گلزنی"); tap("نمره گل‌لایو: چرا"); settle(800)
         sheetUp(1); shot("44b-sheet-heat")
         tap("بزرگ", exact = true); settle(1500); shot("46-heatmap-full")
         tap("افقی", exact = true); settle(800)

@@ -180,6 +180,8 @@ private fun MatchBody(m: MatchData) {
     }
     if (tabs.none { it.first == tab }) tab = "summary"
     if (statViews.none { it.first == statsView }) statsView = statViews.firstOrNull()?.first ?: "team"
+    val ratings = remember(m.d) { runCatching { rateMatch(m) }.getOrDefault(emptyMap()) }
+    CompositionLocalProvider(LocalRatings provides ratings) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         item { Hero(m) }
         stickyTabs(tabs, tab) { tab = it }
@@ -207,6 +209,7 @@ private fun MatchBody(m: MatchData) {
                 }
             }
         }
+    }
     }
 }
 
@@ -438,6 +441,7 @@ private fun Summary(m: MatchData) {
         AttackZones(m)
     }
     if (!m.finished && !m.cancelled && m.homeId > 0 && m.awayId > 0) OpponentRadar(m)
+    if (m.started) TopRated(m)
     m.facts.o("playerOfTheMatch")?.takeIf { (it.i("id") ?: 0) > 0 }?.let { p ->
         Card {
             Row(Modifier.fillMaxWidth().drawBehind {
@@ -988,7 +992,7 @@ private fun LineupRow(p: LP, first: Boolean, onOpen: (LP) -> Unit) {
     val meta = listOfNotNull(p.number.takeIf { it.isNotEmpty() }?.let { "#$it" }, p.country.takeIf { it.isNotEmpty() },
         p.inAt?.let { L("⇧ ورود دقیقه {0}", it) }, p.outAt?.let { L("⇩ خروج دقیقه {0}", it) }).joinToString(" · ")
     PersonRow(p.id, p.name + if (p.captain) " (C)" else "", meta, first = first, trailing = {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { EventIcons(p); Rating(p.rating) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { EventIcons(p); Rating(LocalRatings.current[p.id]?.value ?: p.rating) }
     }) { onOpen(p) }
 }
 
@@ -1031,7 +1035,7 @@ private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
         .clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
             Kit(p, color, 44.dp)
-            p.rating?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(12.dp, (-6).dp), small = true) }
+            (LocalRatings.current[p.id]?.value ?: p.rating)?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(12.dp, (-6).dp), small = true) }
         }
         Ltr(p.short, Modifier.padding(top = 6.dp), style = lat(12.sp), align = TextAlign.Center)
         if (p.inAt != null) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1078,7 +1082,7 @@ private fun PitchPlayer(p: LP, color: Color, modifier: Modifier, onClick: () -> 
     Column(modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
             Box(Modifier.padding(horizontal = 14.dp).glow(Color.Black.copy(alpha = 0.45f), 6.dp, CircleShape)) { Kit(p, color, 42.dp) }
-            p.rating?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(2.dp, (-4).dp), small = true) }
+            (LocalRatings.current[p.id]?.value ?: p.rating)?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(2.dp, (-4).dp), small = true) }
         }
         Row(Modifier.padding(top = 3.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 5.dp, vertical = 1.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -1123,7 +1127,10 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
     val ps = m.content.o("playerStats")?.optJSONObject(p.id.toString())
     val color = if (p.home) m.homeColor else m.awayColor
     val teamId = if (p.home) m.homeId else m.awayId
-    val rating = p.rating ?: ps?.let { statOf(it, "FotMob rating") }
+    val all = LocalRatings.current
+    val mine = all[p.id]
+    val rating = mine?.value ?: p.rating ?: ps?.let { statOf(it, "FotMob rating") }
+    var why by rememberSaveable(p.id) { mutableStateOf(false) }
     // opens all the way up: there is a lot to read
     val state = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, sheetState = state, containerColor = C.bg,
@@ -1152,7 +1159,13 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                         }
                         positionName(ps?.i("usualPosition"))?.let { T(it, 12, color = C.mute) }
                     }
-                    if (rating != null && rating > 0) BigRating(rating)
+                    if (rating != null && rating > 0) Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = mine != null) { why = !why }) { BigRating(rating, if (mine != null) L("نمره گل‌لایو") else L("نمره")) }
+                        mine?.let { r ->
+                            if (r.minutes < 60) T("± " + fa(dec(r.margin, 1)), 11, FontWeight.Bold, C.mute)
+                            r.fotmob?.let { T(L("فوت‌موب {0}", fa(dec(it, 1))), 10, color = C.mute) }
+                        }
+                    }
                 }
                 // what he did, as chips
                 val chips = buildList {
@@ -1176,6 +1189,7 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                 (ps?.let { statOf(it, "Distance covered") }?.let { L("مسافت (کیلومتر)") to fa(dec(it / 1000.0, 1)) }
                     ?: ps?.let { statOf(it, "Touches") }?.let { L("لمس توپ") to fa(it.toInt()) }),
             )
+            if (mine != null) RatingWhy(mine, all.values.toList(), why) { why = !why }
             if (tiles.isNotEmpty()) Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((label, v) in tiles) Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(18.dp))
                     .padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1251,11 +1265,11 @@ private fun SheetStat(label: String, s: JSONObject, accent: Color) {
 
 /** The match rating as a big coloured badge. */
 @Composable
-private fun BigRating(r: Double) {
+private fun BigRating(r: Double, label: String) {
     val c = when { r >= 9 -> Color(0xFF1D9BF0); r >= 7.5 -> Color(0xFF14B866); r >= 6.5 -> Color(0xFF9FB21B); r >= 5.5 -> Color(0xFFF08A24); else -> Color(0xFFE5434B) }
     Column(Modifier.clip(RoundedCornerShape(16.dp)).background(c).padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(fa(dec(r, 1)), color = Color.White, style = vz(22.sp, FontWeight.Black))
-        Text(L("نمره"), color = Color.White.copy(alpha = 0.85f), style = vz(10.sp, FontWeight.Bold))
+        Text(label, color = Color.White.copy(alpha = 0.85f), style = vz(9.sp, FontWeight.Bold))
     }
 }
 
