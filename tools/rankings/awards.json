@@ -129,6 +129,226 @@
    "year": 2000,
    "name": "Luís Figo",
    "team": "Barcelona / Real Madrid"
+  },
+  {
+   "year": 1999,
+   "name": "Rivaldo",
+   "team": "Barcelona"
+  },
+  {
+   "year": 1998,
+   "name": "Zinedine Zidane",
+   "team": "Juventus"
+  },
+  {
+   "year": 1997,
+   "name": "Ronaldo",
+   "team": "Inter"
+  },
+  {
+   "year": 1996,
+   "name": "Matthias Sammer",
+   "team": "Borussia Dortmund"
+  },
+  {
+   "year": 1995,
+   "name": "George Weah",
+   "team": "Milan"
+  },
+  {
+   "year": 1994,
+   "name": "Hristo Stoichkov",
+   "team": "Barcelona"
+  },
+  {
+   "year": 1993,
+   "name": "Roberto Baggio",
+   "team": "Juventus"
+  },
+  {
+   "year": 1992,
+   "name": "Marco van Basten",
+   "team": "Milan"
+  },
+  {
+   "year": 1991,
+   "name": "Jean-Pierre Papin",
+   "team": "Marseille"
+  },
+  {
+   "year": 1990,
+   "name": "Lothar Matthäus",
+   "team": "Inter"
+  },
+  {
+   "year": 1989,
+   "name": "Marco van Basten",
+   "team": "Milan"
+  },
+  {
+   "year": 1988,
+   "name": "Marco van Basten",
+   "team": "Milan"
+  },
+  {
+   "year": 1987,
+   "name": "Ruud Gullit",
+   "team": "Milan"
+  },
+  {
+   "year": 1986,
+   "name": "Igor Belanov",
+   "team": "Dynamo Kyiv"
+  },
+  {
+   "year": 1985,
+   "name": "Michel Platini",
+   "team": "Juventus"
+  },
+  {
+   "year": 1984,
+   "name": "Michel Platini",
+   "team": "Juventus"
+  },
+  {
+   "year": 1983,
+   "name": "Michel Platini",
+   "team": "Juventus"
+  },
+  {
+   "year": 1982,
+   "name": "Paolo Rossi",
+   "team": "Juventus"
+  },
+  {
+   "year": 1981,
+   "name": "Karl-Heinz Rummenigge",
+   "team": "Bayern München"
+  },
+  {
+   "year": 1980,
+   "name": "Karl-Heinz Rummenigge",
+   "team": "Bayern München"
+  },
+  {
+   "year": 1979,
+   "name": "Kevin Keegan",
+   "team": "Hamburger SV"
+  },
+  {
+   "year": 1978,
+   "name": "Kevin Keegan",
+   "team": "Hamburger SV"
+  },
+  {
+   "year": 1977,
+   "name": "Allan Simonsen",
+   "team": "Borussia Mönchengladbach"
+  },
+  {
+   "year": 1976,
+   "name": "Franz Beckenbauer",
+   "team": "Bayern München"
+  },
+  {
+   "year": 1975,
+   "name": "Oleg Blokhin",
+   "team": "Dynamo Kyiv"
+  },
+  {
+   "year": 1974,
+   "name": "Johan Cruyff",
+   "team": "Barcelona"
+  },
+  {
+   "year": 1973,
+   "name": "Johan Cruyff",
+   "team": "Barcelona"
+  },
+  {
+   "year": 1972,
+   "name": "Franz Beckenbauer",
+   "team": "Bayern München"
+  },
+  {
+   "year": 1971,
+   "name": "Johan Cruyff",
+   "team": "Ajax"
+  },
+  {
+   "year": 1970,
+   "name": "Gerd Müller",
+   "team": "Bayern München"
+  },
+  {
+   "year": 1969,
+   "name": "Gianni Rivera",
+   "team": "Milan"
+  },
+  {
+   "year": 1968,
+   "name": "George Best",
+   "team": "Manchester United"
+  },
+  {
+   "year": 1967,
+   "name": "Flórián Albert",
+   "team": "Ferencváros"
+  },
+  {
+   "year": 1966,
+   "name": "Bobby Charlton",
+   "team": "Manchester United"
+  },
+  {
+   "year": 1965,
+   "name": "Eusébio",
+   "team": "Benfica"
+  },
+  {
+   "year": 1964,
+   "name": "Denis Law",
+   "team": "Manchester United"
+  },
+  {
+   "year": 1963,
+   "name": "Lev Yashin",
+   "team": "Dynamo Moscow"
+  },
+  {
+   "year": 1962,
+   "name": "Josef Masopust",
+   "team": "Dukla Prague"
+  },
+  {
+   "year": 1961,
+   "name": "Omar Sívori",
+   "team": "Juventus"
+  },
+  {
+   "year": 1960,
+   "name": "Luis Suárez Miramontes",
+   "team": "Barcelona"
+  },
+  {
+   "year": 1959,
+   "name": "Alfredo Di Stéfano",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 1958,
+   "name": "Raymond Kopa",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 1957,
+   "name": "Alfredo Di Stéfano",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 1956,
+   "name": "Stanley Matthews",
+   "team": "Blackpool"
   }
  ],
  "goldenShoe": [

@@ -22,12 +22,18 @@ from rate import rate_match  # noqa: E402
 
 UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36'
 TOP5 = [47, 87, 55, 54, 53]
+CUPS = [42, 73]
+INTL = [77, 50, 44]  # World Cup, EURO, Copa América
+# Ballon d'Or years: August to the end of July, so each summer tournament falls in the season before it
 SEASONS = [
-    # the last full season runs to the end of the World Cup, like the Ballon d'Or year
-    dict(key='2025/2026', start='2025-08-01', end='2026-07-20', leagues=TOP5 + [42, 73, 77]),
-    dict(key='2026/2027', start='2026-08-01', end=None, leagues=TOP5 + [42, 73]),
+    dict(key='2021/2022', start='2021-08-01', end='2022-07-31', leagues=TOP5 + CUPS),
+    dict(key='2022/2023', start='2022-08-01', end='2023-07-31', leagues=TOP5 + CUPS + INTL),
+    dict(key='2023/2024', start='2023-08-01', end='2024-07-31', leagues=TOP5 + CUPS + INTL),
+    dict(key='2024/2025', start='2024-08-01', end='2025-07-31', leagues=TOP5 + CUPS),
+    dict(key='2025/2026', start='2025-08-01', end='2026-07-31', leagues=TOP5 + CUPS + INTL),
+    dict(key='2026/2027', start='2026-08-01', end=None, leagues=TOP5 + CUPS + INTL),
 ]
-BIG_STAGE = {42: 1.5, 77: 1.5, 73: 1.2}
+BIG_STAGE = {42: 1.5, 77: 1.5, 50: 1.3, 44: 1.3, 73: 1.2}
 # the Iranian league has no line-ups or player numbers in the data, so it cannot be rated (kept out of the world list if it ever appears)  # Champions League and World Cup matches count more for the Ballon d'Or pick
 IRAN = 523
 NATIONAL = {77, 50, 44, 289}
@@ -95,17 +101,29 @@ def collect(store):
     def rate(item):
         mid, lid, key, season = item
         try:
-            players = rate_match(fotmob('data/matchDetails', matchId=mid))
+            d = fotmob('data/matchDetails', matchId=mid)
+            players = rate_match(d)
         except Exception as e:  # noqa: BLE001
             print('match failed', mid, e, flush=True)
             return None
-        return str(mid), dict(league=lid, date=key, season=season, players={
+        h = d.get('header') or {}
+        teams = h.get('teams') or [{}, {}]
+        hs, as_ = teams[0].get('score'), teams[1].get('score')
+        pens = ((h.get('status') or {}).get('reason') or {}).get('penalties')
+        win = None
+        if hs is not None and as_ is not None:
+            if hs != as_: win = teams[0].get('id') if hs > as_ else teams[1].get('id')
+            elif pens and len(pens) == 2 and pens[0] != pens[1]: win = teams[0].get('id') if pens[0] > pens[1] else teams[1].get('id')
+        return str(mid), dict(league=lid, date=key, season=season, h=teams[0].get('id'), a=teams[1].get('id'), hs=hs, as_=as_, win=win,
+                              stage=((d.get('general') or {}).get('leagueRoundName') or '').lower(), players={
             str(pid): [p['name'], p['team'], p['teamName'], p['role'], p['minutes'], p['rating'], p['goals'], p['assists']] for pid, p in players.items()})
 
     with cf.ThreadPoolExecutor(8) as ex:
         for k, res in enumerate(ex.map(rate, pending)):
             if res: store['matches'][res[0]] = res[1]
-            if k % 200 == 0: print('rated', k, flush=True)
+            if k % 500 == 0:
+                print('rated', k, flush=True)
+                json.dump(store, open(STORE_PATH, 'w'), separators=(',', ':'))
 
 
 ROLE_GROUP = {'GK': 'GK', 'CB': 'DEF', 'FB': 'DEF', 'DM': 'MID', 'CM': 'MID', 'AM': 'MID', 'W': 'ATT', 'ST': 'ATT'}
@@ -158,11 +176,113 @@ def golden_shoe(matches, season):
     return out
 
 
+def stage_level(stage):
+    """How far a match is in a cup: 2 last 16, 3 quarter-final, 4 semi-final (and third place), 5 final; 0 earlier rounds."""
+    st = stage.replace('-', ' ').replace('_', ' ')
+    if st in ('final', 'finals'): return 5
+    if 'semi' in st or 'bronze' in st or 'third' in st: return 4
+    if 'quarter' in st or st == '1/4': return 3
+    if '1/8' in st or 'round of 16' in st or 'last 16' in st: return 2
+    return 0
+
+
+CUP_WEIGHT = {42: 1.0, 77: 1.0, 50: 0.8, 44: 0.7, 73: 0.5}
+LEVEL_POINTS = {6: 4.0, 5: 3.0, 4: 2.0, 3: 1.0, 2: 0.4}
+
+
+def honours(ms, ongoing):
+    """Team achievements of the season: league position (from our own table of the season's games) and how far each team went
+    in each cup. {team id: [(code, points)]}, codes like 'L:87:1' (LaLiga winner) or 'C:42:6' (Champions League winner)."""
+    out = {}
+    # league tables
+    for lid in TOP5:
+        pts = {}
+        for m in ms.values():
+            if m['league'] != lid or m.get('hs') is None: continue
+            for t in (m['h'], m['a']): pts.setdefault(t, 0)
+            if m['hs'] > m['as_']: pts[m['h']] += 3
+            elif m['hs'] < m['as_']: pts[m['a']] += 3
+            else: pts[m['h']] += 1; pts[m['a']] += 1
+        for pos, (t, _) in enumerate(sorted(pts.items(), key=lambda x: -x[1])[:4], 1):
+            p = (3.0 if pos == 1 else 0.8) * (0.5 if ongoing else 1.0)
+            out.setdefault(t, []).append(('L:%d:%d' % (lid, pos), p))
+    # cups: the furthest stage each team reached, a final won counts as 6
+    for cid, w in CUP_WEIGHT.items():
+        best = {}
+        for m in ms.values():
+            if m['league'] != cid: continue
+            lvl = stage_level(m.get('stage') or '')
+            if not lvl: continue
+            for t in (m['h'], m['a']):
+                l2 = 6 if (lvl == 5 and m.get('win') == t) else lvl
+                best[t] = max(best.get(t, 0), l2)
+        for t, lvl in best.items():
+            out.setdefault(t, []).append(('C:%d:%d' % (cid, lvl), w * LEVEL_POINTS[lvl]))
+    return out
+
+
+def ballon(ms, ongoing):
+    """GoalLive's Ballon d'Or: 50% season rating, 20% goals and assists, 20% trophies and how far the team went, 10% the big
+    knockout games; each part compared with the other contenders (z-scores) so none drowns the rest."""
+    agg = aggregate(ms, lambda m: True, BIG_STAGE)
+    if not agg: return []
+    most = max(a['minutes'] for a in agg.values())
+    floor = max(270, int(most * 0.3)) if ongoing else max(1500, int(most * 0.4))
+    hon = honours(ms, ongoing)
+    # minutes per player per team and competition, and knockout ratings
+    play = {}
+    knock = {}
+    for m in ms.values():
+        lvl = stage_level(m.get('stage') or '') if m['league'] in CUP_WEIGHT else 0
+        for pid, p in m['players'].items():
+            k = (pid, p[1], m['league'])
+            play[k] = play.get(k, 0) + p[4]
+            if lvl >= 2 and p[4] >= 30:
+                ws, wm = knock.get(pid, (0.0, 0))
+                knock[pid] = (ws + p[5] * p[4], wm + p[4])
+            if lvl == 5: play[(pid, p[1], 'final%d' % m['league'])] = 1
+    rows = []
+    for pid, a in agg.items():
+        if a['minutes'] < floor or a['wmin'] <= 0: continue
+        avg = (a['wsum'] + 6.6 * 900) / (a['wmin'] + 900)
+        got = []
+        for (q, team, comp), mins in play.items():
+            if q != pid or not isinstance(comp, int): continue
+            for code, pts in hon.get(team, []):
+                kind, cid, _ = code.split(':')
+                if int(cid) != comp: continue
+                # a league needs a real part of the season; a cup two games or the final
+                enough = mins >= 900 if kind == 'L' else (mins >= 120 or (pid, team, 'final%d' % comp) in play)
+                if enough: got.append((code, pts))
+        trophy = sum(p for _, p in got)
+        ks = knock.get(pid)
+        big = ks[0] / ks[1] if ks and ks[1] > 0 else (a['wsum'] / a['wmin']) - 0.2
+        rows.append(dict(a=a, avg=avg, ga=a['goals'] + 0.7 * a['assists'], trophy=trophy, big=big, got=got))
+    if len(rows) < 3: return []
+
+    def z(key):
+        vals = [r[key] for r in rows]
+        mu = sum(vals) / len(vals); sd = (sum((v - mu) ** 2 for v in vals) / len(vals)) ** 0.5 or 1
+        for r in rows: r['z_' + key] = (r[key] - mu) / sd
+    for k in ('avg', 'ga', 'trophy', 'big'): z(k)
+    for r in rows: r['total'] = 0.5 * r['z_avg'] + 0.2 * r['z_ga'] + 0.2 * r['z_trophy'] + 0.1 * r['z_big']
+    rows.sort(key=lambda r: -r['total'])
+    out = []
+    for r in rows[:10]:
+        a = r['a']; role = max(a['roles'], key=a['roles'].get)
+        out.append(dict(id=a['id'], name=a['name'], team=a['team'], teamName=a['teamName'], role=role, apps=a['apps'], minutes=a['minutes'],
+                        score=round(r['avg'], 2), goals=a['goals'], assists=a['assists'], big=round(r['big'], 2), total=round(r['total'], 2),
+                        honours=[c for c, _ in sorted(r['got'], key=lambda x: -x[1])]))
+    return out
+
+
 def find_ids(awards):
     """FotMob ids for the award winners, so the app can show their photos."""
     cache = {}
     for lst in awards.values():
         for x in lst:
+            # photos only for this century's winners: old names (or a lone "Ronaldo") would find the wrong player
+            if (x.get('year') or int((x.get('season') or '0')[:4])) < 2007: continue
             for name in (x.get('name') or '').split(' · ')[:1]:
                 if not name: continue
                 if name not in cache:
@@ -175,8 +295,14 @@ def find_ids(awards):
                 if cache[name]: x['id'] = cache[name]
 
 
+STORE_PATH = 'store.json'
+
+
 def main(store_path, out_path):
+    global STORE_PATH
+    STORE_PATH = store_path
     store = json.load(open(store_path)) if os.path.exists(store_path) else dict(days={}, matches={})
+    if store.get('v') != 2: store = dict(v=2, days={}, matches={})  # results and stages are needed now: rate again
     collect(store)
     json.dump(store, open(store_path, 'w'), separators=(',', ':'))
     awards = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'awards.json')))
@@ -195,13 +321,12 @@ def main(store_path, out_path):
         if iran:
             im = max(a['minutes'] for a in iran.values())
             entry['iran'] = ranked(iran, max(180, int(im * 0.3)), limit=50)
-        if s['end']:
-            # GoalLive's Ballon d'Or: the whole season, Champions League and World Cup games weighing more, regulars only
-            big = aggregate(ms, lambda m: m['league'] != IRAN, BIG_STAGE)
-            entry['ballonDor'] = ranked(big, max(1800, int(most * 0.45)), prior=6.6, k=900, limit=10)
+        entry['ballonDor'] = ballon(ms, ongoing=not s['end'])
+        entry['ballonYear'] = int(s['key'][-4:])
         seasons[s['key']] = entry
         print(s['key'], 'matches', len(ms), 'ranked', len(top), flush=True)
-    out = dict(updated=dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), current=SEASONS[-1]['key'], last=SEASONS[0]['key'],
+    out = dict(updated=dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), current=SEASONS[-1]['key'], last=SEASONS[-2]['key'],
+               order=[x['key'] for x in reversed(SEASONS)],
                seasons=seasons, awards=awards)
     json.dump(out, open(out_path, 'w'), ensure_ascii=False, separators=(',', ':'))
 
