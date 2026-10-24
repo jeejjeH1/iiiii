@@ -92,6 +92,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
+import kotlin.math.roundToInt
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
@@ -1109,30 +1110,82 @@ private fun PitchBadges(p: LP) {
     }
 }
 
-/** Tapping a player: their numbers in this match, without leaving the match page. */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+/**
+ * Tapping a player: his match in one sheet. A header in the team's colours (photo, name, team, position, rating), what he did
+ * as chips, four key numbers, the two buttons, his heatmap, then every stat group as its own card.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
     val nav = LocalNav.current
+    val accent = LocalAccent.current
     val ps = m.content.o("playerStats")?.optJSONObject(p.id.toString())
     val color = if (p.home) m.homeColor else m.awayColor
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, containerColor = C.cardSolid,
+    val teamId = if (p.home) m.homeId else m.awayId
+    val rating = p.rating ?: ps?.let { statOf(it, "FotMob rating") }
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, containerColor = C.bg,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), dragHandle = {
-            Box(Modifier.padding(top = 10.dp).width(44.dp).height(5.dp).clip(RoundedCornerShape(5.dp)).background(C.line2))
+            Box(Modifier.padding(top = 10.dp, bottom = 4.dp).width(44.dp).height(5.dp).clip(RoundedCornerShape(5.dp)).background(C.line2))
         }) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Kit(p, color, 64.dp)
-                Column(Modifier.weight(1f)) {
-                    Ltr(p.name, style = lat(20.sp, FontWeight.ExtraBold), maxLines = 2)
-                    T(listOfNotNull(ps?.s("teamName"), p.number.takeIf { it.isNotEmpty() }?.let { "#$it" }, if (ps?.b("isPotm") == true) L("بهترین بازیکن زمین") else null,
-                        p.inAt?.let { L("ورود دقیقه {0}", it) }, p.outAt?.let { L("خروج دقیقه {0}", it) }).joinToString(" · "), 12, color = C.mute)
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 20.dp)) {
+            // header in the team's colours
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp))
+                .background(Brush.linearGradient(listOf(color.copy(alpha = 0.55f), color.copy(alpha = 0.12f), C.card)))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)).padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box {
+                        Box(Modifier.size(84.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).padding(4.dp)) { Kit(p, color, 76.dp) }
+                        if (p.number.isNotEmpty()) Box(Modifier.align(Alignment.BottomEnd).size(28.dp).clip(CircleShape).background(color)
+                            .border(2.dp, C.bg, CircleShape), contentAlignment = Alignment.Center) {
+                            Text(fa(p.number), color = inkOn(color), style = vz(12.sp, FontWeight.Black))
+                        }
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        T(personName(p.name), 20, FontWeight.Black, maxLines = 2)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Crest(teamId, 18.dp)
+                            T(teamName(teamId, ps?.s("teamName") ?: if (p.home) m.homeName else m.awayName), 13, FontWeight.Bold, C.ink.copy(alpha = 0.85f), maxLines = 1)
+                        }
+                        positionName(ps?.i("usualPosition"))?.let { T(it, 12, color = C.mute) }
+                    }
+                    if (rating != null && rating > 0) BigRating(rating)
                 }
-                Rating(p.rating ?: ps?.let { statOf(it, "FotMob rating") })
+                // what he did, as chips
+                val chips = buildList {
+                    if (ps?.b("isPotm") == true) add("⭐ " + L("بهترین بازیکن زمین") to C.gold)
+                    if (p.goals > 0) add("⚽ " + L("{0} گل", fa(p.goals)) to C.win)
+                    if (p.assists > 0) add("🅰 " + L("{0} پاس گل", fa(p.assists)) to C.win)
+                    if (p.red) add("🟥 " + L("اخراج") to C.live) else if (p.yellow) add("🟨 " + L("کارت زرد") to C.gold)
+                    p.inAt?.let { add("⇧ " + L("ورود دقیقه {0}", fa(it)) to C.win) }
+                    p.outAt?.let { add("⇩ " + L("خروج دقیقه {0}", fa(it)) to C.live) }
+                }
+                if (chips.isNotEmpty()) FlowRow(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for ((t, c) in chips) Box(Modifier.clip(RoundedCornerShape(50)).background(c.copy(alpha = 0.16f)).border(1.dp, c.copy(alpha = 0.4f), RoundedCornerShape(50))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)) { T(t, 12, FontWeight.Bold, C.ink) }
+                }
             }
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Pill(L("پروفایل کامل"), PillKind.Accent, onClick = { onClose(); nav.player(p.id) })
-                Pill(L("مقایسه"), onClick = { onClose(); nav.compare(p.id) }, icon = Ic.swap)
+            // four key numbers
+            val tiles = listOfNotNull(
+                ps?.let { statOf(it, "Minutes played") }?.let { L("دقیقه") to fa(it.toInt()) },
+                ps?.let { statOf(it, "Goals") }?.let { L("گل") to fa(it.toInt()) },
+                ps?.let { statOf(it, "Assists") }?.let { L("پاس گل") to fa(it.toInt()) },
+                (ps?.let { statOf(it, "Distance covered") }?.let { L("مسافت (کیلومتر)") to fa(dec(it / 1000.0, 1)) }
+                    ?: ps?.let { statOf(it, "Touches") }?.let { L("لمس توپ") to fa(it.toInt()) }),
+            )
+            if (tiles.isNotEmpty()) Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                for ((label, v) in tiles) Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(18.dp))
+                    .padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    T(v, 20, FontWeight.Black); T(label, 11, color = C.mute, maxLines = 1)
+                }
+            }
+            Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(accent).clickable { onClose(); nav.player(p.id) }.padding(vertical = 12.dp),
+                    contentAlignment = Alignment.Center) { T(L("پروفایل کامل"), 14, FontWeight.ExtraBold, LocalAccentInk.current) }
+                Row(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).border(1.dp, C.line2, RoundedCornerShape(16.dp)).clickable { onClose(); nav.compare(p.id) }
+                    .padding(vertical = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Ic.swap, null, Modifier.size(16.dp), tint = C.ink); Spacer(Modifier.width(6.dp)); T(L("مقایسه"), 14, FontWeight.ExtraBold)
+                }
             }
             if (m.started) {
                 // everyone else in this match, own team first, to compare with
@@ -1144,33 +1197,67 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                     val t = lu?.o(if (home) "homeTeam" else "awayTeam")
                     (t.a("starters").objs() + t.a("subs").objs()).map { val id = it.i("id") ?: 0; HeatPlayer(id, opta(id), it.s("name") ?: "", home) }
                 }
-                PlayerHeatmap(m.matchId, p.id, opta(p.id), p.name, others)
+                PlayerHeatmap(m.matchId, p.id, opta(p.id), p.name, others, color)
             }
             val groups = ps?.a("stats").objs()
             if (groups.isNullOrEmpty()) T(L("آمار این بازیکن در این بازی ثبت نشده"), 13, color = C.mute, modifier = Modifier.fillMaxWidth().padding(24.dp), align = TextAlign.Center)
             groups?.forEach { g ->
-                SubHead(tr(g.s("title")))
                 val st = g.o("stats") ?: return@forEach
-                st.keys().asSequence().toList().filter { it != "Shotmap" && st.optJSONObject(it)?.s("key") != null }.forEach { t ->
-                    val s = st.optJSONObject(t)?.o("stat") ?: return@forEach
-                    val v = s.d("value")
-                    val shown = when {
-                        v == null -> "–"
-                        s.s("type") == "fractionWithPercentage" -> L("{0}/{1} ({2}٪)", v.toInt(), s.i("total") ?: 0, ((v / (s.d("total") ?: 1.0).coerceAtLeast(1.0)) * 100).toInt())
-                        s.s("type") == "double" -> dec(v)
-                        s.s("type") == "boolean" -> if (v != 0.0) L("بله") else L("خیر")
-                        else -> "${v.toInt()}"
+                val rows = st.keys().asSequence().toList().filter { it != "Shotmap" && st.optJSONObject(it)?.s("key") != null }
+                if (rows.isEmpty()) return@forEach
+                SheetCard {
+                    T(tr(g.s("title")), 14, FontWeight.ExtraBold, accent, Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp))
+                    rows.forEachIndexed { k, t ->
+                        val stat = st.optJSONObject(t)?.o("stat") ?: return@forEachIndexed
+                        if (k > 0) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().height(1.dp).background(C.line))
+                        SheetStat(tr(t), stat, accent)
                     }
-                    Divider()
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-                        T(tr(t), 13, modifier = Modifier.weight(1f))
-                        Ltr(fa(shown), style = vz(13.sp, FontWeight.ExtraBold))
-                    }
+                    Spacer(Modifier.height(8.dp))
                 }
             }
         }
     }
 }
+
+/** One stat line: the value on the end, and a thin bar for success rates. */
+@Composable
+private fun SheetStat(label: String, s: JSONObject, accent: Color) {
+    val v = s.d("value")
+    val total = s.d("total")
+    val pct = if (v != null && total != null && total > 0 && s.s("type") in setOf("fractionWithPercentage", "distanceWithPercentage")) (v / total).toFloat() else null
+    val shown = when {
+        v == null -> "–"
+        s.s("type") == "fractionWithPercentage" -> L("{0}/{1} ({2}٪)", fa(v.toInt()), fa(total?.toInt() ?: 0), fa(((pct ?: 0f) * 100).roundToInt()))
+        s.s("type") == "distanceWithPercentage" -> L("{0} متر ({1}٪)", fa(v.toInt()), fa(((pct ?: 0f) * 100).roundToInt()))
+        s.s("type") == "distance" -> if (v >= 1000) L("{0} کیلومتر", fa(dec(v / 1000.0, 1))) else L("{0} متر", fa(v.toInt()))
+        s.s("type") == "speed" -> L("{0} کیلومتر بر ساعت", fa(dec(v, 1)))
+        s.s("type") == "double" -> fa(dec(v))
+        s.s("type") == "boolean" -> if (v != 0.0) L("بله") else L("خیر")
+        else -> fa(v.toInt())
+    }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 9.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(label, 13, color = C.ink.copy(alpha = 0.85f), modifier = Modifier.weight(1f))
+            T(shown, 13, FontWeight.ExtraBold)
+        }
+        if (pct != null) Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(4.dp)).background(C.line)) {
+            Box(Modifier.fillMaxWidth(pct.coerceIn(0f, 1f)).fillMaxHeight().clip(RoundedCornerShape(4.dp)).background(accent))
+        }
+    }
+}
+
+/** The match rating as a big coloured badge. */
+@Composable
+private fun BigRating(r: Double) {
+    val c = when { r >= 9 -> Color(0xFF1D9BF0); r >= 7.5 -> Color(0xFF14B866); r >= 6.5 -> Color(0xFF9FB21B); r >= 5.5 -> Color(0xFFF08A24); else -> Color(0xFFE5434B) }
+    Column(Modifier.clip(RoundedCornerShape(16.dp)).background(c).padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(fa(dec(r, 1)), color = Color.White, style = vz(22.sp, FontWeight.Black))
+        Text(L("نمره"), color = Color.White.copy(alpha = 0.85f), style = vz(10.sp, FontWeight.Bold))
+    }
+}
+
+/** FotMob's usual position (0 keeper … 3 forward) in words. */
+private fun positionName(p: Int?) = when (p) { 0 -> L("دروازه‌بان"); 1 -> L("مدافع"); 2 -> L("هافبک"); 3 -> L("مهاجم"); else -> null }
 
 private fun statOf(p: JSONObject, title: String): Double? {
     for (g in p.a("stats").objs()) g.o("stats")?.o(title)?.o("stat")?.d("value")?.let { return it }

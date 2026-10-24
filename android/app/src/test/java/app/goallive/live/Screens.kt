@@ -143,8 +143,13 @@ class Screens {
         // a player's heatmap, then next to a team-mate
         tap("کاونتری", exact = true); settle(800); tap("تاتنهام", exact = true); settle(800)
         tap("مادیسون", exact = true); settle(6000); shot("44-heatmap")
-        tap("سولانکه"); settle(1500); shot("45-heatmap-compare")
-        tap("نمای بزرگ"); settle(1500); shot("46-heatmap-full")
+        // the sheet's own scroll is the last scrollable node on screen
+        fun sheetUp(n: Int) = repeat(n) { runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction()).let { it[it.fetchSemanticsNodes().size - 1] }.performTouchInput { swipeUp(durationMillis = 400) } }; settle(900) }
+        sheetUp(1); shot("44b-sheet-heat")
+        tap("بزرگ", exact = true); settle(1500); shot("46-heatmap-full")
+        tap("افقی", exact = true); settle(800)
+        tap("سولانکه"); settle(1500); sheetUp(2); shot("45-heatmap-compare")
+        sheetUp(3); shot("47-sheet-stats")
         NavHook.nav?.team(8634); settle(9000); shot("07-team")
         tap("تاریخچه"); settle(2000); shot("08-team-story")
         NavHook.nav?.league(47); settle(9000); shot("09-league")

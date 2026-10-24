@@ -910,3 +910,16 @@
 909|Right flank
 910|Large view
 911|Small view
+912|The warmer, the more time he spent there
+913|Wide
+914|Large
+915|Which part of the pitch
+916|Which side
+917|Sent off
+918|Minutes
+919|Distance (km)
+920|Touches
+921|{0} m ({1}%)
+922|{0} km
+923|{0} m
+924|{0} km/h
