@@ -999,3 +999,22 @@
 998|GoalLive
 999|FotMob {0}
 1000|Defending
+1001|🏆 GoalLive rankings
+1002|Top players
+1003|Ballon d’Or
+1004|Golden Shoe
+1005|This season
+1006|Last season
+1007|Not enough games yet this season.
+1008|{0} matches · at least {1} minutes played
+1009|{0} apps · {1} goals · {2} assists
+1010|GoalLive’s Ballon d’Or {0}
+1011|Season rating
+1012|GoalLive shortlist
+1013|Ballon d’Or winners
+1014|Not held
+1015|👟 Golden Shoe race · {0}
+1016|Golden Shoe {0}
+1017|Golden Shoe winners
+1018|All ({0})
+1019|World ranking, Ballon d’Or and Golden Shoe

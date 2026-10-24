@@ -187,6 +187,10 @@ class Screens {
             settle(1500); shot("26-predict")
         }
         NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
+        NavHook.nav?.rankings(); settle(9000); shot("50-rank-best")
+        tap("فصل گذشته", exact = true); settle(1500); shot("50b-rank-best-last")
+        tap("توپ طلا", exact = true); settle(1500); shot("51-rank-ballon")
+        tap("کفش طلا", exact = true); settle(1500); shot("52-rank-shoe")
         if (match != null) { NavHook.nav?.board(match.id, "h"); settle(6000); shot("29-board") }
         if (upcoming != null) {
             NavHook.nav?.match(upcoming.id); settle(4000)
