@@ -124,7 +124,7 @@ fun shareMatchCard(@Suppress("UNUSED_PARAMETER") ctx: Context, m: MatchData) { S
 /* ---------- the studio ---------- */
 
 /** Pictures the card needs, fetched once per match. */
-class CardAssets(val home: Bitmap?, val away: Bitmap?, val logo: Bitmap?, val best: Bitmap?, val black: Typeface, val bold: Typeface)
+class CardAssets(val home: Bitmap?, val away: Bitmap?, val logo: Bitmap?, val best: Bitmap?, val black: Typeface, val bold: Typeface, val hc: Int, val ac: Int)
 
 private suspend fun image(ctx: Context, url: String, px: Int): Bitmap? = runCatching {
     kotlinx.coroutines.withTimeoutOrNull(6_000) { ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(url).allowHardware(false).build()) }?.drawable?.toBitmap(px, px)
@@ -132,12 +132,14 @@ private suspend fun image(ctx: Context, url: String, px: Int): Bitmap? = runCatc
 
 internal suspend fun cardAssets(ctx: Context, m: MatchData, best: PlayerRating?): CardAssets {
     val en = Lang.en
+    val home = image(ctx, teamLogo(m.homeId, true), 320); val away = image(ctx, teamLogo(m.awayId, true), 320)
     return CardAssets(
-        image(ctx, teamLogo(m.homeId, true), 320), image(ctx, teamLogo(m.awayId, true), 320),
+        home, away,
         BitmapFactory.decodeResource(ctx.resources, R.drawable.logo),
         best?.let { image(ctx, playerFace(it.id), 260) },
         if (en) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else ResourcesCompat.getFont(ctx, R.font.vazir_black) ?: Typeface.DEFAULT_BOLD,
         if (en) Typeface.DEFAULT_BOLD else ResourcesCompat.getFont(ctx, R.font.vazir_bold) ?: Typeface.DEFAULT_BOLD,
+        cardColor(m.homeColor, home, 0xFF1E5BD8), cardColor(m.awayColor, away, 0xFFD62839),
     )
 }
 
@@ -180,7 +182,7 @@ fun ShareStudioSheet(m: MatchData, onClose: () -> Unit) {
             // the picture, as it will be sent
             Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
                 val ratio = o.format.w.toFloat() / o.format.h
-                Box(Modifier.fillMaxWidth(if (o.format == CardFormat.STORY) 0.62f else 0.86f).aspectRatio(ratio).clip(RoundedCornerShape(18.dp))
+                Box(Modifier.height(if (o.format == CardFormat.STORY) 440.dp else 380.dp).aspectRatio(ratio).clip(RoundedCornerShape(18.dp))
                     .background(C.card2).border(1.dp, C.line2, RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
                     preview?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize()) } ?: T(L("در حال ساختن…"), 13, color = C.mute)
                 }
@@ -193,7 +195,7 @@ fun ShareStudioSheet(m: MatchData, onClose: () -> Unit) {
                     val t = CARD_THEMES[k]
                     val on = t == o.theme
                     Column(Modifier.clip(RoundedCornerShape(16.dp)).clickable { o = o.copy(theme = t) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(58.dp, 82.dp).clip(RoundedCornerShape(12.dp)).background(themeSwatch(t, m)).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(12.dp)))
+                        Box(Modifier.size(58.dp, 82.dp).clip(RoundedCornerShape(12.dp)).background(themeSwatch(t, art?.hc ?: deep(m.homeColor), art?.ac ?: deep(m.awayColor))).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(12.dp)))
                         T(themeName(t), 11, if (on) FontWeight.ExtraBold else FontWeight.Normal, if (on) accent else C.mute, modifier = Modifier.padding(top = 4.dp))
                     }
                 }
@@ -267,8 +269,7 @@ private fun Toggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
 }
 
 /** A small look at each design, for the picker. */
-private fun themeSwatch(t: String, m: MatchData): Brush {
-    val hc = deep(m.homeColor); val ac = deep(m.awayColor)
+private fun themeSwatch(t: String, hc: Int, ac: Int): Brush {
     return when (t) {
         "teams" -> Brush.linearGradient(listOf(Color(hc), Color(hc), Color(ac), Color(ac)))
         "night" -> Brush.verticalGradient(listOf(Color(0xFF1A2350), Color(0xFF05060D)))
@@ -321,161 +322,220 @@ internal fun drawCard(ctx: Context, m: MatchData, o: CardOptions, a: CardAssets,
     val c = Canvas(bmp)
     c.scale(scale, scale)
     val en = Lang.en
-    val hc = deep(m.homeColor); val ac = deep(m.awayColor)
+    val hc = a.hc; val ac = a.ac
     val look = background(c, o.theme, W, H, hc, ac)
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     val story = o.format == CardFormat.STORY
     val sq = o.format == CardFormat.SQUARE
 
     // header: the app, then the competition and the day
-    var y = if (story) 90f else 54f
+    var y = if (story) 100f else 50f
     a.logo?.let { logo ->
-        val r = if (story) 46f else 36f
+        val r = if (story) 48f else 34f
         p.color = 0xFFFFFFFF.toInt(); c.drawCircle(W / 2f, y + r, r + 6, p)
         c.drawBitmap(logo, null, RectF(W / 2f - r, y, W / 2f + r, y + 2 * r), p)
-        y += 2 * r + 14
+        y += 2 * r + 18
     }
     val league = leagueName(m.leagueId, m.general.s("leagueName") ?: "")
-    val round = m.general.s("leagueRoundName")?.let { if (it.all(Char::isDigit)) L(" · هفته {0}", fa(it)) else "" } ?: ""
-    pill(c, league + round + "  ·  " + persianDate(m.time, "d MMMM yyyy"), W / 2f, y, if (story) 34f else 30f, look.ink, look.panel, a.bold, 900)
-    y += if (story) 100f else 76f
+    val round = m.general.s("leagueRoundName")?.let { if (it.all(Char::isDigit)) L(" | هفته {0}", fa(it)) else "" } ?: ""
+    val head = if (story) 32f else 28f
+    pill(c, league + round + "  |  " + fa(persianDate(m.time, "d MMMM yyyy")), W / 2f, y, head, look.ink, look.panel, a.bold, 940)
+    val top = y + head * 2f + (if (story) 40f else 22f)
+    val footer = if (story) 170f else 105f
 
-    // crests, names and the score
-    val homeX = if (en) W * 0.24f else W * 0.76f
+    // each part as its height and how to draw it from a given top
+    class Block(val h: Float, val draw: (Float) -> Unit)
+    val blocks = mutableListOf<Block>()
+    val homeX = if (en) W * 0.25f else W * 0.75f
     val awayX = W - homeX
-    val cr = if (story) 135f else if (sq) 100f else 115f
-    for ((bm, x, col) in listOf(Triple(a.home, homeX, hc), Triple(a.away, awayX, ac))) {
-        // a halo in the team's colour behind each crest
-        p.shader = RadialGradient(x, y + cr, cr * 1.5f, intArrayOf(col or 0xFF000000.toInt(), col and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
-        p.alpha = 150; c.drawCircle(x, y + cr, cr * 1.5f, p); p.shader = null; p.alpha = 255
-        bm?.let { c.drawBitmap(it, null, RectF(x - cr, y, x + cr, y + 2 * cr), null) }
-    }
-    val nameTop = y + 2 * cr + 18
-    text(c, teamName(m.homeId, m.homeName), homeX, nameTop, if (story) 48f else 40f, look.ink, a.black, (W * 0.4f).toInt(), 2)
-    text(c, teamName(m.awayId, m.awayName), awayX, nameTop, if (story) 48f else 40f, look.ink, a.black, (W * 0.4f).toInt(), 2)
-    // the score between the crests, big, with a soft glow
-    val sy = y + cr - (if (story) 120f else 95f)
-    val size = if (story) 190f else if (sq) 140f else 160f
-    if (m.started) {
-        val sc = fa(if (en) "${m.home.i("score") ?: 0} - ${m.away.i("score") ?: 0}" else "${m.away.i("score") ?: 0} - ${m.home.i("score") ?: 0}")
-        glowText(c, sc, W / 2f, sy, size, look.ink, look.accent, a.black)
-    } else glowText(c, fa(timeOf(m.time)), W / 2f, sy + 20, size * 0.6f, look.ink, look.accent, a.black)
     val pens = m.status.o("reason")?.optJSONArray("penalties")?.takeIf { it.length() == 2 }
     val state = when {
         pens != null -> L("پنالتی ") + fa("${pens.optInt(0)} - ${pens.optInt(1)}")
         m.finished -> L("پایان بازی")
-        m.live -> L("زنده · {0}", fa(m.minute))
+        m.live -> L("زنده | {0}", fa(m.minute))
         else -> L("پیش از بازی")
     }
-    pill(c, state, W / 2f, sy + size * 1.08f, if (story) 34f else 28f, if (m.live) 0xFFFFFFFF.toInt() else look.ink,
-        if (m.live) C.live.toArgb() else look.panel, a.black, 420)
-    y = nameTop + (if (story) 140f else 110f)
-
-    // the chosen parts, top to bottom, each only if it still fits above the footer
-    val footer = if (story) 150f else 110f
-    val gap = if (story) 34f else 22f
-    fun fits(h: Float) = y + h <= H - footer
-    if (o.caption.isNotBlank() && fits(110f)) {
-        text(c, "« " + o.caption.trim() + " »", W / 2f, y, if (story) 52f else 44f, look.accent, a.black, W - 140, 2)
-        y += (if (story) 120f else 100f) + gap
+    val score = if (m.started) fa(if (en) "${m.home.i("score") ?: 0} - ${m.away.i("score") ?: 0}" else "${m.away.i("score") ?: 0} - ${m.home.i("score") ?: 0}")
+        else fa(timeOf(m.time))
+    fun crest(bm: Bitmap?, x: Float, cy: Float, r: Float, col: Int) {
+        // a halo in the team's colour behind each crest
+        p.shader = RadialGradient(x, cy, r * 1.6f, intArrayOf(col or 0xFF000000.toInt(), col and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
+        p.alpha = 170; c.drawCircle(x, cy, r * 1.6f, p); p.shader = null; p.alpha = 255
+        bm?.let { c.drawBitmap(it, null, RectF(x - r, cy - r, x + r, cy + r), null) }
+    }
+    val stateInk = if (m.live) 0xFFFFFFFF.toInt() else look.ink
+    val stateBg = if (m.live) C.live.toArgb() else look.panel
+    if (sq) {
+        // square: crests either side, the score between them
+        val cr = 92f; val nm = 36f; val size = if (m.started) 130f else 90f
+        blocks += Block(2 * cr + 16 + nm * 2.4f) { t ->
+            crest(a.home, homeX - 50, t + cr, cr, hc); crest(a.away, awayX + 50, t + cr, cr, ac)
+            glowText(c, score, W / 2f, t + cr - size * 0.62f, size, look.ink, look.accent, a.black)
+            pill(c, state, W / 2f, t + cr + size * 0.5f, 24f, stateInk, stateBg, a.black, 360)
+            text(c, teamName(m.homeId, m.homeName), homeX - 50, t + 2 * cr + 16, nm, look.ink, a.black, 400, 2)
+            text(c, teamName(m.awayId, m.awayName), awayX + 50, t + 2 * cr + 16, nm, look.ink, a.black, 400, 2)
+        }
+    } else {
+        // tall: crests side by side with the state between them, names under, then the score big across the middle
+        val cr = if (story) 140f else 108f; val nm = if (story) 46f else 38f; val size = if (story) (if (m.started) 250f else 170f) else (if (m.started) 180f else 130f)
+        blocks += Block(2 * cr + 18 + nm * 2.4f + size * 1.12f) { t ->
+            crest(a.home, homeX, t + cr, cr, hc); crest(a.away, awayX, t + cr, cr, ac)
+            pill(c, state, W / 2f, t + cr - (if (story) 30f else 26f), if (story) 30f else 26f, stateInk, stateBg, a.black, 340)
+            text(c, teamName(m.homeId, m.homeName), homeX, t + 2 * cr + 18, nm, look.ink, a.black, (W * 0.44f).toInt(), 2)
+            text(c, teamName(m.awayId, m.awayName), awayX, t + 2 * cr + 18, nm, look.ink, a.black, (W * 0.44f).toInt(), 2)
+            glowText(c, score, W / 2f, t + 2 * cr + 18 + nm * 2.4f - size * 0.06f, size, look.ink, look.accent, a.black)
+        }
+    }
+    if (o.caption.isNotBlank()) {
+        val sz = if (story) 54f else 44f
+        blocks += Block(sz * 1.5f) { t -> text(c, "« " + o.caption.trim() + " »", W / 2f, t, sz, look.accent, a.black, W - 140, 1) }
     }
     val goals = m.events.filter { it.s("type") == "Goal" && !it.b("isPenaltyShootoutEvent") }
     if (o.scorers && goals.isNotEmpty()) {
         fun lines(home: Boolean) = goals.filter { it.b("isHome") == home }.take(if (story) 6 else 4).map { g ->
             val n = g.o("player").s("lastName") ?: g.s("nameStr")?.substringAfterLast(' ') ?: g.o("player").s("name") ?: ""
-            "⚽ " + (if (en) n else FaNames.of(n)) + " " + fa(minuteText(g) + "'") + if (g.b("ownGoal")) L(" (به خودی)") else if (isPen(g)) L(" (پ)") else ""
+            (if (en) n else FaNames.of(n)) + " " + fa(minuteText(g) + "'") + if (g.b("ownGoal")) L(" (به خودی)") else if (isPen(g)) L(" (پ)") else ""
         }
         val hl = lines(true); val al = lines(false)
         val rows = maxOf(hl.size, al.size)
-        val h = rows * 50f + 40f
-        if (fits(h)) {
-            panel(c, 60f, y, W - 60f, y + h, look.panel)
-            text(c, hl.joinToString("\n"), homeX, y + 22, 34f, look.ink, a.bold, (W * 0.42f).toInt(), rows)
-            text(c, al.joinToString("\n"), awayX, y + 22, 34f, look.ink, a.bold, (W * 0.42f).toInt(), rows)
-            y += h + gap
+        val sz = if (story) 34f else 30f; val lh = sz * 1.45f
+        blocks += Block(rows * lh + 50f) { t ->
+            panel(c, 60f, t, W - 60f, t + rows * lh + 50f, look.panel)
+            // a ball in the middle, the scorers of each side under its crest
+            text(c, "⚽", W / 2f, t + (rows * lh + 50f) / 2 - sz * 0.75f, sz * 1.2f, look.ink, a.bold, 100)
+            text(c, hl.joinToString("\n"), homeX, t + 25, sz, look.ink, a.bold, (W * 0.38f).toInt(), rows)
+            text(c, al.joinToString("\n"), awayX, t + 25, sz, look.ink, a.bold, (W * 0.38f).toInt(), rows)
         }
     }
     if (o.stats && m.started) {
-        val top = m.content.path("stats.Periods.All").a("stats").objs().firstOrNull()?.a("stats").objs().orEmpty()
+        val all = m.content.path("stats.Periods.All").a("stats").objs().firstOrNull()?.a("stats").objs()
         val rows = listOf("BallPossesion" to L("مالکیت توپ"), "expected_goals" to L("گل مورد انتظار (xG)"), "total_shots" to L("شوت"), "ShotsOnTarget" to L("شوت در چارچوب"))
-            .mapNotNull { (k, label) -> top.firstOrNull { it.s("key") == k }?.let { label to it } }.take(if (story) 4 else 3)
-        val h = rows.size * 78f + 40f
-        if (rows.isNotEmpty() && fits(h)) {
-            panel(c, 60f, y, W - 60f, y + h, look.panel)
-            var ry = y + 24
+            .mapNotNull { (k, label) -> all.firstOrNull { it.s("key") == k }?.let { label to it } }.take(if (story) 4 else 3)
+        val rh = if (story) 84f else 72f
+        if (rows.isNotEmpty()) blocks += Block(rows.size * rh + 36f) { t ->
+            panel(c, 60f, t, W - 60f, t + rows.size * rh + 36f, look.panel)
+            var ry = t + 22
             for ((label, st) in rows) {
                 val v = st.a("stats")
                 val hv = v?.optString(0) ?: ""; val av = v?.optString(1) ?: ""
                 val hn = hv.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0; val an = av.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0
                 val left = if (en) hv else av; val right = if (en) av else hv
-                text(c, fa(left), 150f, ry, 34f, look.ink, a.black, 160)
-                text(c, label, W / 2f, ry + 2, 28f, look.sub, a.bold, 520)
-                text(c, fa(right), W - 150f, ry, 34f, look.ink, a.black, 160)
-                // a bar split in the two colours
+                text(c, fa(left), 160f, ry, 34f, look.ink, a.black, 200)
+                text(c, label, W / 2f, ry + 4, 28f, look.sub, a.bold, 520)
+                text(c, fa(right), W - 160f, ry, 34f, look.ink, a.black, 200)
+                // a bar split in the two colours, home on the reading-start side
                 val tot = (hn + an).takeIf { it > 0 } ?: 1.0
                 val lw = ((if (en) hn else an) / tot).toFloat()
-                val bx = 110f; val bw = W - 220f; val by = ry + 48
-                p.color = if (en) hc else ac; c.drawRoundRect(RectF(bx, by, bx + bw * lw - 3, by + 10), 5f, 5f, p)
-                p.color = if (en) ac else hc; c.drawRoundRect(RectF(bx + bw * lw + 3, by, bx + bw, by + 10), 5f, 5f, p)
-                ry += 78f
+                val bx = 110f; val bw = W - 220f; val by = ry + rh - 30
+                p.color = brighten(if (en) hc else ac); c.drawRoundRect(RectF(bx, by, bx + bw * lw - 4, by + 12), 6f, 6f, p)
+                p.color = brighten(if (en) ac else hc); c.drawRoundRect(RectF(bx + bw * lw + 4, by, bx + bw, by + 12), 6f, 6f, p)
+                ry += rh
             }
-            y += h + gap
         }
     }
-    if (o.best && best != null && fits(170f)) {
-        panel(c, 60f, y, W - 60f, y + 170f, look.panel)
-        val fx = if (en) 160f else W - 160f
-        p.color = look.accent; c.drawCircle(fx, y + 85, 66f, p)
+    if (o.best && best != null) blocks += Block(176f) { t ->
+        panel(c, 60f, t, W - 60f, t + 176f, look.panel)
+        val fx = if (en) 165f else W - 165f
+        p.color = look.accent; c.drawCircle(fx, t + 88, 68f, p)
+        p.color = 0xFF20242C.toInt(); c.drawCircle(fx, t + 88, 62f, p)
         a.best?.let { f ->
-            c.save(); val clip = Path().apply { addCircle(fx, y + 85, 60f, Path.Direction.CW) }; c.clipPath(clip)
-            c.drawBitmap(f, null, RectF(fx - 60, y + 25, fx + 60, y + 145), null); c.restore()
+            c.save(); c.clipPath(Path().apply { addCircle(fx, t + 88, 62f, Path.Direction.CW) })
+            c.drawBitmap(f, null, RectF(fx - 62, t + 26, fx + 62, t + 150), null); c.restore()
         }
-        val tx = if (en) W / 2f + 40 else W / 2f - 40
-        text(c, "⭐ " + L("بهترین بازیکن گل‌لایو"), tx, y + 30, 28f, look.accent, a.bold, 560)
-        text(c, personName(best.name), tx, y + 74, 44f, look.ink, a.black, 560)
+        val tx = W / 2f
+        text(c, "⭐ " + L("بهترین بازیکن گل‌لایو"), tx, t + 34, 28f, look.accent, a.bold, 520)
+        text(c, personName(best.name), tx, t + 80, 44f, look.ink, a.black, 520)
         // the rating badge
-        val rx = if (en) W - 150f else 150f
-        p.color = ratingColor(best.value); c.drawRoundRect(RectF(rx - 62, y + 50, rx + 62, y + 120), 22f, 22f, p)
-        text(c, fa(dec(best.value, 1)), rx, y + 56, 46f, 0xFFFFFFFF.toInt(), a.black, 140)
-        y += 170f + gap
+        val rx = if (en) W - 155f else 155f
+        p.color = ratingColor(best.value); c.drawRoundRect(RectF(rx - 64, t + 52, rx + 64, t + 124), 24f, 24f, p)
+        text(c, fa(dec(best.value, 1)), rx, t + 60, 46f, 0xFFFFFFFF.toInt(), a.black, 140)
     }
-    if (o.momentum && m.started) {
-        val mom = momentumOf(m)
-        val h = 170f
-        if (mom.size > 5 && fits(h)) {
-            panel(c, 60f, y, W - 60f, y + h, look.panel)
-            text(c, L("مومنتوم بازی"), W / 2f, y + 14, 28f, look.sub, a.bold, 600)
-            val mid = y + 105; val left = 100f; val width = W - 200f
-            val maxMin = maxOf(90.0, mom.maxOf { it.d("minute") ?: 0.0 }).toFloat()
-            p.color = look.sub; p.alpha = 90; c.drawRect(left, mid - 1, left + width, mid + 1, p); p.alpha = 255
-            for (pt in mom) {
-                val v = (pt.d("value") ?: 0.0).toFloat(); val hh = kotlin.math.abs(v) / 100f * 48f
-                val x = left + (pt.d("minute") ?: 0.0).toFloat() / maxMin * width
-                // time runs from the reading start: right to left in Persian
-                val xx = if (en) x else left + width - (x - left)
-                p.color = if (v >= 0) hc else ac
-                c.drawRect(xx, if (v >= 0) mid - hh else mid, xx + width / maxMin * 0.8f, if (v >= 0) mid else mid + hh, p)
-            }
-            y += h + gap
+    val mom = if (o.momentum && m.started) momentumOf(m) else emptyList()
+    if (mom.size > 5) blocks += Block(190f) { t ->
+        panel(c, 60f, t, W - 60f, t + 190f, look.panel)
+        text(c, L("مومنتوم بازی"), W / 2f, t + 16, 28f, look.sub, a.bold, 600)
+        val mid = t + 118; val left = 100f; val width = W - 200f
+        val maxMin = maxOf(90.0, mom.maxOf { it.d("minute") ?: 0.0 }).toFloat()
+        p.color = look.sub; p.alpha = 90; c.drawRect(left, mid - 1, left + width, mid + 1, p); p.alpha = 255
+        val bw = width / maxMin
+        for (pt in mom) {
+            val v = (pt.d("value") ?: 0.0).toFloat(); val hh = kotlin.math.abs(v) / 100f * 52f
+            val x = (pt.d("minute") ?: 0.0).toFloat() * bw
+            // time runs from the reading start: right to left in Persian
+            val xx = if (en) left + x else left + width - x - bw
+            p.color = brighten(if (v >= 0) hc else ac)
+            c.drawRoundRect(RectF(xx, if (v >= 0) mid - hh else mid, xx + bw * 0.8f, if (v >= 0) mid else mid + hh), 2f, 2f, p)
+        }
+        // the goals as small balls on the line
+        for (g in goals) {
+            val mn = (minuteText(g).substringBefore('+').filter(Char::isDigit).toFloatOrNull() ?: continue).coerceAtMost(maxMin)
+            val gx = if (en) left + mn * bw else left + width - mn * bw
+            p.color = 0xFFFFFFFF.toInt(); c.drawCircle(gx, mid, 9f, p)
+            p.color = if (g.b("isHome")) hc or 0xFF000000.toInt() else ac or 0xFF000000.toInt(); c.drawCircle(gx, mid, 5f, p)
         }
     }
     if (o.prediction) Predictions.get(m.matchId)?.let { pk ->
-        if (fits(90f)) {
-            val line = L("پیش‌بینی من: {0}", fa("${pk.home} - ${pk.away}")) + when (pk.points) { 3 -> L("  🎯 +۳"); 1 -> L("  ✓ +۱"); 0 -> "  ✗"; else -> "" }
-            pill(c, line, W / 2f, y, 36f, look.accent, look.panel, a.black, 820)
-            y += 90f + gap
-        }
+        val line = L("پیش‌بینی من: {0}", fa("${pk.home} - ${pk.away}")) + when (pk.points) { 3 -> L("  🎯 +۳"); 1 -> L("  ✓ +۱"); 0 -> "  ✗"; else -> "" }
+        blocks += Block(74f) { t -> pill(c, line, W / 2f, t, 34f, look.accent, look.panel, a.black, 820) }
     }
-    // the sticker, big in a top corner, a little tilted
+
+    // keep the parts that fit, in order, and spread them evenly over the space between header and footer
+    val avail = H - footer - top
+    val minGap = if (story) 36f else 20f
+    val shown = mutableListOf<Block>(); var used = 0f
+    for (b in blocks) if (used + b.h + (if (shown.isEmpty()) 0f else minGap) <= avail) { used += b.h + (if (shown.isEmpty()) 0f else minGap); shown += b }
+    val gap = if (shown.size > 1) min(minGap * 2.6f, minGap + (avail - used) / (shown.size + 1)) else 0f
+    val total = shown.sumOf { it.h.toDouble() }.toFloat() + gap * (shown.size - 1).coerceAtLeast(0)
+    y = top + (avail - total) / 2
+    for (b in shown) { b.draw(y); y += b.h + gap }
+
+    // the sticker, big near the top corner, a little tilted
     if (o.sticker.isNotEmpty()) {
-        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = if (story) 150f else 110f }
-        c.save(); val sx2 = if (en) W - 150f else 150f
-        c.rotate(if (en) 12f else -12f, sx2, 150f); c.drawText(o.sticker, sx2 - tp.measureText(o.sticker) / 2, 200f, tp); c.restore()
+        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = if (story) 170f else 120f }
+        val sx2 = if (en) W - 130f else 130f; val sy2 = if (story) 120f else 70f
+        c.save(); c.rotate(if (en) 14f else -14f, sx2, sy2 + 60); c.drawText(o.sticker, sx2 - tp.measureText(o.sticker) / 2, sy2 + tp.textSize * 0.8f, tp); c.restore()
     }
-    // footer
-    text(c, L("گل‌لایو · نتایج زنده فوتبال"), W / 2f, H - footer + 30, if (story) 38f else 32f, look.ink, a.black, 980)
-    text(c, L("دانلود از کافه‌بازار"), W / 2f, H - footer + (if (story) 82f else 70f), if (story) 28f else 24f, look.sub, a.bold, 980)
+    // footer: a thin rule, the app's name and where to get it
+    val fy = H - footer + (if (story) 30f else 14f)
+    p.color = look.sub; p.alpha = 70; c.drawRect(W / 2f - 160, fy, W / 2f + 160, fy + 3, p); p.alpha = 255
+    text(c, L("گل‌لایو | نتایج زنده فوتبال"), W / 2f, fy + 20, if (story) 38f else 30f, look.ink, a.black, 980)
+    text(c, L("دانلود از کافه‌بازار"), W / 2f, fy + (if (story) 74f else 60f), if (story) 28f else 22f, look.sub, a.bold, 980)
     return bmp
+}
+
+/** A team colour lifted a little so thin bars stay visible on dark backgrounds. */
+private fun brighten(c: Int): Int {
+    val hsv = FloatArray(3); android.graphics.Color.colorToHSV(c or 0xFF000000.toInt(), hsv)
+    hsv[2] = maxOf(hsv[2], 0.55f)
+    return android.graphics.Color.HSVToColor(hsv)
+}
+
+/** The crest's main colour: the most common strong hue among its pixels, or null for a plain black-and-white crest. */
+private fun crestColor(b: Bitmap?): Int? {
+    b ?: return null
+    val s = Bitmap.createScaledBitmap(b, 40, 40, true)
+    val weight = FloatArray(24); val sum = Array(24) { FloatArray(3) }
+    val hsv = FloatArray(3)
+    for (x in 0 until 40) for (y in 0 until 40) {
+        val px = s.getPixel(x, y)
+        if (android.graphics.Color.alpha(px) < 200) continue
+        android.graphics.Color.colorToHSV(px, hsv)
+        if (hsv[1] < 0.35f || hsv[2] < 0.25f) continue
+        val k = (hsv[0] / 15f).toInt().coerceIn(0, 23)
+        weight[k] += hsv[1]; sum[k][0] += android.graphics.Color.red(px).toFloat(); sum[k][1] += android.graphics.Color.green(px).toFloat(); sum[k][2] += android.graphics.Color.blue(px).toFloat()
+    }
+    val k = weight.indices.maxByOrNull { weight[it] } ?: return null
+    if (weight[k] < 40f) return null
+    var n = 0
+    for (x in 0 until 40) for (y in 0 until 40) { android.graphics.Color.colorToHSV(s.getPixel(x, y), hsv); if (android.graphics.Color.alpha(s.getPixel(x, y)) >= 200 && hsv[1] >= 0.35f && hsv[2] >= 0.25f && (hsv[0] / 15f).toInt().coerceIn(0, 23) == k) n++ }
+    return android.graphics.Color.rgb((sum[k][0] / n).toInt(), (sum[k][1] / n).toInt(), (sum[k][2] / n).toInt())
+}
+
+/** The team's colour for the card: FotMob's when it has one, else the crest's, darkened so white writing reads on it. */
+private fun cardColor(c: Color, crest: Bitmap?, fallback: Long): Int {
+    val hsv = FloatArray(3); android.graphics.Color.colorToHSV(c.toArgb(), hsv)
+    val picked = if (hsv[1] >= 0.2f) c else crestColor(crest)?.let { Color(it) } ?: Color(fallback)
+    return deep(picked)
 }
 
 private fun ratingColor(r: Double) = when { r >= 9 -> 0xFF1D9BF0; r >= 7.5 -> 0xFF14B866; r >= 6.5 -> 0xFF9FB21B; r >= 5.5 -> 0xFFF08A24; else -> 0xFFE5434B }.toInt()

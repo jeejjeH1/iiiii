@@ -201,7 +201,7 @@ class Screens {
         }
         // the share picture of the finished match
         if (match != null) runCatching {
-            val md = runBlocking { app.goallive.live.ui.MatchData(Api.fm("matchDetails", mapOf("matchId" to match.id))) }
+            val md = runBlocking { app.goallive.live.ui.MatchData(Api.fm("matchDetails", mapOf("matchId" to 5795484))) }
             // drawn off the main thread: the crests are loaded through the main looper, which settle() keeps turning
             var drawn: List<Pair<String, android.graphics.Bitmap>>? = null
             val t = Thread {
