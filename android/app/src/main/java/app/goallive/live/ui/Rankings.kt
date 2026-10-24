@@ -195,17 +195,31 @@ private fun BallonDor(d: JSONObject) {
     val pick = sd?.a("ballonDor").objs().orEmpty()
     val year = sd?.i("ballonYear") ?: season.takeLast(4).toIntOrNull() ?: 0
     val ongoing = season == cur
-    if (pick.isEmpty()) {
+    // a year that has its official winner shows him; only a year still to be announced shows GoalLive's pick
+    val real = d.o("awards")?.a("ballonDor").objs()?.firstOrNull { it.i("year") == year && it.s("name") != null }
+    val official = real != null
+    val w: JSONObject? = if (real != null) {
+        val rid = real.i("id") ?: 0
+        (pick + sd?.a("world").objs().orEmpty()).firstOrNull { rid > 0 && it.i("id") == rid }
+            ?: JSONObject().put("id", rid).put("name", real.s("name")).put("teamName", real.s("team"))
+    } else pick.firstOrNull()
+    if (w == null) {
         GoldCard { T(L("هنوز بازی کافی در این فصل انجام نشده است."), 13, color = C.mute, modifier = Modifier.padding(20.dp)) }
     } else {
-        val w = pick.first()
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
             .background(Brush.verticalGradient(listOf(Color(0xFF3A2A06), Color(0xFF1A1305), Color(0xFF0D0A04))))
             .border(1.5.dp, Brush.linearGradient(listOf(Color(0xFFFFE9A3), GOLD, Color(0xFF8A6208))), RoundedCornerShape(28.dp))
             .clickable { nav.player(w.i("id") ?: 0) }.padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             GoldenBall(84.dp)
-            T(if (ongoing) L("توپ طلای {0} گل‌لایو · تا این لحظه", fa(year)) else L("توپ طلای {0} گل‌لایو", fa(year)), 15, FontWeight.Black, GOLD)
+            T(when {
+                official -> L("توپ طلای {0}", fa(year))
+                ongoing -> L("پیش‌بینی گل‌لایو برای توپ طلای {0} · تا این لحظه", fa(year))
+                else -> L("پیش‌بینی گل‌لایو برای توپ طلای {0}", fa(year))
+            }, 15, FontWeight.Black, GOLD, align = androidx.compose.ui.text.style.TextAlign.Center)
+            Box(Modifier.clip(RoundedCornerShape(50)).background(if (official) GOLD else GOLD.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 3.dp)) {
+                T(if (official) L("برنده رسمی") else L("هنوز اعلام نشده"), 11, FontWeight.Black, if (official) Color(0xFF231A00) else GOLD)
+            }
             Box(Modifier.padding(top = 4.dp).size(116.dp).clip(CircleShape).background(Brush.radialGradient(listOf(GOLD.copy(alpha = 0.5f), Color.Transparent))).padding(6.dp)) {
                 Face(w.i("id") ?: 0, 104.dp, GOLD, 3.dp)
             }
@@ -216,7 +230,7 @@ private fun BallonDor(d: JSONObject) {
             }
             val hon = w.a("honours")?.let { arr -> (0 until arr.length()).map { arr.optString(it) } }.orEmpty()
             if (hon.isNotEmpty()) FlowRowGold(hon.take(4).map { "🏆 " + honourText(it) })
-            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (w.has("apps")) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((label, v) in listOf(L("نمره فصل") to fa(dec(w.d("score") ?: 0.0, 2)), L("بازی") to fa(w.i("apps") ?: 0), L("گل") to fa(w.i("goals") ?: 0), L("پاس گل") to fa(w.i("assists") ?: 0)))
                     Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(GOLD.copy(alpha = 0.1f)).border(1.dp, GOLD.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
                         .padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -224,13 +238,19 @@ private fun BallonDor(d: JSONObject) {
                     }
             }
         }
-        if (pick.size > 1) GoldCard {
-            T(L("نامزدهای گل‌لایو"), 15, FontWeight.ExtraBold, GOLD, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp))
-            pick.drop(1).forEachIndexed { k, p ->
+        // with an official winner, GoalLive's own top ten from first place; otherwise the rest of GoalLive's shortlist
+        val rest = if (official) pick else pick.drop(1)
+        if (rest.isNotEmpty()) GoldCard {
+            T(if (official) L("رتبه‌بندی گل‌لایو برای این سال") else L("نامزدهای گل‌لایو"), 15, FontWeight.ExtraBold, GOLD,
+                Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp))
+            val first = if (official) 1 else 2
+            rest.forEachIndexed { k, p ->
                 val hon = p.a("honours")?.let { arr -> (0 until arr.length()).map { arr.optString(it) } }.orEmpty()
                 ListRow(first = k == 0, onClick = { nav.player(p.i("id") ?: 0) }) {
-                    Box(Modifier.size(28.dp).clip(CircleShape).background(if (k == 0) Color(0xFFC9D1D9) else if (k == 1) Color(0xFFD08C4A) else GOLD.copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center) { T(fa(k + 2), 12, FontWeight.Black, if (k < 2) Color(0xFF231A00) else GOLD) }
+                    val rank = k + first
+                    val medal = when (rank) { 1 -> GOLD; 2 -> Color(0xFFC9D1D9); 3 -> Color(0xFFD08C4A); else -> null }
+                    Box(Modifier.size(28.dp).clip(CircleShape).background(medal ?: GOLD.copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center) { T(fa(rank), 12, FontWeight.Black, if (medal != null) Color(0xFF231A00) else GOLD) }
                     Face(p.i("id") ?: 0, 42.dp, GOLD.copy(alpha = 0.6f))
                     Column(Modifier.weight(1f)) {
                         T(personName(p.s("name") ?: ""), 14, FontWeight.ExtraBold, Color(0xFFFFF4D6), maxLines = 1)

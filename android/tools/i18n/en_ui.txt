@@ -1030,3 +1030,9 @@
 1029|GoalLive Ballon d’Or {0}
 1030|{0} goals · {1} assists
 1031|Every Ballon d’Or winner
+1032|Ballon d’Or {0}
+1033|GoalLive’s prediction for the {0} Ballon d’Or · so far
+1034|GoalLive’s prediction for the {0} Ballon d’Or
+1035|Official winner
+1036|Not announced yet
+1037|GoalLive’s ranking for this year
