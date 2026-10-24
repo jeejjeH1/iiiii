@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.goallive.live.L
 import app.goallive.live.data.a
 import app.goallive.live.data.b
@@ -316,7 +317,7 @@ fun RatingWhy(r: PlayerRating, all: List<PlayerRating>, open: Boolean, onToggle:
             Column(Modifier.fillMaxWidth().clickable { shown = if (shown == g) null else g }.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     T(ratingGroupName(g), 13, FontWeight.Bold, modifier = Modifier.weight(1f))
-                    T(signed(pts), 13, FontWeight.Black, if (pos) C.win else C.live)
+                    Ltr(signed(pts), style = vz(13.sp, FontWeight.Black), color = if (pos) C.win else C.live, raw = true)
                 }
                 Box(Modifier.padding(top = 5.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(6.dp)).background(C.line)) {
                     Box(Modifier.fillMaxWidth((abs(pts) / top).toFloat().coerceIn(0.03f, 1f)).fillMaxHeight().clip(RoundedCornerShape(6.dp))
@@ -331,7 +332,7 @@ fun RatingWhy(r: PlayerRating, all: List<PlayerRating>, open: Boolean, onToggle:
                             T(i.label + (i.count?.takeIf { it > 1 }?.let { " ×" + fa(it) } ?: ""), 12)
                             i.note?.let { T(it, 11, color = C.mute) }
                         }
-                        T(signed(i.points), 12, FontWeight.ExtraBold, if (i.points >= 0) C.win else C.live)
+                        Ltr(signed(i.points), style = vz(12.sp, FontWeight.ExtraBold), color = if (i.points >= 0) C.win else C.live, raw = true)
                     }
                 }
             }
