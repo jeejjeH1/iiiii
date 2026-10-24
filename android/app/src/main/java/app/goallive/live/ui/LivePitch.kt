@@ -297,19 +297,7 @@ fun LivePitch(m: MatchData) {
                 }
             }
             // the newest goal or card, over the pitch
-            AnimatedVisibility(lastEvent != null, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp),
-                enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
-                val e = lastEvent ?: return@AnimatedVisibility
-                val goal = e.s("type") == "Goal"
-                Row(Modifier.clip(RoundedCornerShape(50)).background(if (goal) C.gold else Color.Black.copy(alpha = 0.7f)).padding(horizontal = 14.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (goal) Icon(Ic.ball, null, Modifier.size(18.dp), tint = Color(0xFF15171C))
-                    else Box(Modifier.size(11.dp, 15.dp).clip(RoundedCornerShape(2.dp)).background(if (e.s("card") == "Yellow") C.gold else C.live))
-                    val who = personName(e.s("nameStr") ?: e.o("player").s("name") ?: "")
-                    T((if (goal) L("گل! {0}", who) else who) + "  " + fa(minuteText(e) + "'"), 14, FontWeight.Black, if (goal) Color(0xFF15171C) else Color.White, maxLines = 1)
-                    Crest(if (e.b("isHome")) m.homeId else m.awayId, 18.dp)
-                }
-            }
+            EventBanner(m, lastEvent, Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp))
         }
         // who has the upper hand right now
         Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -362,6 +350,23 @@ fun LivePitch(m: MatchData) {
                 T(personName(who ?: ""), 14, modifier = Modifier.weight(1f), maxLines = 1)
                 Crest(if (e.b("isHome")) m.homeId else m.awayId, 20.dp)
             }
+        }
+    }
+}
+
+/** The newest goal or card, popping up over the pitch. */
+@Composable
+private fun EventBanner(m: MatchData, e0: JSONObject?, modifier: Modifier) {
+    AnimatedVisibility(e0 != null, modifier, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+        val e = e0 ?: return@AnimatedVisibility
+        val goal = e.s("type") == "Goal"
+        Row(Modifier.clip(RoundedCornerShape(50)).background(if (goal) C.gold else Color.Black.copy(alpha = 0.7f)).padding(horizontal = 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (goal) Icon(Ic.ball, null, Modifier.size(18.dp), tint = Color(0xFF15171C))
+            else Box(Modifier.size(11.dp, 15.dp).clip(RoundedCornerShape(2.dp)).background(if (e.s("card") == "Yellow") C.gold else C.live))
+            val who = personName(e.s("nameStr") ?: e.o("player").s("name") ?: "")
+            T((if (goal) L("گل! {0}", who) else who) + "  " + fa(minuteText(e) + "'"), 14, FontWeight.Black, if (goal) Color(0xFF15171C) else Color.White, maxLines = 1)
+            Crest(if (e.b("isHome")) m.homeId else m.awayId, 18.dp)
         }
     }
 }
