@@ -70,8 +70,8 @@ import kotlin.math.sin
 
 /** The TV camera: the far touchline narrower and higher than the near one. */
 private class Cam(val w: Float, val h: Float) {
-    val nearW = w * 1.02f; val farW = w * 0.62f
-    val nearY = h * 0.985f; val farY = h * 0.27f
+    val nearW = w * 1.04f; val farW = w * 0.56f
+    val nearY = h * 0.985f; val farY = h * 0.25f
     private val zFar = nearW / farW
     private val sFar = 1f / zFar
     fun s(y: Float): Float = 1f / (zFar + (1 - zFar) * (y / 68f))
@@ -104,7 +104,10 @@ private fun arc(cx: Float, cy: Float, r: Float, from: Double, to: Double, n: Int
     (0..n).map { k -> val a = from + (to - from) * k / n; (cx + r * cos(a)).toFloat() to (cy + r * sin(a)).toFloat() }
 
 /** Two kits too alike to tell apart on the pitch: the away side wears white (or black on a white home kit). */
-private fun kits(home: Color, away: Color): Pair<Color, Color> {
+private fun kits(home0: Color, away0: Color): Pair<Color, Color> {
+    // a green kit disappears on the grass: such a side plays in white
+    fun onGrass(c: Color) = if (c.green > c.red + 0.08f && c.green > c.blue + 0.05f) Color.White else c
+    val home = onGrass(home0); val away = onGrass(away0)
     val d = abs(home.red - away.red) + abs(home.green - away.green) + abs(home.blue - away.blue)
     return if (d > 0.45f) home to away else home to (if (home.luminance() > 0.7f) Color(0xFF15171C) else Color.White)
 }
@@ -151,7 +154,7 @@ fun LivePitch(m: MatchData) {
     val time by produceState(0f) { val start = withFrameMillis { it }; while (true) withFrameMillis { value = (it - start) / 1000f } }
     val tm = rememberTextMeasurer()
     val numStyle = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color.White)
-    val crowd = remember { val r = java.util.Random(4); List(900) { floatArrayOf(r.nextFloat(), r.nextFloat(), r.nextFloat(), r.nextFloat()) } }
+    val crowd = remember { val r = java.util.Random(4); List(1600) { floatArrayOf(r.nextFloat(), r.nextFloat(), r.nextFloat(), r.nextFloat()) } }
 
     Card(pad = PaddingValues(0.dp)) {
         Box(Modifier.fillMaxWidth().aspectRatio(1.32f).clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))) {
@@ -160,7 +163,7 @@ fun LivePitch(m: MatchData) {
                 val pulse = 0.5f + 0.5f * sin(time * 3.2f)
                 // the stand behind the far touchline: dark tiers and a crowd in both colours under the floodlights
                 drawRect(Brush.verticalGradient(listOf(Color(0xFF070B10), Color(0xFF111A22), Color(0xFF0B1418)), endY = c.farY), size = Size(size.width, c.farY + 4))
-                for (p in crowd) {
+                for (p in crowd) {  // tiers of fans, denser and larger towards the pitch
                     val yy = p[1] * (c.farY - 10f) + 2f
                     val col = when { p[2] < 0.35f -> homeKit; p[2] < 0.7f -> awayKit; else -> Color.White }
                     drawCircle(col.copy(alpha = 0.18f + 0.35f * p[3] * (yy / c.farY)), 1.1f + 1.4f * (yy / c.farY), Offset(p[0] * size.width, yy))
@@ -254,16 +257,16 @@ fun LivePitch(m: MatchData) {
                 for ((idx, p) in tokens.sortedBy { it.y }.withIndex()) {
                     val ph = idx * 1.7f
                     val x = p.x + sin(time * 0.9f + ph) * 1.3f; val y = p.y + cos(time * 0.7f + ph * 1.3f) * 1.1f
-                    val o = c.at(x, y); val ppm = c.ppm(y); val r = ppm * 1.15f
+                    val o = c.at(x, y); val ppm = c.ppm(y); val r = ppm * 1.6f
                     val kit = if (p.keeper) (if (p.home) Color(0xFFFFB020) else Color(0xFF8B5CF6)) else if (p.home) homeKit else awayKit
                     drawOval(Color.Black.copy(alpha = 0.32f), Offset(o.x - r * 1.1f, o.y - r * 0.3f), Size(r * 2.2f, r * 0.75f))
-                    val head = c.at(x, y, 1.6f)
-                    drawLine(kit.copy(alpha = 0.9f), o, head, r * 0.9f, StrokeCap.Round)
+                    val head = c.at(x, y, 2.2f)
+                    drawLine(kit.copy(alpha = 0.85f), o, head, r * 0.75f, StrokeCap.Round)
                     drawCircle(kit, r, head)
                     drawCircle(Color.White.copy(alpha = 0.9f), r, head, style = Stroke(max(1.2f, r * 0.14f)))
                     if (r > 5f && p.num.isNotEmpty()) {
                         val tl = tm.measure(p.num, numStyle.copy(color = if (kit.luminance() > 0.6f) Color(0xFF111111) else Color.White))
-                        val k = (r * 1.25f) / tl.size.height
+                        val k = (r * 1.3f) / tl.size.height
                         scale(k, k, head) { drawText(tl, topLeft = Offset(head.x - tl.size.width / 2f, head.y - tl.size.height / 2f)) }
                     }
                 }
@@ -271,7 +274,7 @@ fun LivePitch(m: MatchData) {
                 // the ball, bouncing gently, with its shadow on the grass
                 val hop = abs(sin(time * 2.6f)) * (0.6f + strength * 1.4f)
                 val bxx = bx + sin(time * 0.8f) * 1.5f; val byy = by + cos(time * 0.6f) * 1.2f
-                val ground = c.at(bxx, byy); val ball = c.at(bxx, byy, 0.35f + hop); val br = max(4f, c.ppm(byy) * 0.62f)
+                val ground = c.at(bxx, byy); val ball = c.at(bxx, byy, 0.35f + hop); val br = max(6f, c.ppm(byy) * 0.95f)
                 drawOval(Color.Black.copy(alpha = 0.4f - hop * 0.08f), Offset(ground.x - br, ground.y - br * 0.3f), Size(br * 2, br * 0.6f))
                 drawCircle(Brush.radialGradient(listOf(Color.White, Color(0xFFDADDE2)), Offset(ball.x - br * 0.3f, ball.y - br * 0.3f), br * 1.4f), br, ball)
                 drawCircle(Color(0xFF1B1E24), br * 0.36f, ball)
