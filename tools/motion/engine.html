@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>GoalLive motion</title>
+<style>
+@font-face { font-family: V; src: url(assets/vazir_regular.ttf); font-weight: 400; }
+@font-face { font-family: V; src: url(assets/vazir_medium.ttf); font-weight: 500; }
+@font-face { font-family: V; src: url(assets/vazir_bold.ttf); font-weight: 700; }
+@font-face { font-family: V; src: url(assets/vazir_extrabold.ttf); font-weight: 800; }
+@font-face { font-family: V; src: url(assets/vazir_black.ttf); font-weight: 900; }
+:root { --accent: #C6FF3D; --accent2: #2BD576; --bg: #05070A; }
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; background: var(--bg); font-family: V, sans-serif; color: #fff; }
+#stage { position: absolute; inset: 0; overflow: hidden; background: var(--bg); }
+.abs { position: absolute; left: 0; top: 0; will-change: transform, opacity; }
+#bg canvas { position: absolute; inset: 0; }
+.blob { position: absolute; border-radius: 50%; filter: blur(120px); }
+#grain { position: absolute; inset: 0; opacity: .07; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='300' height='300' filter='url(%23n)'/></svg>"); }
+#vignette { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, transparent 45%, rgba(0,0,0,.65) 100%); }
+
+/* header */
+#tag { top: 120px; padding: 14px 30px; border-radius: 60px; font-weight: 800; font-size: 32px; white-space: nowrap;
+  background: rgba(255,255,255,.06); border: 2px solid rgba(255,255,255,.14); backdrop-filter: blur(10px); display: flex; gap: 14px; align-items: center; }
+#tag .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 18px var(--accent); }
+#title { top: 205px; width: 1000px; left: 40px; text-align: center; font-weight: 900; font-size: 92px; line-height: 1.18; letter-spacing: -1px; }
+#title .w { display: inline-block; margin: 0 9px; }
+#title .hl { background: linear-gradient(180deg, #fff 10%, var(--accent) 95%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+#sub { top: 330px; width: 1000px; left: 40px; text-align: center; height: 200px; }
+#sub .line { position: absolute; left: 0; right: 0; top: 0; font-weight: 500; font-size: 40px; line-height: 1.5; color: rgba(255,255,255,.78); }
+#sub .line b { color: var(--accent); font-weight: 800; }
+
+/* phone */
+#phoneWrap { width: 636px; height: 1326px; perspective: 2400px; }
+#phone { position: absolute; inset: 0; border-radius: 86px; background: linear-gradient(145deg, #2a2e36, #0c0e12 40%, #1c1f25);
+  box-shadow: 0 60px 120px rgba(0,0,0,.65), 0 0 0 2px rgba(255,255,255,.08), inset 0 0 0 3px rgba(255,255,255,.06); transform-style: preserve-3d; }
+#screen { position: absolute; left: 18px; top: 18px; width: 600px; height: 1290px; border-radius: 70px; overflow: hidden; background: #05070A; }
+#screen .scr { position: absolute; left: 0; top: 0; width: 600px; height: 1290px; }
+#screen img.scr { object-fit: cover; }
+#island { position: absolute; left: 50%; top: 34px; width: 170px; height: 48px; margin-left: -85px; border-radius: 30px; background: #000; z-index: 5; }
+#glare { position: absolute; inset: 0; border-radius: 86px; pointer-events: none; z-index: 6;
+  background: linear-gradient(115deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 70%, rgba(255,255,255,.05) 100%); }
+.btn { position: absolute; width: 6px; border-radius: 3px; background: #2a2e36; }
+#ring { position: absolute; border-radius: 26px; border: 5px solid var(--accent); box-shadow: 0 0 40px var(--accent), inset 0 0 30px rgba(198,255,61,.25); z-index: 4; }
+
+/* lens */
+.lens { border-radius: 34px; overflow: hidden; box-shadow: 0 40px 90px rgba(0,0,0,.7), 0 0 0 3px var(--accent), 0 0 60px rgba(198,255,61,.35); background: #0b0f14; }
+.lens img { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.lensLabel { font-weight: 900; font-size: 34px; padding: 10px 26px; border-radius: 40px; background: var(--accent); color: #0B1200; white-space: nowrap; box-shadow: 0 10px 40px rgba(0,0,0,.5); }
+
+/* cursor */
+#cursor { width: 70px; height: 70px; z-index: 50; filter: drop-shadow(0 8px 14px rgba(0,0,0,.6)); }
+#ripple { width: 120px; height: 120px; border-radius: 50%; border: 6px solid #fff; z-index: 49; }
+#touch { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,.35); border: 3px solid rgba(255,255,255,.85); z-index: 49; }
+
+/* outro */
+#outro { inset: 0; width: 1080px; height: 1920px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 30px; }
+#outro .logo { width: 230px; height: 230px; border-radius: 60px; background: #fff url(assets/logo.png) center/88% no-repeat; box-shadow: 0 0 0 10px rgba(198,255,61,.25), 0 0 120px rgba(198,255,61,.5); }
+#outro .name { font-weight: 900; font-size: 130px; line-height: 1.1; }
+#outro .tagline { font-weight: 500; font-size: 42px; color: rgba(255,255,255,.75); }
+#outro .soon { margin-top: 30px; font-weight: 900; font-size: 46px; padding: 22px 48px; border-radius: 80px; background: linear-gradient(90deg, var(--accent), var(--accent2)); color: #0B1200; box-shadow: 0 20px 70px rgba(198,255,61,.35); }
+#outro .ring { position: absolute; left: 540px; top: 760px; width: 10px; height: 10px; border-radius: 50%; border: 4px solid var(--accent); }
+
+/* corner brand */
+#brand { top: 40px; left: 40px; display: flex; align-items: center; gap: 14px; font-weight: 900; font-size: 34px; }
+#brand i { width: 56px; height: 56px; border-radius: 16px; background: #fff url(assets/logo.png) center/86% no-repeat; display: block; }
+#progress { left: 0; top: 0; height: 8px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="abs" style="width:1080px;height:1920px"></div>
+  <div id="extraBack" class="abs" style="width:1080px;height:1920px"></div>
+  <div id="brand" class="abs"><i></i><span>گل‌لایو</span></div>
+  <div id="tag" class="abs"><span class="dot"></span><span id="tagText"></span></div>
+  <div id="title" class="abs"></div>
+  <div id="sub" class="abs"></div>
+  <div id="phoneWrap" class="abs">
+    <div id="phone">
+      <div class="btn" style="left:-5px;top:300px;height:110px"></div>
+      <div class="btn" style="right:-5px;top:260px;height:80px"></div>
+      <div class="btn" style="right:-5px;top:370px;height:150px"></div>
+      <div id="screen"><div id="ring" style="opacity:0"></div></div>
+      <div id="island"></div>
+      <div id="glare"></div>
+    </div>
+  </div>
+  <div id="extraFront" class="abs" style="width:1080px;height:1920px"></div>
+  <div id="lenses" class="abs" style="width:1080px;height:1920px"></div>
+  <div id="touch" class="abs" style="opacity:0"></div>
+  <div id="ripple" class="abs" style="opacity:0"></div>
+  <svg id="cursor" class="abs" viewBox="0 0 32 32" style="opacity:0"><path d="M5 2 L5 25 L11 19.5 L15 29 L19.5 27 L15.5 18 L23.5 18 Z" fill="#fff" stroke="#0B1200" stroke-width="1.8" stroke-linejoin="round"/></svg>
+  <div id="outro" class="abs" style="opacity:0">
+    <div class="ring"></div><div class="ring"></div>
+    <div class="logo"></div>
+    <div class="name">گل‌لایو</div>
+    <div class="tagline">نتایج زنده فوتبال، کاملاً فارسی</div>
+    <div class="soon">⬇ دانلود از کافه‌بازار</div>
+  </div>
+  <div id="progress" class="abs"></div>
+  <div id="grain"></div>
+  <div id="vignette"></div>
+</div>
+<script>
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const seg = (t, a, b) => clamp((t - a) / (b - a));
+const easeOut = k => 1 - Math.pow(1 - k, 3);
+const easeIn = k => k * k * k;
+const easeIO = k => k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+const back = k => { const c = 1.70158, c3 = c + 1; return 1 + c3 * Math.pow(k - 1, 3) + c * Math.pow(k - 1, 2); };
+const spring = k => k <= 0 ? 0 : k >= 1 ? 1 : 1 - Math.exp(-6 * k) * Math.cos(10 * k);
+/** keyframes [{t, ...values}] → values at time t (eased between frames) */
+function kf(frames, t, ease = easeIO) {
+  if (t <= frames[0].t) return frames[0];
+  for (let i = 0; i < frames.length - 1; i++) {
+    const a = frames[i], b = frames[i + 1];
+    if (t <= b.t) {
+      const k = (b.ease || ease)(seg(t, a.t, b.t)); const o = {};
+      for (const key in a) if (typeof a[key] === 'number' && typeof b[key] === 'number') o[key] = lerp(a[key], b[key], k);
+      return o;
+    }
+  }
+  return frames[frames.length - 1];
+}
+function el(tag, cls, parent, html) { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; (parent || $('#stage')).appendChild(e); return e; }
+function set(e, o) {
+  const tr = [];
+  if (o.x != null || o.y != null) tr.push(`translate(${o.x || 0}px, ${o.y || 0}px)`);
+  if (o.ax != null) tr.push(`translate(${-o.ax * 100}%, ${-(o.ay ?? 0) * 100}%)`);
+  if (o.r != null) tr.push(`rotate(${o.r}deg)`);
+  if (o.s != null) tr.push(`scale(${o.s})`);
+  e.style.transform = tr.join(' ');
+  if (o.o != null) e.style.opacity = o.o;
+  if (o.blur != null) e.style.filter = o.blur > 0.05 ? `blur(${o.blur}px)` : '';
+}
+
+/* ---------- the video description, filled by the config ---------- */
+let V = null;
+const SW = 600 / 800;  // screenshot px → screen px
+
+function phoneAt(t) {
+  const f = kf(V.phone, t);
+  return { x: f.x ?? 540, y: f.y ?? 1180, s: f.s ?? 1, ry: f.ry ?? 0, rx: f.rx ?? 0, rz: f.rz ?? 0, o: f.o ?? 1 };
+}
+/** a point on the screenshot (800×1720) → stage coordinates, for the flat phone */
+function toStage(px, py, P) {
+  const sx = (18 + px * SW - 318) * P.s + P.x, sy = (18 + py * SW - 663) * P.s + P.y;
+  return [sx, sy];
+}
+
+function setup(cfg) {
+  V = cfg;
+  document.documentElement.style.setProperty('--accent', cfg.accent || '#C6FF3D');
+  document.documentElement.style.setProperty('--accent2', cfg.accent2 || '#2BD576');
+  // background blobs
+  const bg = $('#bg');
+  V._blobs = (cfg.blobs || [cfg.accent || '#C6FF3D', cfg.accent2 || '#2BD576', '#3B5BFF']).map((c, i) => {
+    const b = el('div', 'blob', bg); b.style.background = c; b.style.width = b.style.height = (700 + i * 120) + 'px'; b.style.opacity = .22; return b;
+  });
+  // faint pitch lines
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const sv = document.createElementNS(svgNS, 'svg'); sv.setAttribute('width', 1080); sv.setAttribute('height', 1920); sv.style.position = 'absolute'; sv.style.opacity = .07;
+  sv.innerHTML = `<g fill="none" stroke="#fff" stroke-width="3"><rect x="90" y="140" width="900" height="1640" rx="8"/><line x1="90" y1="960" x2="990" y2="960"/><circle cx="540" cy="960" r="170"/><rect x="300" y="140" width="480" height="260"/><rect x="300" y="1520" width="480" height="260"/><rect x="420" y="140" width="240" height="100"/><rect x="420" y="1680" width="240" height="100"/></g>`;
+  bg.appendChild(sv); V._pitch = sv;
+  // particles
+  V._parts = [];
+  for (let i = 0; i < 40; i++) {
+    const p = el('div', 'abs', bg); const r = 2 + (i * 37 % 7);
+    p.style.width = p.style.height = r + 'px'; p.style.borderRadius = '50%'; p.style.background = i % 3 ? '#fff' : (cfg.accent || '#C6FF3D');
+    V._parts.push({ e: p, x: (i * 263) % 1080, y: (i * 911) % 1920, sp: 20 + (i * 13 % 40), a: .15 + (i % 5) * .08 });
+  }
+  $('#tagText').textContent = cfg.tag || 'تازه در گل‌لایو';
+  // title words, highlighted ones marked with *
+  $('#title').innerHTML = cfg.title.split(' ').map(w => w.startsWith('*') ? `<span class="w hl">${w.slice(1)}</span>` : `<span class="w">${w}</span>`).join(' ');
+  if (cfg.titleSize) $('#title').style.fontSize = cfg.titleSize + 'px';
+  V._words = [...document.querySelectorAll('#title .w')];
+  V._subs = (cfg.captions || []).map(c => { const d = el('div', 'line', $('#sub'), c.text); return { ...c, e: d }; });
+  // screens
+  V._screens = cfg.screens.map(s => {
+    let e;
+    if (s.src) { e = el('img', 'scr', $('#screen')); e.src = 'shots/' + s.src + '.png'; }
+    else { e = el('div', 'scr', $('#screen'), s.html); }
+    e.style.opacity = 0; return { ...s, e };
+  });
+  // lenses
+  V._lenses = (cfg.lenses || []).map(l => {
+    const box = el('div', 'abs lens', $('#lenses'));
+    const img = el('img', '', box); img.src = 'shots/' + l.src + '.png';
+    const lab = l.label ? el('div', 'abs lensLabel', $('#lenses'), l.label) : null;
+    return { ...l, box, img, lab };
+  });
+  if (cfg.setup) cfg.setup();
+  V.dur = cfg.dur;
+}
+
+function render(t) {
+  const D = V.dur, OUT = D - 2.8;
+  // background
+  V._blobs.forEach((b, i) => {
+    const a = t * .25 + i * 2.1;
+    set(b, { x: 540 + Math.cos(a) * 320 - (700 + i * 120) / 2 + (i - 1) * 160, y: 500 + i * 520 + Math.sin(a * 1.3) * 220 - (700 + i * 120) / 2 });
+  });
+  V._pitch.style.transform = `translateY(${-t * 6}px) rotate(${Math.sin(t * .2) * 1.5}deg)`;
+  V._parts.forEach(p => { set(p.e, { x: p.x + Math.sin(t * .6 + p.y) * 18, y: ((p.y - t * p.sp) % 1920 + 1920) % 1920, o: p.a }); });
+  $('#progress').style.width = (1080 * clamp(t / D)) + 'px';
+
+  // header in, out before the outro
+  const hOut = seg(t, OUT - .2, OUT + .4);
+  const tg = easeOut(seg(t, .1, .7));
+  set($('#tag'), { x: 540, y: lerp(30, 0, tg), ax: .5, o: tg * (1 - hOut) });
+  set($('#brand'), { o: easeOut(seg(t, .2, .8)) * (1 - hOut) });
+  V._words.forEach((w, i) => {
+    const k = easeOut(seg(t, .25 + i * .09, .85 + i * .09));
+    set(w, { y: lerp(70, 0, k) - hOut * 40, o: k * (1 - hOut), blur: (1 - k) * 14 + hOut * 10 });
+  });
+  V._subs.forEach(c => {
+    const kin = easeOut(seg(t, c.t0, c.t0 + .5)), kout = easeIn(seg(t, c.t1 - .35, c.t1));
+    set(c.e, { y: lerp(40, 0, kin) - kout * 30, o: kin * (1 - kout) * (1 - hOut), blur: (1 - kin) * 10 + kout * 10 });
+  });
+
+  // phone
+  const P = phoneAt(t);
+  const pw = $('#phoneWrap');
+  pw.style.transform = `translate(${P.x - 318}px, ${P.y - 663}px) scale(${P.s})`;
+  pw.style.opacity = P.o;
+  $('#phone').style.transform = `rotateY(${P.ry}deg) rotateX(${P.rx}deg) rotateZ(${P.rz}deg)`;
+  $('#glare').style.backgroundPosition = `${P.ry * 4}px 0`;
+
+  // screens: each one comes in over the one before
+  let cur = -1;
+  V._screens.forEach((s, i) => { if (t >= s.t) cur = i; });
+  V._screens.forEach((s, i) => {
+    const k = easeOut(seg(t, s.t, s.t + (s.dur || .5)));
+    const nextIn = V._screens[i + 1] && t >= V._screens[i + 1].t + (V._screens[i + 1].dur || .5);
+    if (i > cur || nextIn) { s.e.style.opacity = 0; return; }
+    const tr = s.trans || (i === 0 ? 'none' : 'fade');
+    let o = { o: 1 };
+    if (tr === 'fade') o = { o: k, s: lerp(1.04, 1, k) };
+    if (tr === 'up') o = { o: 1, y: lerp(1290, 0, k) };
+    if (tr === 'scroll') o = { o: 1, y: lerp(s.from ?? 500, 0, k) };
+    if (tr === 'left') o = { o: 1, x: lerp(-600, 0, k) };
+    if (tr === 'right') o = { o: 1, x: lerp(600, 0, k) };
+    if (tr === 'zoom') o = { o: k, s: lerp(.9, 1, k) };
+    s.e.style.zIndex = i + 1;
+    set(s.e, o);
+    if (s.pan) { const pk = easeIO(seg(t, s.pan[0], s.pan[1])); s.e.style.objectPosition = `50% ${lerp(s.pan[2], s.pan[3], pk)}%`; }
+    if (s.tick) s.tick(t, s.e);
+  });
+
+  // highlight ring on the screen
+  const ring = $('#ring'); let ro = 0;
+  (V.rings || []).forEach(r => {
+    const k = easeOut(seg(t, r.t0, r.t0 + .4)) * (1 - seg(t, r.t1 - .3, r.t1));
+    if (k > 0) {
+      ro = k; ring.style.left = r.r[0] * SW + 'px'; ring.style.top = r.r[1] * SW + 'px'; ring.style.width = r.r[2] * SW + 'px'; ring.style.height = r.r[3] * SW + 'px';
+      ring.style.transform = `scale(${lerp(1.15, 1, k) + Math.sin(t * 6) * .01})`;
+    }
+  });
+  ring.style.opacity = ro; ring.style.zIndex = 100;
+
+  // lenses: grow out of their place on the screen to their spot on the stage
+  V._lenses.forEach(l => {
+    const kin = easeOut(seg(t, l.t0, l.t0 + .7)), kout = easeIn(seg(t, l.t1 - .4, l.t1));
+    const [cx, cy, cw, ch] = l.crop;
+    const ar = ch / cw;
+    const [sx, sy] = toStage(cx, cy, P); const sw = cw * SW * P.s;
+    const W = l.w, H = W * ar;
+    const k = back(kin);
+    const x = lerp(sx, l.x, kin), y = lerp(sy, l.y, kin), w = lerp(sw, W, k);
+    l.box.style.width = w + 'px'; l.box.style.height = w * ar + 'px';
+    set(l.box, { x, y, o: kin > 0 ? (1 - kout) : 0, r: (l.rot || 0) * kin });
+    const sc = w / cw;
+    l.img.style.transform = `scale(${sc}) translate(${-cx}px, ${-cy}px)`;
+    if (l.lab) {
+      const lk = easeOut(seg(t, l.t0 + .5, l.t0 + .9));
+      set(l.lab, { x: l.x + W / 2, y: l.y - 34 + lerp(20, 0, lk), ax: .5, ay: .5, o: lk * (1 - kout), r: (l.rot || 0) * kin });
+    }
+  });
+
+  // cursor
+  const cur2 = V.cursor || [];
+  const cin = cur2.length ? seg(t, cur2[0].t - .3, cur2[0].t) * (1 - seg(t, cur2[cur2.length - 1].t + .2, cur2[cur2.length - 1].t + .6)) : 0;
+  if (cur2.length) {
+    const c = kf(cur2, t);
+    const [x, y] = toStage(c.x, c.y, P);
+    let press = 0;
+    (V.taps || []).forEach(tp => { press = Math.max(press, Math.sin(Math.PI * seg(t, tp, tp + .28))); });
+    set($('#cursor'), { x: x - 14, y: y - 4, s: 1 - press * .18, o: cin });
+    set($('#touch'), { x: x - 32, y: y - 32, s: .6 + press * .5, o: press * cin });
+    let rp = { o: 0 };
+    (V.taps || []).forEach(tp => { const k = seg(t, tp + .05, tp + .7); if (k > 0 && k < 1) rp = { x: x - 60, y: y - 60, s: lerp(.3, 1.6, easeOut(k)), o: (1 - k) * .9 }; });
+    set($('#ripple'), rp);
+  }
+
+  if (V.tick) V.tick(t, P);
+
+  // outro
+  const ok = easeOut(seg(t, OUT, OUT + .8));
+  const ot = $('#outro');
+  set(ot, { o: ok, s: lerp(.92, 1, ok) });
+  [...ot.querySelectorAll('.ring')].forEach((r, i) => {
+    const k = seg(t, OUT + .3 + i * .5, OUT + 1.8 + i * .5);
+    r.style.transform = `translate(-50%,-50%) scale(${lerp(1, 70, easeOut(k))})`; r.style.opacity = (1 - k) * .6 * (k > 0);
+  });
+  const lg = ot.querySelector('.logo'); set(lg, { s: spring(seg(t, OUT + .1, OUT + 1.1)), r: lerp(-20, 0, easeOut(seg(t, OUT + .1, OUT + 1.1))) });
+  ['.name', '.tagline', '.soon'].forEach((q, i) => {
+    const k = easeOut(seg(t, OUT + .45 + i * .18, OUT + 1.05 + i * .18));
+    set(ot.querySelector(q), { y: lerp(50, 0, k), o: k, blur: (1 - k) * 10 });
+  });
+}
+window.setup = setup; window.render = render;
+</script>
+</body>
+</html>
