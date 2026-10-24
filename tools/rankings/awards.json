@@ -1,0 +1,286 @@
+{
+ "ballonDor": [
+  {
+   "year": 2025,
+   "name": "Ousmane Dembélé",
+   "team": "Paris Saint-Germain"
+  },
+  {
+   "year": 2024,
+   "name": "Rodri",
+   "team": "Manchester City"
+  },
+  {
+   "year": 2023,
+   "name": "Lionel Messi",
+   "team": "Paris Saint-Germain / Inter Miami"
+  },
+  {
+   "year": 2022,
+   "name": "Karim Benzema",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 2021,
+   "name": "Lionel Messi",
+   "team": "Barcelona / Paris Saint-Germain"
+  },
+  {
+   "year": 2020,
+   "name": null,
+   "note": "cancelled"
+  },
+  {
+   "year": 2019,
+   "name": "Lionel Messi",
+   "team": "Barcelona"
+  },
+  {
+   "year": 2018,
+   "name": "Luka Modrić",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 2017,
+   "name": "Cristiano Ronaldo",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 2016,
+   "name": "Cristiano Ronaldo",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 2015,
+   "name": "Lionel Messi",
+   "team": "Barcelona"
+  },
+  {
+   "year": 2014,
+   "name": "Cristiano Ronaldo",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 2013,
+   "name": "Cristiano Ronaldo",
+   "team": "Real Madrid"
+  },
+  {
+   "year": 2012,
+   "name": "Lionel Messi",
+   "team": "Barcelona"
+  },
+  {
+   "year": 2011,
+   "name": "Lionel Messi",
+   "team": "Barcelona"
+  },
+  {
+   "year": 2010,
+   "name": "Lionel Messi",
+   "team": "Barcelona"
+  },
+  {
+   "year": 2009,
+   "name": "Lionel Messi",
+   "team": "Barcelona"
+  },
+  {
+   "year": 2008,
+   "name": "Cristiano Ronaldo",
+   "team": "Manchester United"
+  },
+  {
+   "year": 2007,
+   "name": "Kaká",
+   "team": "Milan"
+  },
+  {
+   "year": 2006,
+   "name": "Fabio Cannavaro",
+   "team": "Juventus / Real Madrid"
+  },
+  {
+   "year": 2005,
+   "name": "Ronaldinho",
+   "team": "Barcelona"
+  },
+  {
+   "year": 2004,
+   "name": "Andriy Shevchenko",
+   "team": "Milan"
+  },
+  {
+   "year": 2003,
+   "name": "Pavel Nedvěd",
+   "team": "Juventus"
+  },
+  {
+   "year": 2002,
+   "name": "Ronaldo",
+   "team": "Inter / Real Madrid"
+  },
+  {
+   "year": 2001,
+   "name": "Michael Owen",
+   "team": "Liverpool"
+  },
+  {
+   "year": 2000,
+   "name": "Luís Figo",
+   "team": "Barcelona / Real Madrid"
+  }
+ ],
+ "goldenShoe": [
+  {
+   "season": "2024/2025",
+   "name": "Kylian Mbappé",
+   "team": "Real Madrid",
+   "goals": 31
+  },
+  {
+   "season": "2023/2024",
+   "name": "Harry Kane",
+   "team": "Bayern München",
+   "goals": 36
+  },
+  {
+   "season": "2022/2023",
+   "name": "Erling Haaland",
+   "team": "Manchester City",
+   "goals": 36
+  },
+  {
+   "season": "2021/2022",
+   "name": "Robert Lewandowski",
+   "team": "Bayern München",
+   "goals": 35
+  },
+  {
+   "season": "2020/2021",
+   "name": "Robert Lewandowski",
+   "team": "Bayern München",
+   "goals": 41
+  },
+  {
+   "season": "2019/2020",
+   "name": "Ciro Immobile",
+   "team": "Lazio",
+   "goals": 36
+  },
+  {
+   "season": "2018/2019",
+   "name": "Lionel Messi",
+   "team": "Barcelona",
+   "goals": 36
+  },
+  {
+   "season": "2017/2018",
+   "name": "Lionel Messi",
+   "team": "Barcelona",
+   "goals": 34
+  },
+  {
+   "season": "2016/2017",
+   "name": "Lionel Messi",
+   "team": "Barcelona",
+   "goals": 37
+  },
+  {
+   "season": "2015/2016",
+   "name": "Luis Suárez",
+   "team": "Barcelona",
+   "goals": 40
+  },
+  {
+   "season": "2014/2015",
+   "name": "Cristiano Ronaldo",
+   "team": "Real Madrid",
+   "goals": 48
+  },
+  {
+   "season": "2013/2014",
+   "name": "Cristiano Ronaldo · Luis Suárez",
+   "team": "Real Madrid · Liverpool",
+   "goals": 31
+  },
+  {
+   "season": "2012/2013",
+   "name": "Lionel Messi",
+   "team": "Barcelona",
+   "goals": 46
+  },
+  {
+   "season": "2011/2012",
+   "name": "Lionel Messi",
+   "team": "Barcelona",
+   "goals": 50
+  },
+  {
+   "season": "2010/2011",
+   "name": "Cristiano Ronaldo",
+   "team": "Real Madrid",
+   "goals": 40
+  },
+  {
+   "season": "2009/2010",
+   "name": "Lionel Messi",
+   "team": "Barcelona",
+   "goals": 34
+  },
+  {
+   "season": "2008/2009",
+   "name": "Diego Forlán",
+   "team": "Atlético Madrid",
+   "goals": 32
+  },
+  {
+   "season": "2007/2008",
+   "name": "Cristiano Ronaldo",
+   "team": "Manchester United",
+   "goals": 31
+  },
+  {
+   "season": "2006/2007",
+   "name": "Francesco Totti",
+   "team": "Roma",
+   "goals": 26
+  },
+  {
+   "season": "2005/2006",
+   "name": "Luca Toni",
+   "team": "Fiorentina",
+   "goals": 31
+  },
+  {
+   "season": "2004/2005",
+   "name": "Thierry Henry · Diego Forlán",
+   "team": "Arsenal · Villarreal",
+   "goals": 25
+  },
+  {
+   "season": "2003/2004",
+   "name": "Thierry Henry",
+   "team": "Arsenal",
+   "goals": 30
+  },
+  {
+   "season": "2002/2003",
+   "name": "Roy Makaay",
+   "team": "Deportivo La Coruña",
+   "goals": 29
+  },
+  {
+   "season": "2001/2002",
+   "name": "Mário Jardel",
+   "team": "Sporting CP",
+   "goals": 42
+  },
+  {
+   "season": "2000/2001",
+   "name": "Henrik Larsson",
+   "team": "Celtic",
+   "goals": 35
+  }
+ ]
+}

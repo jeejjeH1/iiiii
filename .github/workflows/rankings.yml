@@ -1,0 +1,36 @@
+# Rates every match of the big competitions with GoalLive's own formula and publishes the season rankings the app reads
+# (release "rankings": store.json keeps rated matches between runs, rankings.json is the result).
+name: GoalLive rankings
+
+on:
+  schedule:
+    - cron: '17 4 * * *'
+  push:
+    paths: ['tools/rankings/**', '.github/workflows/rankings.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: rankings
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Previous data
+        run: |
+          gh release view rankings >/dev/null 2>&1 || gh release create rankings --title "GoalLive rankings (data)" --notes "Season rankings by GoalLive rating, rebuilt every day." --prerelease --target "${GITHUB_SHA}"
+          gh release download rankings -p store.json -D . || echo "first run"
+      - name: Rate matches and rank players
+        run: python3 tools/rankings/build.py store.json rankings.json
+      - name: Publish
+        run: |
+          python3 -c "import json;d=json.load(open('rankings.json'));print({k:(v['matches'],len(v['world'])) for k,v in d['seasons'].items()})"
+          gh release upload rankings store.json rankings.json --clobber
