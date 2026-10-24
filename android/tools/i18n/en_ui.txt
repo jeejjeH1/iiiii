@@ -898,3 +898,13 @@
 897|Mostly down the right
 898|Mostly through the middle
 899|No highlights video yet
+900|⤢ Full screen
+901|Attacking upwards
+902|Low
+903|High
+904|Own half
+905|Midfield
+906|Final third
+907|Left flank
+908|Centre
+909|Right flank

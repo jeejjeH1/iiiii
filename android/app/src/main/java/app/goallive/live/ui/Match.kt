@@ -1134,7 +1134,15 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                 Pill(L("پروفایل کامل"), PillKind.Accent, onClick = { onClose(); nav.player(p.id) })
                 Pill(L("مقایسه"), onClick = { onClose(); nav.compare(p.id) }, icon = Ic.swap)
             }
-            if (m.started) PlayerHeatmap(m.matchId, p.id, color)
+            if (m.started) {
+                // everyone else in this match, own team first, to compare with
+                val lu = m.content.o("lineup")
+                val others = listOf(true, false).sortedByDescending { it == p.home }.flatMap { home ->
+                    val t = lu?.o(if (home) "homeTeam" else "awayTeam")
+                    (t.a("starters").objs() + t.a("subs").objs()).map { HeatPlayer(it.i("id") ?: 0, it.s("name") ?: "", home) }
+                }
+                PlayerHeatmap(m.matchId, p.id, p.name, others)
+            }
             val groups = ps?.a("stats").objs()
             if (groups.isNullOrEmpty()) T(L("آمار این بازیکن در این بازی ثبت نشده"), 13, color = C.mute, modifier = Modifier.fillMaxWidth().padding(24.dp), align = TextAlign.Center)
             groups?.forEach { g ->

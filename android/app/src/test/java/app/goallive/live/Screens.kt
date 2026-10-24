@@ -140,6 +140,11 @@ class Screens {
         tap("ترکیب", exact = true); settle(3000); shot("42-big-lineup")
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("42-big-lineup-down")
         tap("ناتینگهام فارست", exact = true); settle(2000); shot("43-big-lineup-away")
+        // a player's heatmap, then next to a team-mate
+        tap("کاونتری", exact = true); settle(800); tap("تاتنهام", exact = true); settle(800)
+        tap("مادیسون", exact = true); settle(6000); shot("44-heatmap")
+        tap("سولانکه"); settle(1500); shot("45-heatmap-compare")
+        tap("تمام‌صفحه"); settle(1500); shot("46-heatmap-full")
         NavHook.nav?.team(8634); settle(9000); shot("07-team")
         tap("تاریخچه"); settle(2000); shot("08-team-story")
         NavHook.nav?.league(47); settle(9000); shot("09-league")

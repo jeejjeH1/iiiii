@@ -40,6 +40,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import org.json.JSONObject
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /* ---------- the pitch, drawn the same way everywhere here ---------- */
 
@@ -376,31 +377,177 @@ private fun DuelRow(d: Duel, ac: Color, dc: Color) {
 
 /* ---------- 4. a player's heatmap ---------- */
 
-/** Where a player was during the match (FotMob's heatmap points), with one plain sentence. */
+/** A player who can be put next to the one being looked at. */
+class HeatPlayer(val id: Int, val name: String, val home: Boolean)
+
+/**
+ * "نقشه حرارتی": where a player was during the match, as a smooth heat layer over the whole pitch (attacking left to right),
+ * the share of his time in each third and lane, a full-screen view, and a second player from the match next to him.
+ */
 @Composable
-fun PlayerHeatmap(matchId: Int, playerId: Int, color: Color) {
+fun PlayerHeatmap(matchId: Int, playerId: Int, name: String, others: List<HeatPlayer>) {
     val l = rememberLoader(matchId, "heat") { heatPoints(matchId) }
-    val pts = l.value?.get(playerId) ?: return
+    val all = l.value ?: return
+    val pts = all[playerId] ?: return
     if (pts.size < 3) return
-    SubHead(L("نقشه حرارتی"))
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(105f / 68f).clip(RoundedCornerShape(14.dp))) {
-            Canvas(Modifier.fillMaxSize()) {
-                grass()
-                val r = size.width * 0.075f
-                for ((x, y) in pts) {
-                    val c = Offset(x / 105f * size.width, y / 68f * size.height)
-                    drawCircle(Brush.radialGradient(listOf(color.copy(alpha = 0.55f), Color(0xFFFFD43B).copy(alpha = 0.18f), Color.Transparent), c, r), r, c)
+    var big by remember { mutableStateOf(false) }
+    var vs by rememberSaveable(playerId) { mutableStateOf<Int?>(null) }
+    val rivals = others.filter { it.id != playerId && (all[it.id]?.size ?: 0) >= 3 }
+    val other = rivals.firstOrNull { it.id == vs }
+    Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        T(L("نقشه حرارتی"), 12, FontWeight.ExtraBold, C.mute, Modifier.weight(1f))
+        T(L("⤢ تمام‌صفحه"), 12, FontWeight.Bold, LocalAccent.current, Modifier.clip(RoundedCornerShape(8.dp)).clickable { big = true }.padding(horizontal = 6.dp, vertical = 2.dp))
+    }
+    HeatPitch(pts, Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(105f / 68f).clickable { big = true })
+    HeatScale()
+    if (other == null) ZoneShares(pts, null, name, null)
+    if (rivals.isNotEmpty()) {
+        T(L("مقایسه با بازیکن دیگر"), 12, FontWeight.ExtraBold, C.mute, Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp))
+        androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            items(rivals.size) { k ->
+                val r = rivals[k]
+                val on = r.id == vs
+                Box(Modifier.clip(RoundedCornerShape(50)).background(if (on) LocalAccent.current else C.card2).clickable { vs = if (on) null else r.id }
+                    .padding(horizontal = 12.dp, vertical = 6.dp)) {
+                    T(personName(r.name), 12, FontWeight.Bold, if (on) LocalAccentInk.current else C.ink, maxLines = 1)
                 }
-                // the attacking direction
-                val ay = size.height - 10.dp.toPx()
-                drawLine(Color.White, Offset(size.width * 0.42f, ay), Offset(size.width * 0.58f, ay), 2.dp.toPx())
-                drawLine(Color.White, Offset(size.width * 0.58f, ay), Offset(size.width * 0.58f - 6.dp.toPx(), ay - 5.dp.toPx()), 2.dp.toPx())
-                drawLine(Color.White, Offset(size.width * 0.58f, ay), Offset(size.width * 0.58f - 6.dp.toPx(), ay + 5.dp.toPx()), 2.dp.toPx())
             }
         }
     }
-    T(heatSentence(pts), 12, color = C.mute, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp))
+    if (other != null) {
+        val op = all[other.id]!!
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Face(other.id, 26.dp); Spacer(Modifier.width(8.dp)); T(personName(other.name), 13, FontWeight.ExtraBold)
+        }
+        HeatPitch(op, Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(105f / 68f))
+        ZoneShares(pts, op, name, other.name)
+    }
+    if (big) androidx.compose.ui.window.Dialog(onDismissRequest = { big = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+        Column(Modifier.fillMaxSize().background(C.bg).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Face(playerId, 34.dp); Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) { T(personName(name), 16, FontWeight.ExtraBold); T(L("جهت حمله: رو به بالا"), 12, color = C.mute) }
+                IconBtn(Ic.x, L("بستن"), size = 22.dp) { big = false }
+            }
+            Spacer(Modifier.height(12.dp))
+            // the whole pitch upright, as tall as the screen allows
+            HeatPitch(pts, Modifier.weight(1f).aspectRatio(68f / 105f), vertical = true)
+            HeatScale()
+            ZoneShares(pts, null, name, null)
+        }
+    }
+}
+
+/** Heat from cold to hot, with its two ends named. */
+@Composable
+private fun HeatScale() {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        T(L("کم"), 11, color = C.mute)
+        Box(Modifier.weight(1f).height(6.dp).clip(RoundedCornerShape(6.dp)).background(Brush.horizontalGradient((1..5).map { heatColor(it / 5f, 1f) })))
+        T(L("زیاد"), 11, color = C.mute)
+    }
+}
+
+/** Share of the player's time in each third and each lane; with a second player, both side by side. */
+@Composable
+private fun ZoneShares(a: List<Pair<Float, Float>>, b: List<Pair<Float, Float>>?, an: String, bn: String?) {
+    fun shares(p: List<Pair<Float, Float>>): List<Int> {
+        val n = p.size.coerceAtLeast(1).toFloat()
+        val thirds = listOf(p.count { it.first < 35 }, p.count { it.first in 35f..70f }, p.count { it.first > 70 })
+        val lanes = listOf(p.count { it.second < 22.7f }, p.count { it.second in 22.7f..45.3f }, p.count { it.second > 45.3f })
+        return (thirds + lanes).map { (it / n * 100).roundToInt() }
+    }
+    val sa = shares(a); val sb = b?.let(::shares)
+    val labels = listOf(L("نیمه خودی"), L("میانه زمین"), L("یک‌سوم حمله"), L("جناح چپ"), L("مرکز زمین"), L("جناح راست"))
+    val accent = LocalAccent.current
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).clip(RoundedCornerShape(14.dp)).background(C.card2).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        if (bn != null) Row {
+            T(personName(an), 12, FontWeight.ExtraBold, accent, Modifier.weight(1f), maxLines = 1)
+            T(personName(bn), 12, FontWeight.ExtraBold, C.gold, Modifier.weight(1f), maxLines = 1, align = TextAlign.End)
+        }
+        labels.forEachIndexed { k, label ->
+            if (k == 3) Box(Modifier.fillMaxWidth().height(1.dp).background(C.line))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (sb == null) {
+                    T(label, 12, modifier = Modifier.width(84.dp))
+                    Box(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(8.dp)).background(C.line)) {
+                        Box(Modifier.fillMaxWidth(sa[k] / 100f).fillMaxSize().clip(RoundedCornerShape(8.dp)).background(accent))
+                    }
+                    T(fa(sa[k]) + "٪", 12, FontWeight.ExtraBold, modifier = Modifier.width(40.dp), align = TextAlign.End)
+                } else {
+                    T(fa(sa[k]) + "٪", 13, FontWeight.ExtraBold, if (sa[k] >= sb[k]) accent else C.mute, Modifier.width(44.dp))
+                    T(label, 12, modifier = Modifier.weight(1f), align = TextAlign.Center)
+                    T(fa(sb[k]) + "٪", 13, FontWeight.ExtraBold, if (sb[k] >= sa[k]) C.gold else C.mute, Modifier.width(44.dp), align = TextAlign.End)
+                }
+            }
+        }
+        if (sb == null) T(heatSentence(a), 12, color = C.mute)
+    }
+}
+
+/** A smooth heat layer: every point spreads like a soft spot, added up on a fine grid and coloured cold to hot. */
+@Composable
+private fun HeatPitch(pts: List<Pair<Float, Float>>, modifier: Modifier, vertical: Boolean = false) {
+    val grid = remember(pts) { density(pts) }
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        Box(modifier.clip(RoundedCornerShape(14.dp))) {
+            Canvas(Modifier.fillMaxSize()) {
+                grass(vertical)
+                val cw = (if (vertical) size.height else size.width) / NX
+                val ch = (if (vertical) size.width else size.height) / NY
+                for (i in 0 until NX) for (j in 0 until NY) {
+                    val v = grid[i * NY + j]
+                    if (v < 0.04f) continue
+                    // upright: attack goes up, the player's left stays on the left
+                    val tl = if (vertical) Offset(j * ch, size.height - (i + 1) * cw) else Offset(i * cw, j * ch)
+                    drawRect(heatColor(v, 0.15f + 0.7f * v), tl, if (vertical) Size(ch + 0.6f, cw + 0.6f) else Size(cw + 0.6f, ch + 0.6f))
+                }
+                // the attacking direction
+                val arrow = Color.White.copy(alpha = 0.85f); val sw = 2.dp.toPx()
+                if (vertical) {
+                    val ax = size.width - 12.dp.toPx()
+                    drawLine(arrow, Offset(ax, size.height * 0.58f), Offset(ax, size.height * 0.42f), sw)
+                    drawLine(arrow, Offset(ax, size.height * 0.42f), Offset(ax - 5.dp.toPx(), size.height * 0.42f + 6.dp.toPx()), sw)
+                    drawLine(arrow, Offset(ax, size.height * 0.42f), Offset(ax + 5.dp.toPx(), size.height * 0.42f + 6.dp.toPx()), sw)
+                } else {
+                    val ay = size.height - 10.dp.toPx()
+                    drawLine(arrow, Offset(size.width * 0.42f, ay), Offset(size.width * 0.58f, ay), sw)
+                    drawLine(arrow, Offset(size.width * 0.58f, ay), Offset(size.width * 0.58f - 6.dp.toPx(), ay - 5.dp.toPx()), sw)
+                    drawLine(arrow, Offset(size.width * 0.58f, ay), Offset(size.width * 0.58f - 6.dp.toPx(), ay + 5.dp.toPx()), sw)
+                }
+            }
+        }
+    }
+}
+
+private const val NX = 42
+private const val NY = 27
+
+/** Points on the 105×68 pitch → a 0…1 grid, each point a Gaussian about six metres wide. */
+private fun density(pts: List<Pair<Float, Float>>): FloatArray {
+    val g = FloatArray(NX * NY)
+    val sx = 105f / NX; val sy = 68f / NY; val sigma2 = 2 * 6f * 6f
+    for ((x, y) in pts) for (i in 0 until NX) {
+        val dx = (i + 0.5f) * sx - x
+        if (dx * dx > 4 * sigma2) continue
+        for (j in 0 until NY) {
+            val dy = (j + 0.5f) * sy - y
+            val d = dx * dx + dy * dy
+            if (d < 4 * sigma2) g[i * NY + j] += kotlin.math.exp(-d / sigma2)
+        }
+    }
+    val top = g.maxOrNull()?.takeIf { it > 0f } ?: 1f
+    for (k in g.indices) g[k] /= top
+    return g
+}
+
+/** Cold to hot: teal, green, yellow, orange, red. */
+private fun heatColor(v: Float, alpha: Float): Color {
+    val stops = listOf(Color(0xFF1FB5C9), Color(0xFF3DDC84), Color(0xFFFFE14D), Color(0xFFFF9A3C), Color(0xFFFF3B3B))
+    val t = v.coerceIn(0f, 1f) * (stops.size - 1)
+    val k = t.toInt().coerceAtMost(stops.size - 2)
+    return androidx.compose.ui.graphics.lerp(stops[k], stops[k + 1], t - k).copy(alpha = alpha)
 }
 
 private fun heatSentence(pts: List<Pair<Float, Float>>): String {
