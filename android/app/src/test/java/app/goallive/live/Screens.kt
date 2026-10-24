@@ -142,6 +142,11 @@ class Screens {
         tap("ناتینگهام فارست", exact = true); settle(2000); shot("43-big-lineup-away")
         // a player's heatmap, then next to a team-mate
         tap("کاونتری", exact = true); settle(800); tap("تاتنهام", exact = true); settle(800)
+        runBlocking {
+            val u = java.net.URLEncoder.encode("https://pub.fotmob.com/prod/db/api/heatmap/match/5795484", "UTF-8")
+            val r = runCatching { Api.fotmob("data/heatmap/match/5795484/heatmaps?heatmapUrl=$u") }
+            System.err.println("SHOT heatmap fetch: " + (r.getOrNull()?.optJSONObject("players")?.length() ?: r.exceptionOrNull()))
+        }
         tap("مادیسون", exact = true); settle(6000); shot("44-heatmap")
         tap("سولانکه"); settle(1500); shot("45-heatmap-compare")
         tap("تمام‌صفحه"); settle(1500); shot("46-heatmap-full")
