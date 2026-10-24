@@ -59,7 +59,8 @@ fun RankingsScreen() {
     }
 }
 
-private fun seasonLabel(s: String) = fa(s.replace("/", "-").let { if (it.length == 9) it.take(5) + it.drop(7) else it })
+// kept left to right inside Persian text, so "2026-27" does not come out as "27-2026"
+private fun seasonLabel(s: String) = "\u2066" + fa(s.replace("/", "-").let { if (it.length == 9) it.take(5) + it.drop(7) else it }) + "\u2069"
 
 @Composable
 private fun BestPlayers(d: JSONObject) {
