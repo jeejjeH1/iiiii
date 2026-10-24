@@ -1078,3 +1078,4 @@
 1077|🔔 Goal alerts even with the app closed
 1078|Android stops closed apps, so goal alerts don't arrive. Tap "Allow" in the next window so GoalLive can check scores in the background (it uses very little battery).
 1079|Allow
+1080|FT

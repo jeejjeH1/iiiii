@@ -1079,6 +1079,7 @@
 "🔔 اعلان گل حتی وقتی برنامه بسته است": "🔔 Goal alerts even with the app closed",
 "اندروید برنامه‌های بسته را از کار می‌اندازد و اعلان گل نمی‌رسد. در پنجره‌ی بعد «اجازه» را بزنید تا گل‌لایو در پس‌زمینه نتایج را چک کند (مصرف باتری بسیار کم است).": "Android stops closed apps, so goal alerts don't arrive. Tap \"Allow\" in the next window so GoalLive can check scores in the background (it uses very little battery).",
 "اجازه بده": "Allow",
+"پایان": "FT",
 "ال‌کلاسیکو": "El Clásico",
 "دربی مادرید": "Madrid derby",
 "دربی منچستر": "Manchester derby",
