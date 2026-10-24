@@ -124,7 +124,7 @@ fun shareMatchCard(@Suppress("UNUSED_PARAMETER") ctx: Context, m: MatchData) { S
 /* ---------- the studio ---------- */
 
 /** Pictures the card needs, fetched once per match. */
-class CardAssets(val home: Bitmap?, val away: Bitmap?, val logo: Bitmap?, val best: Bitmap?, val black: Typeface, val bold: Typeface, val hc: Int, val ac: Int)
+class CardAssets(val home: Bitmap?, val away: Bitmap?, val logo: Bitmap?, val best: Bitmap?, val black: Typeface, val bold: Typeface, val hc: Int, val ac: Int, val league: Bitmap?)
 
 private suspend fun image(ctx: Context, url: String, px: Int): Bitmap? = runCatching {
     kotlinx.coroutines.withTimeoutOrNull(6_000) { ctx.imageLoader.execute(ImageRequest.Builder(ctx).data(url).allowHardware(false).build()) }?.drawable?.toBitmap(px, px)
@@ -140,6 +140,7 @@ internal suspend fun cardAssets(ctx: Context, m: MatchData, best: PlayerRating?)
         if (en) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else ResourcesCompat.getFont(ctx, R.font.vazir_black) ?: Typeface.DEFAULT_BOLD,
         if (en) Typeface.DEFAULT_BOLD else ResourcesCompat.getFont(ctx, R.font.vazir_bold) ?: Typeface.DEFAULT_BOLD,
         cardColor(m.homeColor, home, 0xFF1E5BD8), cardColor(m.awayColor, away, 0xFFD62839),
+        image(ctx, "https://images.fotmob.com/image_resources/logo/leaguelogo/${m.leagueId}.png", 200),
     )
 }
 
@@ -315,7 +316,7 @@ private fun saveCard(ctx: Context, m: MatchData, bmp: Bitmap) {
 
 private class CardLook(val ink: Int, val sub: Int, val panel: Int, val accent: Int, val stroke: Int)
 
-/** The share picture: header, crests and score, then the chosen parts as long as they fit, and the footer. Drawn at [scale]. */
+/** The share picture: competition at the top, the crests and the score, then the chosen parts spread over the space, and the brand. Drawn at [scale]. */
 internal fun drawCard(ctx: Context, m: MatchData, o: CardOptions, a: CardAssets, best: PlayerRating?, scale: Float): Bitmap {
     val W = o.format.w; val H = o.format.h
     val bmp = Bitmap.createBitmap((W * scale).toInt(), (H * scale).toInt(), Bitmap.Config.ARGB_8888)
@@ -327,180 +328,296 @@ internal fun drawCard(ctx: Context, m: MatchData, o: CardOptions, a: CardAssets,
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     val story = o.format == CardFormat.STORY
     val sq = o.format == CardFormat.SQUARE
-
-    // header: the app, then the competition and the day
-    var y = if (story) 100f else 50f
-    a.logo?.let { logo ->
-        val r = if (story) 48f else 34f
-        p.color = 0xFFFFFFFF.toInt(); c.drawCircle(W / 2f, y + r, r + 6, p)
-        c.drawBitmap(logo, null, RectF(W / 2f - r, y, W / 2f + r, y + 2 * r), p)
-        y += 2 * r + 18
-    }
-    val league = leagueName(m.leagueId, m.general.s("leagueName") ?: "")
-    val round = m.general.s("leagueRoundName")?.let { if (it.all(Char::isDigit)) L(" | هفته {0}", fa(it)) else "" } ?: ""
-    val head = if (story) 32f else 28f
-    pill(c, league + round + "  |  " + fa(persianDate(m.time, "d MMMM yyyy")), W / 2f, y, head, look.ink, look.panel, a.bold, 940)
-    val top = y + head * 2f + (if (story) 40f else 22f)
-    val footer = if (story) 170f else 105f
-
-    // each part as its height and how to draw it from a given top
-    class Block(val h: Float, val draw: (Float) -> Unit)
-    val blocks = mutableListOf<Block>()
+    val k = if (story) 1f else if (sq) 0.78f else 0.86f   // overall size of the writing
     val homeX = if (en) W * 0.25f else W * 0.75f
     val awayX = W - homeX
+
+    // both crests, huge and faint, behind everything
+    val wm = W * 0.95f
+    for ((bm, x, y0) in listOf(Triple(a.home, homeX, H * 0.05f), Triple(a.away, awayX, H * 0.55f))) bm?.let {
+        p.alpha = if (o.theme == "light") 16 else 22
+        c.drawBitmap(it, null, RectF(x - wm / 2, y0, x + wm / 2, y0 + wm), p); p.alpha = 255
+    }
+    grain(c, W, H, o.theme == "light")
+
+    // header: the competition's badge, its name and round, the day under it
+    var y = if (story) 80f else if (sq) 46f else 54f
+    val lr = 36f * k
+    a.league?.let { lg ->
+        p.color = 0xFFFFFFFF.toInt(); p.setShadowLayer(18f, 0f, 6f, 0x55000000); c.drawCircle(W / 2f, y + lr, lr + 10, p); p.clearShadowLayer()
+        c.drawBitmap(lg, null, RectF(W / 2f - lr, y, W / 2f + lr, y + 2 * lr), p)
+        y += 2 * lr + 26 * k
+    }
+    val round = m.general.s("leagueRoundName")?.let { if (it.all(Char::isDigit)) L(" | هفته {0}", fa(it)) else "" } ?: ""
+    text(c, leagueName(m.leagueId, m.general.s("leagueName") ?: "") + round, W / 2f, y, 36f * k, look.ink, a.black, W - 160)
+    y += 36f * k * 1.5f
+    text(c, fa(persianDate(m.time, "EEEE d MMMM yyyy")), W / 2f, y, 27f * k, look.sub, a.bold, W - 160)
+    val top = y + 27f * k * 1.4f + (if (story) 50f else 24f)
+    val footer = if (story) 160f else if (sq) 110f else 120f
+
+    // each part: its height, and how to draw it from a given top
+    class Block(val h: Float, val draw: (Float) -> Unit)
+    val blocks = mutableListOf<Block>()
     val pens = m.status.o("reason")?.optJSONArray("penalties")?.takeIf { it.length() == 2 }
     val state = when {
-        pens != null -> L("پنالتی ") + fa("${pens.optInt(0)} - ${pens.optInt(1)}")
         m.finished -> L("پایان بازی")
         m.live -> L("زنده | {0}", fa(m.minute))
         else -> L("پیش از بازی")
     }
-    val score = if (m.started) fa(if (en) "${m.home.i("score") ?: 0} - ${m.away.i("score") ?: 0}" else "${m.away.i("score") ?: 0} - ${m.home.i("score") ?: 0}")
-        else fa(timeOf(m.time))
+    val hs = m.home.i("score") ?: 0; val aws = m.away.i("score") ?: 0
     fun crest(bm: Bitmap?, x: Float, cy: Float, r: Float, col: Int) {
-        // a halo in the team's colour behind each crest
-        p.shader = RadialGradient(x, cy, r * 1.6f, intArrayOf(col or 0xFF000000.toInt(), col and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
-        p.alpha = 170; c.drawCircle(x, cy, r * 1.6f, p); p.shader = null; p.alpha = 255
-        bm?.let { c.drawBitmap(it, null, RectF(x - r, cy - r, x + r, cy + r), null) }
+        // the crest on a glass disc ringed in the team's colour, with a glow of that colour behind
+        p.shader = RadialGradient(x, cy, r * 1.9f, intArrayOf(brighten(col) and 0x00FFFFFF or 0x99000000.toInt(), brighten(col) and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
+        c.drawCircle(x, cy, r * 1.9f, p); p.shader = null
+        p.color = look.panel; p.setShadowLayer(30f, 0f, 14f, 0x66000000); c.drawCircle(x, cy, r * 1.22f, p); p.clearShadowLayer()
+        p.style = Paint.Style.STROKE; p.strokeWidth = 6f * k
+        p.shader = LinearGradient(x, cy - r, x, cy + r, brighten(col), brighten(col) and 0x00FFFFFF or 0x55000000, Shader.TileMode.CLAMP)
+        c.drawCircle(x, cy, r * 1.22f, p); p.shader = null; p.style = Paint.Style.FILL
+        bm?.let { c.drawBitmap(it, null, RectF(x - r * 0.86f, cy - r * 0.86f, x + r * 0.86f, cy + r * 0.86f), null) }
+    }
+    // the score: each side's number on its own side, the loser's a little dimmer
+    fun numbers(cy: Float, size: Float, gapX: Float) {
+        if (!m.started) { bigText(c, fa(timeOf(m.time)), W / 2f, cy - size * 0.36f, size * 0.62f, look.ink, a.black, 1f); return }
+        bigText(c, fa(hs), homeX.let { if (en) W / 2f - gapX else W / 2f + gapX }, cy - size * 0.6f, size, look.ink, a.black, if (hs < aws && m.finished) 0.5f else 1f)
+        bigText(c, fa(aws), if (en) W / 2f + gapX else W / 2f - gapX, cy - size * 0.6f, size, look.ink, a.black, if (aws < hs && m.finished) 0.5f else 1f)
+        p.color = look.sub; c.drawRoundRect(RectF(W / 2f - size * 0.12f, cy - size * 0.04f, W / 2f + size * 0.12f, cy + size * 0.04f), 8f, 8f, p)
     }
     val stateInk = if (m.live) 0xFFFFFFFF.toInt() else look.ink
     val stateBg = if (m.live) C.live.toArgb() else look.panel
     if (sq) {
-        // square: crests either side, the score between them
-        val cr = 92f; val nm = 36f; val size = if (m.started) 130f else 90f
-        blocks += Block(2 * cr + 16 + nm * 2.4f) { t ->
-            crest(a.home, homeX - 50, t + cr, cr, hc); crest(a.away, awayX + 50, t + cr, cr, ac)
-            glowText(c, score, W / 2f, t + cr - size * 0.62f, size, look.ink, look.accent, a.black)
-            pill(c, state, W / 2f, t + cr + size * 0.5f, 24f, stateInk, stateBg, a.black, 360)
-            text(c, teamName(m.homeId, m.homeName), homeX - 50, t + 2 * cr + 16, nm, look.ink, a.black, 400, 2)
-            text(c, teamName(m.awayId, m.awayName), awayX + 50, t + 2 * cr + 16, nm, look.ink, a.black, 400, 2)
+        val cr = 80f; val nm = 34f; val size = 150f
+        blocks += Block(2 * cr * 1.22f + 20 + nm * 2.5f) { t ->
+            val cy = t + cr * 1.22f
+            crest(a.home, if (en) 175f else W - 175f, cy, cr, hc); crest(a.away, if (en) W - 175f else 175f, cy, cr, ac)
+            numbers(cy, size, 110f)
+            pill(c, state + (pens?.let { "  " + L("پنالتی ") + fa("${it.optInt(if (en) 0 else 1)} - ${it.optInt(if (en) 1 else 0)}") } ?: ""), W / 2f, cy + size * 0.5f, 22f, stateInk, stateBg, a.black, 420, look.stroke)
+            text(c, teamName(m.homeId, m.homeName), if (en) 175f else W - 175f, t + 2 * cr * 1.22f + 22, nm, look.ink, a.black, 330, 2)
+            text(c, teamName(m.awayId, m.awayName), if (en) W - 175f else 175f, t + 2 * cr * 1.22f + 22, nm, look.ink, a.black, 330, 2)
         }
     } else {
-        // tall: crests side by side with the state between them, names under, then the score big across the middle
-        val cr = if (story) 140f else 108f; val nm = if (story) 46f else 38f; val size = if (story) (if (m.started) 250f else 170f) else (if (m.started) 180f else 130f)
-        blocks += Block(2 * cr + 18 + nm * 2.4f + size * 1.12f) { t ->
-            crest(a.home, homeX, t + cr, cr, hc); crest(a.away, awayX, t + cr, cr, ac)
-            pill(c, state, W / 2f, t + cr - (if (story) 30f else 26f), if (story) 30f else 26f, stateInk, stateBg, a.black, 340)
-            text(c, teamName(m.homeId, m.homeName), homeX, t + 2 * cr + 18, nm, look.ink, a.black, (W * 0.44f).toInt(), 2)
-            text(c, teamName(m.awayId, m.awayName), awayX, t + 2 * cr + 18, nm, look.ink, a.black, (W * 0.44f).toInt(), 2)
-            glowText(c, score, W / 2f, t + 2 * cr + 18 + nm * 2.4f - size * 0.06f, size, look.ink, look.accent, a.black)
+        val cr = if (story) 100f else 84f; val nm = if (story) 46f else 38f; val size = if (story) 220f else 180f
+        blocks += Block(2 * cr * 1.22f + 24 + nm * 2.5f + size * 1.05f + 60f * k) { t ->
+            val cy = t + cr * 1.22f
+            crest(a.home, homeX, cy, cr, hc); crest(a.away, awayX, cy, cr, ac)
+            text(c, "VS", W / 2f, cy - 30f * k, 44f * k, look.sub, Typeface.create(Typeface.DEFAULT, Typeface.BOLD_ITALIC), 200)
+            val nt = t + 2 * cr * 1.22f + 24
+            text(c, teamName(m.homeId, m.homeName), homeX, nt, nm, look.ink, a.black, (W * 0.44f).toInt(), 2)
+            text(c, teamName(m.awayId, m.awayName), awayX, nt, nm, look.ink, a.black, (W * 0.44f).toInt(), 2)
+            val sy = nt + nm * 2.5f + size * 0.55f
+            numbers(sy, size, size * 0.62f)
+            pill(c, state, W / 2f, sy + size * 0.52f, 28f * k, stateInk, stateBg, a.black, 420, look.stroke)
+            pens?.let { pk -> text(c, L("پنالتی ") + fa("${pk.optInt(if (en) 0 else 1)} - ${pk.optInt(if (en) 1 else 0)}"), W / 2f, sy + size * 0.52f + 70f * k, 30f * k, look.accent, a.black, 600) }
         }
     }
     if (o.caption.isNotBlank()) {
-        val sz = if (story) 54f else 44f
-        blocks += Block(sz * 1.5f) { t -> text(c, "« " + o.caption.trim() + " »", W / 2f, t, sz, look.accent, a.black, W - 140, 1) }
+        val sz = 56f * k
+        blocks += Block(sz * 1.6f) { t ->
+            // the user's words between two short rules in the accent colour
+            val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = sz; typeface = a.black }
+            val w = min(W - 260f, tp.measureText(o.caption.trim()))
+            p.color = look.accent
+            c.drawRoundRect(RectF(W / 2f - w / 2 - 90, t + sz * 0.62f, W / 2f - w / 2 - 30, t + sz * 0.62f + 6), 3f, 3f, p)
+            c.drawRoundRect(RectF(W / 2f + w / 2 + 30, t + sz * 0.62f, W / 2f + w / 2 + 90, t + sz * 0.62f + 6), 3f, 3f, p)
+            text(c, o.caption.trim(), W / 2f, t, sz, look.accent, a.black, W - 240, 1)
+        }
     }
     val goals = m.events.filter { it.s("type") == "Goal" && !it.b("isPenaltyShootoutEvent") }
     if (o.scorers && goals.isNotEmpty()) {
-        fun lines(home: Boolean) = goals.filter { it.b("isHome") == home }.take(if (story) 6 else 4).map { g ->
-            val n = g.o("player").s("lastName") ?: g.s("nameStr")?.substringAfterLast(' ') ?: g.o("player").s("name") ?: ""
-            (if (en) n else FaNames.of(n)) + " " + fa(minuteText(g) + "'") + if (g.b("ownGoal")) L(" (به خودی)") else if (isPen(g)) L(" (پ)") else ""
+        fun lines(home: Boolean): CharSequence {
+            val sb = android.text.SpannableStringBuilder()
+            for (g in goals.filter { it.b("isHome") == home }.take(if (story) 5 else 4)) {
+                val n = g.o("player").s("lastName") ?: g.s("nameStr")?.substringAfterLast(' ') ?: g.o("player").s("name") ?: ""
+                if (sb.isNotEmpty()) sb.append("\n")
+                sb.append(if (en) n else FaNames.of(n))
+                val tail = " " + fa(minuteText(g) + "'") + if (g.b("ownGoal")) L(" (به خودی)") else if (isPen(g)) L(" (پ)") else ""
+                val s0 = sb.length; sb.append(tail)
+                sb.setSpan(android.text.style.ForegroundColorSpan(look.accent), s0, sb.length, android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+            return sb
         }
-        val hl = lines(true); val al = lines(false)
-        val rows = maxOf(hl.size, al.size)
-        val sz = if (story) 34f else 30f; val lh = sz * 1.45f
-        blocks += Block(rows * lh + 50f) { t ->
-            panel(c, 60f, t, W - 60f, t + rows * lh + 50f, look.panel)
-            // a ball in the middle, the scorers of each side under its crest
-            text(c, "⚽", W / 2f, t + (rows * lh + 50f) / 2 - sz * 0.75f, sz * 1.2f, look.ink, a.bold, 100)
-            text(c, hl.joinToString("\n"), homeX, t + 25, sz, look.ink, a.bold, (W * 0.38f).toInt(), rows)
-            text(c, al.joinToString("\n"), awayX, t + 25, sz, look.ink, a.bold, (W * 0.38f).toInt(), rows)
+        val rows = maxOf(goals.count { it.b("isHome") }.coerceAtMost(if (story) 5 else 4), goals.count { !it.b("isHome") }.coerceAtMost(if (story) 5 else 4))
+        val sz = 33f * k; val lh = sz * 1.5f; val h = rows * lh + 56f * k
+        blocks += Block(h) { t ->
+            glass(c, 56f, t, W - 56f, t + h, look)
+            ball(c, W / 2f, t + h / 2, 22f * k, look)
+            p.color = look.stroke; c.drawRect(W / 2f - 1, t + 24, W / 2f + 1, t + h / 2 - 34 * k, p); c.drawRect(W / 2f - 1, t + h / 2 + 34 * k, W / 2f + 1, t + h - 24, p)
+            spanText(c, lines(true), homeX + (if (en) -10f else 10f), t + 28f * k, sz, look.ink, a.bold, (W * 0.4f).toInt())
+            spanText(c, lines(false), awayX + (if (en) 10f else -10f), t + 28f * k, sz, look.ink, a.bold, (W * 0.4f).toInt())
+        }
+    }
+    if (o.best && best != null) {
+        val h = 200f * k
+        blocks += Block(h) { t ->
+            glass(c, 56f, t, W - 56f, t + h, look)
+            // the face in a ring of the accent colour on the reading-start side, the rating on the other
+            val fr = 70f * k; val fx = if (en) 56f + 40 + fr else W - 56f - 40 - fr; val fy = t + h / 2
+            p.color = look.accent; c.drawCircle(fx, fy, fr + 6, p)
+            p.color = 0xFF1B2028.toInt(); c.drawCircle(fx, fy, fr, p)
+            a.best?.let { f ->
+                c.save(); c.clipPath(Path().apply { addCircle(fx, fy, fr, Path.Direction.CW) })
+                c.drawBitmap(f, null, RectF(fx - fr, fy - fr + 6, fx + fr, fy + fr + 6), null); c.restore()
+            }
+            text(c, "★ " + L("بهترین بازیکن گل‌لایو"), W / 2f, t + h / 2 - 50f * k, 27f * k, look.accent, a.bold, 520)
+            text(c, personName(best.name), W / 2f, t + h / 2 - 8f * k, 46f * k, look.ink, a.black, 520)
+            val rx = if (en) W - 56f - 40 - 70f * k else 56f + 40 + 70f * k
+            p.color = ratingColor(best.value); p.setShadowLayer(20f, 0f, 8f, ratingColor(best.value) and 0x00FFFFFF or 0x88000000.toInt())
+            c.drawRoundRect(RectF(rx - 72 * k, fy - 42 * k, rx + 72 * k, fy + 42 * k), 28f * k, 28f * k, p); p.clearShadowLayer()
+            text(c, fa(dec(best.value, 1)), rx, fy - 30f * k, 50f * k, 0xFFFFFFFF.toInt(), a.black, 160)
         }
     }
     if (o.stats && m.started) {
         val all = m.content.path("stats.Periods.All").a("stats").objs().firstOrNull()?.a("stats").objs()
         val rows = listOf("BallPossesion" to L("مالکیت توپ"), "expected_goals" to L("گل مورد انتظار (xG)"), "total_shots" to L("شوت"), "ShotsOnTarget" to L("شوت در چارچوب"))
-            .mapNotNull { (k, label) -> all.firstOrNull { it.s("key") == k }?.let { label to it } }.take(if (story) 4 else 3)
-        val rh = if (story) 84f else 72f
-        if (rows.isNotEmpty()) blocks += Block(rows.size * rh + 36f) { t ->
-            panel(c, 60f, t, W - 60f, t + rows.size * rh + 36f, look.panel)
-            var ry = t + 22
+            .mapNotNull { (key, label) -> all.firstOrNull { it.s("key") == key }?.let { label to it } }.take(3)
+        val rh = 84f * k
+        if (rows.isNotEmpty()) blocks += Block(rows.size * rh + 40f * k) { t ->
+            glass(c, 56f, t, W - 56f, t + rows.size * rh + 40f * k, look)
+            var ry = t + 24f * k
             for ((label, st) in rows) {
                 val v = st.a("stats")
                 val hv = v?.optString(0) ?: ""; val av = v?.optString(1) ?: ""
                 val hn = hv.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0; val an = av.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0
-                val left = if (en) hv else av; val right = if (en) av else hv
-                text(c, fa(left), 160f, ry, 34f, look.ink, a.black, 200)
-                text(c, label, W / 2f, ry + 4, 28f, look.sub, a.bold, 520)
-                text(c, fa(right), W - 160f, ry, 34f, look.ink, a.black, 200)
-                // a bar split in the two colours, home on the reading-start side
+                text(c, fa(hv), homeX.let { if (en) 150f else W - 150f }, ry, 38f * k, if (hn >= an) look.ink else look.sub, a.black, 220)
+                text(c, label, W / 2f, ry + 6 * k, 28f * k, look.sub, a.bold, 520)
+                text(c, fa(av), if (en) W - 150f else 150f, ry, 38f * k, if (an >= hn) look.ink else look.sub, a.black, 220)
+                // two bars from the middle outwards, each as long as that side's share
                 val tot = (hn + an).takeIf { it > 0 } ?: 1.0
-                val lw = ((if (en) hn else an) / tot).toFloat()
-                val bx = 110f; val bw = W - 220f; val by = ry + rh - 30
-                p.color = brighten(if (en) hc else ac); c.drawRoundRect(RectF(bx, by, bx + bw * lw - 4, by + 12), 6f, 6f, p)
-                p.color = brighten(if (en) ac else hc); c.drawRoundRect(RectF(bx + bw * lw + 4, by, bx + bw, by + 12), 6f, 6f, p)
+                val half = (W - 240f) / 2; val by = ry + rh - 34f * k; val bh = 12f * k
+                p.color = look.stroke
+                c.drawRoundRect(RectF(120f, by, W - 120f, by + bh), bh / 2, bh / 2, p)
+                val hw = (half * hn / tot * 2).toFloat().coerceAtMost(half); val aw = (half * an / tot * 2).toFloat().coerceAtMost(half)
+                val hSide = if (en) -1 else 1
+                p.color = brighten(hc); if (hSide > 0) c.drawRoundRect(RectF(W / 2f + 4, by, W / 2f + 4 + hw, by + bh), bh / 2, bh / 2, p) else c.drawRoundRect(RectF(W / 2f - 4 - hw, by, W / 2f - 4, by + bh), bh / 2, bh / 2, p)
+                p.color = brighten(ac); if (hSide > 0) c.drawRoundRect(RectF(W / 2f - 4 - aw, by, W / 2f - 4, by + bh), bh / 2, bh / 2, p) else c.drawRoundRect(RectF(W / 2f + 4, by, W / 2f + 4 + aw, by + bh), bh / 2, bh / 2, p)
                 ry += rh
             }
         }
     }
-    if (o.best && best != null) blocks += Block(176f) { t ->
-        panel(c, 60f, t, W - 60f, t + 176f, look.panel)
-        val fx = if (en) 165f else W - 165f
-        p.color = look.accent; c.drawCircle(fx, t + 88, 68f, p)
-        p.color = 0xFF20242C.toInt(); c.drawCircle(fx, t + 88, 62f, p)
-        a.best?.let { f ->
-            c.save(); c.clipPath(Path().apply { addCircle(fx, t + 88, 62f, Path.Direction.CW) })
-            c.drawBitmap(f, null, RectF(fx - 62, t + 26, fx + 62, t + 150), null); c.restore()
-        }
-        val tx = W / 2f
-        text(c, "⭐ " + L("بهترین بازیکن گل‌لایو"), tx, t + 34, 28f, look.accent, a.bold, 520)
-        text(c, personName(best.name), tx, t + 80, 44f, look.ink, a.black, 520)
-        // the rating badge
-        val rx = if (en) W - 155f else 155f
-        p.color = ratingColor(best.value); c.drawRoundRect(RectF(rx - 64, t + 52, rx + 64, t + 124), 24f, 24f, p)
-        text(c, fa(dec(best.value, 1)), rx, t + 60, 46f, 0xFFFFFFFF.toInt(), a.black, 140)
-    }
     val mom = if (o.momentum && m.started) momentumOf(m) else emptyList()
-    if (mom.size > 5) blocks += Block(190f) { t ->
-        panel(c, 60f, t, W - 60f, t + 190f, look.panel)
-        text(c, L("مومنتوم بازی"), W / 2f, t + 16, 28f, look.sub, a.bold, 600)
-        val mid = t + 118; val left = 100f; val width = W - 200f
-        val maxMin = maxOf(90.0, mom.maxOf { it.d("minute") ?: 0.0 }).toFloat()
-        p.color = look.sub; p.alpha = 90; c.drawRect(left, mid - 1, left + width, mid + 1, p); p.alpha = 255
-        val bw = width / maxMin
-        for (pt in mom) {
-            val v = (pt.d("value") ?: 0.0).toFloat(); val hh = kotlin.math.abs(v) / 100f * 52f
-            val x = (pt.d("minute") ?: 0.0).toFloat() * bw
-            // time runs from the reading start: right to left in Persian
-            val xx = if (en) left + x else left + width - x - bw
-            p.color = brighten(if (v >= 0) hc else ac)
-            c.drawRoundRect(RectF(xx, if (v >= 0) mid - hh else mid, xx + bw * 0.8f, if (v >= 0) mid else mid + hh), 2f, 2f, p)
-        }
-        // the goals as small balls on the line
-        for (g in goals) {
-            val mn = (minuteText(g).substringBefore('+').filter(Char::isDigit).toFloatOrNull() ?: continue).coerceAtMost(maxMin)
-            val gx = if (en) left + mn * bw else left + width - mn * bw
-            p.color = 0xFFFFFFFF.toInt(); c.drawCircle(gx, mid, 9f, p)
-            p.color = if (g.b("isHome")) hc or 0xFF000000.toInt() else ac or 0xFF000000.toInt(); c.drawCircle(gx, mid, 5f, p)
+    if (mom.size > 5) {
+        val h = 220f * k
+        blocks += Block(h) { t ->
+            glass(c, 56f, t, W - 56f, t + h, look)
+            text(c, L("مومنتوم بازی"), W / 2f, t + 18f * k, 27f * k, look.sub, a.bold, 600)
+            val mid = t + h * 0.6f; val left = 100f; val width = W - 200f; val amp = h * 0.3f
+            val maxMin = maxOf(90.0, mom.maxOf { it.d("minute") ?: 0.0 }).toFloat()
+            fun xOf(mn: Float) = if (en) left + mn / maxMin * width else left + width - mn / maxMin * width
+            // a smooth curve, filled above the line for the home side and below it for the away side
+            val curve = Path().apply {
+                moveTo(xOf(0f), mid)
+                var px = xOf(0f); var py = mid
+                for (pt in mom) {
+                    val x = xOf((pt.d("minute") ?: 0.0).toFloat()); val yv = mid - (pt.d("value") ?: 0.0).toFloat() / 100f * amp
+                    quadTo(px, py, (px + x) / 2, (py + yv) / 2); px = x; py = yv
+                }
+                lineTo(px, mid); close()
+            }
+            c.save(); c.clipRect(0f, t, W.toFloat(), mid)
+            p.shader = LinearGradient(0f, mid - amp, 0f, mid, brighten(hc), brighten(hc) and 0x00FFFFFF or 0x33000000, Shader.TileMode.CLAMP); c.drawPath(curve, p); c.restore()
+            c.save(); c.clipRect(0f, mid, W.toFloat(), t + h)
+            p.shader = LinearGradient(0f, mid, 0f, mid + amp, brighten(ac) and 0x00FFFFFF or 0x33000000, brighten(ac), Shader.TileMode.CLAMP); c.drawPath(curve, p); c.restore()
+            p.shader = null
+            p.color = look.sub; p.alpha = 110; c.drawRect(left, mid - 1.5f, left + width, mid + 1.5f, p); p.alpha = 255
+            // half time and the goals on the line
+            p.color = look.stroke; c.drawRect(xOf(45f) - 1.5f, mid - amp, xOf(45f) + 1.5f, mid + amp, p)
+            for (g in goals) {
+                val mn = (minuteText(g).substringBefore('+').filter(Char::isDigit).toFloatOrNull() ?: continue).coerceAtMost(maxMin)
+                ball(c, xOf(mn), if (g.b("isHome")) mid - amp - 6 else mid + amp + 6, 13f * k, look)
+            }
         }
     }
     if (o.prediction) Predictions.get(m.matchId)?.let { pk ->
-        val line = L("پیش‌بینی من: {0}", fa("${pk.home} - ${pk.away}")) + when (pk.points) { 3 -> L("  🎯 +۳"); 1 -> L("  ✓ +۱"); 0 -> "  ✗"; else -> "" }
-        blocks += Block(74f) { t -> pill(c, line, W / 2f, t, 34f, look.accent, look.panel, a.black, 820) }
+        val line = L("پیش‌بینی من: {0}", fa(if (en) "${pk.home} - ${pk.away}" else "${pk.away} - ${pk.home}")) + when (pk.points) { 3 -> L("  🎯 +۳"); 1 -> L("  ✓ +۱"); 0 -> "  ✗"; else -> "" }
+        blocks += Block(36f * k * 2.1f) { t -> pill(c, line, W / 2f, t, 34f * k, look.accent, look.panel, a.black, 860, look.stroke) }
     }
 
-    // keep the parts that fit, in order, and spread them evenly over the space between header and footer
+    // keep the parts that fit, in order, and spread them evenly between the header and the footer
     val avail = H - footer - top
-    val minGap = if (story) 36f else 20f
+    val minGap = if (story) 40f else 22f
     val shown = mutableListOf<Block>(); var used = 0f
-    for (b in blocks) if (used + b.h + (if (shown.isEmpty()) 0f else minGap) <= avail) { used += b.h + (if (shown.isEmpty()) 0f else minGap); shown += b }
-    val gap = if (shown.size > 1) min(minGap * 2.6f, minGap + (avail - used) / (shown.size + 1)) else 0f
+    for (b in blocks) { val need = b.h + if (shown.isEmpty()) 0f else minGap; if (used + need <= avail) { used += need; shown += b } }
+    val gap = if (shown.size > 1) min(minGap * 2.8f, minGap + (avail - used) / (shown.size + 1)) else 0f
     val total = shown.sumOf { it.h.toDouble() }.toFloat() + gap * (shown.size - 1).coerceAtLeast(0)
     y = top + (avail - total) / 2
     for (b in shown) { b.draw(y); y += b.h + gap }
 
-    // the sticker, big near the top corner, a little tilted
+    // the sticker, big in a top corner, a little tilted
     if (o.sticker.isNotEmpty()) {
-        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = if (story) 170f else 120f }
-        val sx2 = if (en) W - 130f else 130f; val sy2 = if (story) 120f else 70f
-        c.save(); c.rotate(if (en) 14f else -14f, sx2, sy2 + 60); c.drawText(o.sticker, sx2 - tp.measureText(o.sticker) / 2, sy2 + tp.textSize * 0.8f, tp); c.restore()
+        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 170f * k }
+        val sx2 = if (en) W - 120f * k else 120f * k; val sy2 = if (story) 90f else 40f
+        c.save(); c.rotate(if (en) 14f else -14f, sx2, sy2 + 80 * k); c.drawText(o.sticker, sx2 - tp.measureText(o.sticker) / 2, sy2 + tp.textSize * 0.85f, tp); c.restore()
     }
-    // footer: a thin rule, the app's name and where to get it
-    val fy = H - footer + (if (story) 30f else 14f)
-    p.color = look.sub; p.alpha = 70; c.drawRect(W / 2f - 160, fy, W / 2f + 160, fy + 3, p); p.alpha = 255
-    text(c, L("گل‌لایو | نتایج زنده فوتبال"), W / 2f, fy + 20, if (story) 38f else 30f, look.ink, a.black, 980)
-    text(c, L("دانلود از کافه‌بازار"), W / 2f, fy + (if (story) 74f else 60f), if (story) 28f else 22f, look.sub, a.bold, 980)
+    // the brand: the app's mark and name side by side
+    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 44f * k; typeface = a.black }
+    val name = L("گل‌لایو"); val nw = tp.measureText(name); val lr2 = 30f * k
+    val bw = nw + 2 * lr2 + 20
+    val by = H - footer / 2 - lr2 - (if (story) 10f else 0f)
+    val lx = if (en) W / 2f - bw / 2 + lr2 else W / 2f + bw / 2 - lr2
+    a.logo?.let { logo ->
+        p.color = 0xFFFFFFFF.toInt(); c.drawCircle(lx, by + lr2, lr2 + 4, p)
+        c.drawBitmap(logo, null, RectF(lx - lr2, by, lx + lr2, by + 2 * lr2), p)
+    }
+    text(c, name, if (en) W / 2f - bw / 2 + 2 * lr2 + 20 + nw / 2 else W / 2f - bw / 2 + nw / 2, by + lr2 - 44f * k * 0.62f, 44f * k, look.ink, a.black, (nw + 20).toInt())
     return bmp
+}
+
+/** A little ball: a white disc with a dark pentagon pattern. */
+private fun ball(c: Canvas, x: Float, y: Float, r: Float, look: CardLook) {
+    val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    p.color = 0xFFFFFFFF.toInt(); p.setShadowLayer(r * 0.6f, 0f, r * 0.2f, 0x66000000); c.drawCircle(x, y, r, p); p.clearShadowLayer()
+    p.color = 0xFF15171C.toInt()
+    fun pent(cx: Float, cy: Float, rr: Float) {
+        val path = Path()
+        for (i in 0 until 5) { val an = Math.toRadians(-90.0 + i * 72); val px = cx + rr * cos(an).toFloat(); val py = cy + rr * sin(an).toFloat(); if (i == 0) path.moveTo(px, py) else path.lineTo(px, py) }
+        path.close(); c.drawPath(path, p)
+    }
+    pent(x, y, r * 0.38f)
+    c.save(); c.clipPath(Path().apply { addCircle(x, y, r, Path.Direction.CW) })
+    for (i in 0 until 5) { val an = Math.toRadians(-90.0 + i * 72); pent(x + r * 0.95f * cos(an).toFloat(), y + r * 0.95f * sin(an).toFloat(), r * 0.32f) }
+    c.restore()
+    p.style = Paint.Style.STROKE; p.strokeWidth = r * 0.08f; p.color = look.stroke or 0x22000000; c.drawCircle(x, y, r, p)
+}
+
+/** Fine film grain, so flat colours don't look flat. */
+private fun grain(c: Canvas, W: Int, H: Int, light: Boolean) {
+    val p = Paint()
+    val rnd = java.util.Random(11)
+    repeat(W * H / 120) {
+        p.color = if (rnd.nextBoolean()) 0xFFFFFFFF.toInt() else 0xFF000000.toInt()
+        p.alpha = (if (light) 4 else 6) + rnd.nextInt(8)
+        val x = rnd.nextFloat() * W; val y = rnd.nextFloat() * H
+        c.drawRect(x, y, x + 2.5f, y + 2.5f, p)
+    }
+}
+
+/** A frosted panel: the theme's glass colour, a light sheen at the top and a hairline edge. */
+private fun glass(c: Canvas, l: Float, t: Float, r: Float, b: Float, look: CardLook) {
+    val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    val rect = RectF(l, t, r, b); val rad = 40f
+    p.color = look.panel; p.setShadowLayer(40f, 0f, 16f, 0x33000000); c.drawRoundRect(rect, rad, rad, p); p.clearShadowLayer()
+    p.shader = LinearGradient(0f, t, 0f, t + (b - t) * 0.5f, 0x1AFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP); c.drawRoundRect(rect, rad, rad, p); p.shader = null
+    p.style = Paint.Style.STROKE; p.strokeWidth = 2.5f; p.color = look.stroke; c.drawRoundRect(rect, rad, rad, p)
+}
+
+/** A big number: a soft shadow under it and a top-to-bottom sheen in it; [fade] dims it. */
+private fun bigText(c: Canvas, s: String, cx: Float, top: Float, size: Float, ink: Int, tf: Typeface, fade: Float) {
+    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf }
+    val w = tp.measureText(s); val x = cx - w / 2
+    val base = top + size * 0.95f
+    tp.color = 0x66000000; tp.maskFilter = BlurMaskFilter(size * 0.08f, BlurMaskFilter.Blur.NORMAL)
+    c.drawText(s, x, base + size * 0.05f, tp); tp.maskFilter = null
+    tp.shader = LinearGradient(0f, top + size * 0.2f, 0f, base, ink, androidx.core.graphics.ColorUtils.blendARGB(ink, 0xFF888888.toInt(), 0.35f), Shader.TileMode.CLAMP)
+    tp.alpha = (255 * fade).toInt()
+    c.drawText(s, x, base, tp)
+}
+
+/** Centred styled text (spans keep their colours), wrapped to [width]. */
+private fun spanText(c: Canvas, s: CharSequence, cx: Float, top: Float, size: Float, color: Int, tf: Typeface, width: Int) {
+    if (s.isEmpty()) return
+    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; textSize = size; typeface = tf }
+    val l = StaticLayout.Builder.obtain(s, 0, s.length, tp, width).setAlignment(Layout.Alignment.ALIGN_CENTER).setLineSpacing(size * 1.5f - tp.fontSpacing, 1f)
+        .setIncludePad(false).build()
+    c.save(); c.translate(cx - width / 2f, top); l.draw(c); c.restore()
 }
 
 /** A team colour lifted a little so thin bars stay visible on dark backgrounds. */
@@ -636,25 +753,15 @@ private fun background(c: Canvas, theme: String, W: Int, H: Int, hc: Int, ac: In
     }
 }
 
-private fun panel(c: Canvas, l: Float, t: Float, r: Float, b: Float, color: Int) {
-    val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }
-    c.drawRoundRect(RectF(l, t, r, b), 36f, 36f, p)
-}
-
-/** Text in a rounded pill, centred on [cx]. */
-private fun pill(c: Canvas, s: String, cx: Float, top: Float, size: Float, ink: Int, bg: Int, tf: Typeface, maxW: Int) {
+/** Text in a rounded pill with a hairline edge, centred on [cx]. */
+private fun pill(c: Canvas, s: String, cx: Float, top: Float, size: Float, ink: Int, bg: Int, tf: Typeface, maxW: Int, stroke: Int = 0) {
     val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf }
-    val w = min(maxW.toFloat(), tp.measureText(s) + size * 1.6f)
-    panel(c, cx - w / 2, top, cx + w / 2, top + size * 2f, bg)
+    val w = min(maxW.toFloat(), tp.measureText(s) + size * 1.8f)
+    val r = RectF(cx - w / 2, top, cx + w / 2, top + size * 2f)
+    val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bg }
+    c.drawRoundRect(r, size, size, p)
+    if (stroke != 0) { p.style = Paint.Style.STROKE; p.strokeWidth = 2f; p.color = stroke; c.drawRoundRect(r, size, size, p) }
     text(c, s, cx, top + size * 0.42f, size, ink, tf, (w - size).toInt())
-}
-
-/** Big text with a soft glow of [glow] behind it. */
-private fun glowText(c: Canvas, s: String, cx: Float, top: Float, size: Float, ink: Int, glow: Int, tf: Typeface) {
-    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = glow; textSize = size; typeface = tf; maskFilter = BlurMaskFilter(size * 0.18f, BlurMaskFilter.Blur.NORMAL); alpha = 150 }
-    val l = StaticLayout.Builder.obtain(s, 0, s.length, tp, 900).setAlignment(Layout.Alignment.ALIGN_CENTER).setMaxLines(1).setIncludePad(false).build()
-    c.save(); c.translate(cx - 450f, top); l.draw(c); c.restore()
-    text(c, s, cx, top, size, ink, tf, 900)
 }
 
 /** Centered text from [top], wrapped to [width] (Persian is shaped and laid out right to left by the layout itself). */
