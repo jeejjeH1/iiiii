@@ -399,9 +399,12 @@ fun PlayerHeatmap(matchId: Int, playerId: Int, opta: Int, name: String, others: 
     val other = rivals.firstOrNull { it.id == vs }
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         T(L("نقشه حرارتی"), 12, FontWeight.ExtraBold, C.mute, Modifier.weight(1f))
-        T(L("⤢ تمام‌صفحه"), 12, FontWeight.Bold, LocalAccent.current, Modifier.clip(RoundedCornerShape(8.dp)).clickable { big = true }.padding(horizontal = 6.dp, vertical = 2.dp))
+        T(if (big) L("نمای کوچک") else L("نمای بزرگ"), 12, FontWeight.Bold, LocalAccent.current,
+            Modifier.clip(RoundedCornerShape(8.dp)).clickable { big = !big }.padding(horizontal = 6.dp, vertical = 2.dp))
     }
-    HeatPitch(pts, Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(105f / 68f).clickable { big = true })
+    // the large view stands the whole pitch upright, attack going up (drawn in place: the sheet is already its own window)
+    if (big) HeatPitch(pts, Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(68f / 105f).clickable { big = false }, vertical = true)
+    else HeatPitch(pts, Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(105f / 68f).clickable { big = true })
     HeatScale()
     if (other == null) ZoneShares(pts, null, name, null)
     if (rivals.isNotEmpty()) {
@@ -424,20 +427,6 @@ fun PlayerHeatmap(matchId: Int, playerId: Int, opta: Int, name: String, others: 
         }
         HeatPitch(op, Modifier.padding(horizontal = 16.dp).fillMaxWidth().aspectRatio(105f / 68f))
         ZoneShares(pts, op, name, other.name)
-    }
-    if (big) androidx.compose.ui.window.Dialog(onDismissRequest = { big = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
-        Column(Modifier.fillMaxSize().background(C.bg).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Face(playerId, 34.dp); Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) { T(personName(name), 16, FontWeight.ExtraBold); T(L("جهت حمله: رو به بالا"), 12, color = C.mute) }
-                IconBtn(Ic.x, L("بستن"), size = 22.dp) { big = false }
-            }
-            Spacer(Modifier.height(12.dp))
-            // the whole pitch upright, as tall as the screen allows
-            HeatPitch(pts, Modifier.weight(1f).aspectRatio(68f / 105f), vertical = true)
-            HeatScale()
-            ZoneShares(pts, null, name, null)
-        }
     }
 }
 
@@ -501,10 +490,10 @@ private fun HeatPitch(pts: List<Pair<Float, Float>>, modifier: Modifier, vertica
                 val ch = (if (vertical) size.width else size.height) / NY
                 for (i in 0 until NX) for (j in 0 until NY) {
                     val v = grid[i * NY + j]
-                    if (v < 0.04f) continue
+                    if (v < 0.1f) continue
                     // upright: attack goes up, the player's left stays on the left
                     val tl = if (vertical) Offset(j * ch, size.height - (i + 1) * cw) else Offset(i * cw, j * ch)
-                    drawRect(heatColor(v, 0.15f + 0.7f * v), tl, if (vertical) Size(ch + 0.6f, cw + 0.6f) else Size(cw + 0.6f, ch + 0.6f))
+                    drawRect(heatColor(v, 0.1f + 0.75f * v * v), tl, if (vertical) Size(ch + 0.6f, cw + 0.6f) else Size(cw + 0.6f, ch + 0.6f))
                 }
                 // the attacking direction
                 val arrow = Color.White.copy(alpha = 0.85f); val sw = 2.dp.toPx()
@@ -524,13 +513,13 @@ private fun HeatPitch(pts: List<Pair<Float, Float>>, modifier: Modifier, vertica
     }
 }
 
-private const val NX = 42
-private const val NY = 27
+private const val NX = 70
+private const val NY = 45
 
-/** Points on the 105×68 pitch → a 0…1 grid, each point a Gaussian about six metres wide. */
+/** Points on the 105×68 pitch → a 0…1 grid, each point a Gaussian about five metres wide. */
 private fun density(pts: List<Pair<Float, Float>>): FloatArray {
     val g = FloatArray(NX * NY)
-    val sx = 105f / NX; val sy = 68f / NY; val sigma2 = 2 * 6f * 6f
+    val sx = 105f / NX; val sy = 68f / NY; val sigma2 = 2 * 5f * 5f
     for ((x, y) in pts) for (i in 0 until NX) {
         val dx = (i + 0.5f) * sx - x
         if (dx * dx > 4 * sigma2) continue

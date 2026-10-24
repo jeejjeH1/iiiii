@@ -908,3 +908,5 @@
 907|Left flank
 908|Centre
 909|Right flank
+910|Large view
+911|Small view

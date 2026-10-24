@@ -144,7 +144,7 @@ class Screens {
         tap("کاونتری", exact = true); settle(800); tap("تاتنهام", exact = true); settle(800)
         tap("مادیسون", exact = true); settle(6000); shot("44-heatmap")
         tap("سولانکه"); settle(1500); shot("45-heatmap-compare")
-        tap("تمام‌صفحه"); settle(1500); shot("46-heatmap-full")
+        tap("نمای بزرگ"); settle(1500); shot("46-heatmap-full")
         NavHook.nav?.team(8634); settle(9000); shot("07-team")
         tap("تاریخچه"); settle(2000); shot("08-team-story")
         NavHook.nav?.league(47); settle(9000); shot("09-league")
