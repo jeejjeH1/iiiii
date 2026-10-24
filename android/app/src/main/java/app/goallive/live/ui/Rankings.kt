@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.goallive.live.L
@@ -148,7 +149,7 @@ fun GoldenBall(size: androidx.compose.ui.unit.Dp) {
         }
         val panel = Color(0xFF8A6208).copy(alpha = 0.75f)
         val clip = androidx.compose.ui.graphics.Path().apply { addOval(androidx.compose.ui.geometry.Rect(c, r)) }
-        androidx.compose.ui.graphics.drawscope.clipPath(clip) {
+        clipPath(clip) {
             drawPath(pentagon(c.x, c.y, r * 0.3f, 0f), panel)
             for (k in 0 until 5) {
                 val a = Math.toRadians((k * 72 - 90).toDouble())
