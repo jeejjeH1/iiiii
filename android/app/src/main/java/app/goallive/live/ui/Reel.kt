@@ -269,7 +269,7 @@ internal fun reelScene(m: MatchData, o: CardOptions, a: CardAssets, faces: Map<I
             val y = 1220f + k * 110f
             c.enter(clk.at(1.4f + k * 0.2f), y, y + 90f) {
                 glass(c, 180f, y, SW - 180f, y + 90f, look)
-                text(c, g, SW / 2f + (if (en) -80f else 80f), y + 22f, 36f, look.ink, a.bold, 520)
+                text(c, ratingGroupName(g), SW / 2f + (if (en) -80f else 80f), y + 22f, 36f, look.ink, a.bold, 520)
                 text(c, "+" + fa(dec(pts, 1)), if (en) SW - 260f else 260f, y + 18f, 42f, 0xFF39D98A.toInt(), a.black, 160)
             }
         }
@@ -407,8 +407,13 @@ private fun goalPart(c: Canvas, t: Float, len: Float, impact: Float, e: JSONObje
             val word = if (e.b("ownGoal")) L("گل به خودی!") else L("گل!")
             val size = if (tp.measureText(word) > SW - 120f) 230f * (SW - 120f) / tp.measureText(word) else 230f
             c.save(); c.translate(shake, 0f)
-            text(c, word, SW / 2f + 6f, 640f + 8f, size, 0x99000000.toInt(), a.black, SW)
-            text(c, word, SW / 2f, 640f, size, col, a.black, SW)
+            // white letters with a thick edge in the team's colour and a shadow under them
+            text(c, word, SW / 2f + 8f, 640f + 14f, size, 0x99000000.toInt(), a.black, SW)
+            for (k in 0 until 12) {
+                val an = k * PI.toFloat() / 6
+                text(c, word, SW / 2f + kotlin.math.cos(an) * 9f, 640f + kotlin.math.sin(an) * 9f, size, col, a.black, SW)
+            }
+            text(c, word, SW / 2f, 640f, size, 0xFFFFFFFF.toInt(), a.black, SW)
             c.restore()
         }
         // confetti in the team's colour
