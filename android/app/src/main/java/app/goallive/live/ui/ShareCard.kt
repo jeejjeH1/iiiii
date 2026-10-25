@@ -825,7 +825,7 @@ internal fun drawFormation(title: String, sub: String, tone: Int, men: List<Pitc
     y += 92f
     text(c, sub, W / 2f, y, 34f, 0xCCFFFFFF.toInt(), bold, W - 120, 2)
     y += 70f
-    if (formation.isNotEmpty()) { pill(c, "⁦" + formation + "⁩", W / 2f, y, 30f, 0xFFFFFFFF.toInt(), 0x33FFFFFF, black, 300, 0x55FFFFFF); y += 80f }
+    if (formation.isNotEmpty()) { pill(c, ltrDigits(formation), W / 2f, y, 30f, 0xFFFFFFFF.toInt(), 0x33FFFFFF, black, 300, 0x55FFFFFF); y += 80f }
     // the pitch
     val pl = 50f; val pr = W - 50f; val pt = y + 10f; val pb = H - (if (starLine != null) 250f else 170f)
     val pw = pr - pl; val ph = pb - pt

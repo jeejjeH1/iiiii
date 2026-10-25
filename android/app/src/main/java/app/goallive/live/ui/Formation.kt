@@ -209,8 +209,11 @@ private fun Events(p: PitchMan) {
 fun PitchPill(text: String, bg: Color, ink: Color = inkOn(bg)) {
     Box(Modifier.clip(RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp)) {
         // isolated left to right, so a formation reads 4-2-3-1 and not 4-1-2-3
-        Ltr("\u2066" + text + "\u2069", style = vz(13.sp, FontWeight.ExtraBold), color = ink, raw = true)
+        Ltr(ltrDigits(text), style = vz(13.sp, FontWeight.ExtraBold), color = ink, raw = true)
     }
 }
 
 @Suppress("unused") private val keepDp: Dp = 0.dp
+
+/** Persian digits joined by dashes kept in reading order left to right (4-2-3-1), with left-to-right marks around each dash. */
+fun ltrDigits(s: String) = "\u200E" + s.replace("-", "\u200E-\u200E") + "\u200E"
