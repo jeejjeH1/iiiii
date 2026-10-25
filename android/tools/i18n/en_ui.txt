@@ -1190,3 +1190,8 @@
 1189|Rate GoalLive
 1190|Help us with a rating and a review on Cafe Bazaar
 1191|Try a fuller name or the English spelling, e.g. Sepahan or Mbappe.
+1192|Save {0}
+1193|A new logo
+1194|GoalLive has a new face: a G with the ball at its heart and the "live" dot
+1195|Our own live ratings
+1196|During a match too, only GoalLive ratings are shown, with an overall rating for each team

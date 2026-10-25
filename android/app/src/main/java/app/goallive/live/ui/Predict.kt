@@ -74,6 +74,10 @@ fun PredictCard(m: MatchData) {
                         T("-", 26, FontWeight.Black, C.faint)
                         Stepper(m.awayId, m.awayName, a, Modifier.weight(1f)) { save(h, it) }
                     }
+                    // a goalless draw needs no taps on + and −: it can be saved as it stands
+                    if (pick == null) Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.Center) {
+                        Pill(L("ثبت {0}", fa("0-0")), PillKind.Accent, onClick = { save(0, 0) })
+                    }
                     T(if (pick == null) L("با زدن + و − پیش‌بینی‌ات ثبت می‌شود. نتیجه دقیق ۳ امتیاز، برنده درست ۱ امتیاز.")
                         else L("✓ ثبت شد؛ تا سوت شروع می‌توانی تغییرش بدهی."), 12, color = if (pick == null) C.mute else C.win,
                         modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 14.dp))

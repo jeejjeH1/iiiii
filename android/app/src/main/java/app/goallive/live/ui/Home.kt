@@ -140,7 +140,9 @@ fun HomeScreen() {
         if (day == 0) item(key = "stories") { StoryRow() }
         if (day == 0) Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name, list) } }
         if (list != null) {
-            val picks = featured(list)
+            // my team's match already has its own card above
+            val mine = if (day == 0) Store.myTeam?.id else null
+            val picks = featured(list).filter { mine == null || (it.home.id != mine && it.away.id != mine) }
             if (picks.isNotEmpty()) {
                 item(key = "featT") { SectionTitle(L("بازی‌های بزرگ")) }
                 item(key = "feat") { Featured(picks) }

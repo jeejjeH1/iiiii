@@ -232,12 +232,14 @@ private fun LeagueFixtures(d: JSONObject) {
     val firstIdx = d.o("fixtures").o("firstUnplayedMatch").i("firstUnplayedMatchIndex")
     val first = firstIdx?.let { all.getOrNull(it) } ?: all.firstOrNull { !it.o("status").b("finished") } ?: all.lastOrNull()
     var cur by rememberSaveable { mutableStateOf(first?.let(::roundOf) ?: rounds.firstOrNull() ?: "") }
+    // another season has other rounds: start again from its current one
+    if (cur !in rounds) cur = first?.let(::roundOf) ?: rounds.firstOrNull() ?: ""
     val i = rounds.indexOf(cur)
     Card {
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             // RTL: the right-hand arrow goes back a round
             IconBtn(Ic.back, L("هفته قبل"), if (i > 0) C.ink else C.faint, size = 18.dp) { if (i > 0) cur = rounds[i - 1] }
-            T(if (cur.isNotEmpty() && cur.all(Char::isDigit)) L("هفته {0}", cur) else cur.ifEmpty { L("بازی‌ها") }, 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), align = TextAlign.Center)
+            T(if (cur.isNotEmpty() && cur.all(Char::isDigit)) L("هفته {0}", fa(cur)) else tr(cur).ifEmpty { L("بازی‌ها") }, 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), align = TextAlign.Center)
             IconBtn(Ic.chev, L("هفته بعد"), if (i < rounds.size - 1) C.ink else C.faint, size = 18.dp) { if (i < rounds.size - 1) cur = rounds[i + 1] }
         }
         all.filter { roundOf(it) == cur }.map { parseMatch(it) }.groupBy { dayKey(it.time) }.forEach { (_, ms) ->
@@ -263,8 +265,8 @@ private fun Leaders(stats: JSONObject?) {
                                 T("${p.i("rank") ?: (i + 1)}", 12, FontWeight.ExtraBold, C.mute, Modifier.width(24.dp), align = TextAlign.Center)
                                 if (isTeam) Crest(p.i("teamId") ?: 0, 34.dp) else Face(p.i("id") ?: 0)
                                 Column(Modifier.weight(1f)) {
-                                    Ltr(p.s("name") ?: "")
-                                    if (!isTeam) T(p.s("teamName") ?: "", 12, color = C.mute, maxLines = 1)
+                                    if (isTeam) TeamText(p.i("teamId") ?: 0, p.s("name") ?: "", size = 15, maxLines = 1) else Ltr(personName(p.s("name") ?: ""))
+                                    if (!isTeam) T(teamName(p.i("teamId") ?: 0, p.s("teamName") ?: ""), 12, color = C.mute, maxLines = 1)
                                 }
                                 val st = p.o("stat")
                                 val v = st.d("value") ?: p.d("value")
@@ -294,11 +296,11 @@ private fun Winners(d: JSONObject) {
                 val w = s.o("winner")
                 Row(Modifier.weight(1f).clickable(enabled = w != null) { nav.team(w.i("id") ?: 0) }, verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (w != null) { Icon(Ic.trophy, null, Modifier.size(16.dp), tint = C.gold); Crest(w.i("id") ?: 0); Ltr(w.s("name") ?: "", Modifier.weight(1f, false)) }
+                    if (w != null) { Icon(Ic.trophy, null, Modifier.size(16.dp), tint = C.gold); Crest(w.i("id") ?: 0); TeamText(w.i("id") ?: 0, w.s("name") ?: "", Modifier.weight(1f, false), maxLines = 1) }
                 }
                 s.o("loser")?.let { lo ->
                     Row(Modifier.clickable { nav.team(lo.i("id") ?: 0) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Crest(lo.i("id") ?: 0, 18.dp); Ltr(lo.s("name") ?: "", style = lat(13.sp, FontWeight.SemiBold), color = C.mute)
+                        Crest(lo.i("id") ?: 0, 18.dp); TeamText(lo.i("id") ?: 0, lo.s("name") ?: "", size = 13, w = FontWeight.SemiBold, color = C.mute, maxLines = 1)
                     }
                 }
             }
@@ -335,7 +337,8 @@ fun LeaguesScreen() {
         if (query.isNotEmpty()) {
             val hits = (popular.map { it to "" } + intl.map { it to "" } + countries.flatMap { c -> c.a("leagues").objs().map { it to (c.s("name") ?: "") } })
                 .distinctBy { it.first.i("id") }
-                .filter { (lg, cn) -> (lg.s("localizedName") ?: lg.s("name") ?: "").lowercase().contains(query) || cn.lowercase().contains(query) }
+                .filter { (lg, cn) -> (lg.s("localizedName") ?: lg.s("name") ?: "").let { n -> n.lowercase().contains(query) || leagueName(0, n).contains(query) } ||
+                    cn.lowercase().contains(query) || tr(cn).contains(query) }
                 .take(80)
             item { if (hits.isEmpty()) EmptyView(L("چیزی پیدا نشد"), Ic.search) else Card { hits.forEachIndexed { i, (lg, _) -> row(lg, i == 0) } } }
             return@LazyColumn

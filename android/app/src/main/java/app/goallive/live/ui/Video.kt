@@ -209,14 +209,14 @@ private fun Player(v: Video, m: MatchData, onClose: () -> Unit) {
                 T(v.title, 14, FontWeight.ExtraBold)
                 T(v.channel, 12, color = C.mute)
             }
-            val goals = m.events.filter { it.s("type") == "Goal" }
+            val goals = m.events.filter { it.s("type") == "Goal" && !it.b("isPenaltyShootoutEvent") }
             if (goals.isNotEmpty()) Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 goals.forEach { g ->
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.card2).padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Ltr(minuteText(g) + "'", Modifier.width(34.dp), style = vz(13.sp, FontWeight.Black), color = LocalAccent.current)
                         Ltr(g.s("nameStr") ?: g.o("player").s("name") ?: "", Modifier.weight(1f))
-                        T(if (g.b("isHome")) m.homeName else m.awayName, 12, color = C.mute, maxLines = 1)
+                        T(if (g.b("isHome")) teamName(m.homeId, m.homeName) else teamName(m.awayId, m.awayName), 12, color = C.mute, maxLines = 1)
                     }
                 }
             }

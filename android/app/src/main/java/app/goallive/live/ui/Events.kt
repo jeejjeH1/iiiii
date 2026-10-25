@@ -37,7 +37,8 @@ import org.json.JSONObject
  */
 @Composable
 fun EventsCard(m: MatchData) {
-    val all = m.events.filter { it.s("type") in setOf("Goal", "Card", "Substitution", "VAR", "Half", "AddedTime") }
+    // shoot-out kicks have their own card; here they would count as goals
+    val all = m.events.filter { it.s("type") in setOf("Goal", "Card", "Substitution", "VAR", "Half", "AddedTime") && !it.b("isPenaltyShootoutEvent") }
     if (all.none { it.s("type") != "Half" && it.s("type") != "AddedTime" }) return
     val shown = if (m.live) all.reversed() else all
     Card {

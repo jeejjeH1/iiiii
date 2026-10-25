@@ -99,14 +99,14 @@ private fun TeamBody(id: Int, d: JSONObject) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Crest(id, 76.dp, large = true)
                     Column(Modifier.weight(1f)) {
-                        if (club != null) T(club.fa, 22, FontWeight.Black, ink) else Ltr(name, style = lat(26.sp, FontWeight.ExtraBold), color = ink, maxLines = 2)
+                        if (club != null) T(club.fa, 22, FontWeight.Black, ink) else TeamText(id, name, size = 24, w = FontWeight.ExtraBold, color = ink, maxLines = 2)
                         Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             if (club != null) { if (!app.goallive.live.Lang.en) Ltr(name, style = lat(15.sp), color = ink.copy(alpha = 0.85f), raw = true); T("· ${club.nick}", 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f), maxLines = 1) }
-                            else det.s("country")?.let { T(it, 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f)) }
+                            else det.s("country")?.let { T(tr(it), 13, FontWeight.SemiBold, ink.copy(alpha = 0.85f)) }
                         }
                         league?.s("leagueName")?.let { ln ->
                             val nav = LocalNav.current
-                            Ltr(ln, Modifier.padding(top = 2.dp).clickable { nav.league(league.i("leagueId") ?: 0) }, style = vz(13.sp, FontWeight.SemiBold), color = ink.copy(alpha = 0.85f))
+                            Ltr(leagueName(league.i("leagueId") ?: 0, ln), Modifier.padding(top = 2.dp).clickable { nav.league(league.i("leagueId") ?: 0) }, style = vz(13.sp, FontWeight.SemiBold), color = ink.copy(alpha = 0.85f))
                         }
                         val mine = Store.myTeam?.id == id
                         Row(Modifier.padding(top = 10.dp).height(28.dp).clip(RoundedCornerShape(50)).background(if (mine) C.gold else Color.Black.copy(alpha = 0.25f))
@@ -147,7 +147,7 @@ private fun Overview(id: Int, d: JSONObject) {
         val j = ov.o(key) ?: continue
         val m = parseMatch(j)
         Card {
-            CardTitle(title) { Ltr(j.o("tournament").s("name") ?: "", style = vz(12.sp), color = C.mute) }
+            CardTitle(title) { Ltr(leagueName(0, j.o("tournament").s("name") ?: ""), style = vz(12.sp), color = C.mute) }
             Row(Modifier.fillMaxWidth().clickable { nav.match(m.id) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Crest(m.home.id, 34.dp); TeamText(m.home.id, m.home.name, size = 15, align = TextAlign.Center)
@@ -185,7 +185,7 @@ private fun Overview(id: Int, d: JSONObject) {
     }
     val i = rows.indexOfFirst { it.i("id") == id }
     if (i >= 0) Card {
-        CardTitle(t.s("leagueName") ?: "") { Pill(L("جدول کامل"), onClick = { nav.league(t.i("leagueId") ?: 0) }) }
+        CardTitle(leagueName(t.i("leagueId") ?: 0, t.s("leagueName") ?: "")) { Pill(L("جدول کامل"), onClick = { nav.league(t.i("leagueId") ?: 0) }) }
         TableRows(rows.subList((i - 2).coerceAtLeast(0), (i + 3).coerceAtMost(rows.size)), "all", emptyList(), listOf(id))
     }
     ov.path("venue.widget")?.let { v ->
@@ -243,7 +243,7 @@ private fun Story(id: Int, c: Club, d: JSONObject) {
                 Column(Modifier.widthIn(min = 108.dp).clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = if (dark) 0.08f else 0.3f))
                     .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(14.dp)).padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     T("${t.i("won")}", 24, FontWeight.Black, if (dark) ink else C.gold)
-                    Ltr(t.s("name") ?: "", style = vz(11.sp), color = ink.copy(alpha = 0.85f), maxLines = 2, align = TextAlign.Center)
+                    Ltr(trophyName(t.s("name") ?: ""), style = vz(11.sp), color = ink.copy(alpha = 0.85f), maxLines = 2, align = TextAlign.Center)
                 }
             }
         }
@@ -277,11 +277,11 @@ private fun TeamFixtures(d: JSONObject) {
     val upcoming = if (next < 0) emptyList() else all.subList(next, all.size)
     if (upcoming.isNotEmpty()) {
         SectionTitle(L("بازی‌های پیش رو"))
-        Card { upcoming.forEachIndexed { i, j -> val m = parseMatch(j); MatchRow(m, { nav.match(m.id) }, showDate = true, sub = j.o("tournament").s("name"), first = i == 0) } }
+        Card { upcoming.forEachIndexed { i, j -> val m = parseMatch(j); MatchRow(m, { nav.match(m.id) }, showDate = true, sub = j.o("tournament").s("name")?.let { leagueName(0, it) }, first = i == 0) } }
     }
     if (past.isNotEmpty()) {
         SectionTitle(L("نتایج"))
-        Card { past.reversed().forEachIndexed { i, j -> val m = parseMatch(j); MatchRow(m, { nav.match(m.id) }, showDate = true, sub = j.o("tournament").s("name"), first = i == 0) } }
+        Card { past.reversed().forEachIndexed { i, j -> val m = parseMatch(j); MatchRow(m, { nav.match(m.id) }, showDate = true, sub = j.o("tournament").s("name")?.let { leagueName(0, it) }, first = i == 0) } }
     }
 }
 
@@ -292,7 +292,7 @@ private fun Squad(d: JSONObject) {
         SectionTitle(tr(g.s("title")))
         Card {
             g.a("members").objs().forEachIndexed { i, p ->
-                val meta = listOfNotNull(p.s("shirtNumber")?.let { "#$it" }, p.s("cname"), p.i("age")?.let { L("{0} سال", it) }, p.o("injury")?.let { L("مصدوم") }).joinToString(" · ")
+                val meta = listOfNotNull(p.s("shirtNumber")?.let { "#$it" }, p.s("cname")?.let { tr(it) }, p.i("age")?.let { L("{0} سال", it) }, p.o("injury")?.let { L("مصدوم") }).joinToString(" · ")
                 PersonRow(p.i("id") ?: 0, p.s("name") ?: "", meta, first = i == 0, trailing = {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         if ((p.i("goals") ?: 0) > 0) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -307,6 +307,9 @@ private fun Squad(d: JSONObject) {
     }
 }
 
+/** A trophy's name in Persian when we know it. */
+private fun trophyName(n: String) = tr(n).takeIf { it != n } ?: leagueName(0, n)
+
 @Composable
 private fun Trophies(d: JSONObject) {
     val nav = LocalNav.current
@@ -315,7 +318,7 @@ private fun Trophies(d: JSONObject) {
             ListRow(first = i == 0, onClick = { nav.league(t.i("leagueId") ?: 0) }) {
                 LeagueLogo(t.i("leagueId") ?: 0, 34.dp)
                 Column(Modifier.weight(1f)) {
-                    Ltr(t.s("name") ?: "", style = vz(14.sp, FontWeight.Bold))
+                    Ltr(trophyName(t.s("name") ?: ""), style = vz(14.sp, FontWeight.Bold))
                     val seasons = (t.s("seasonsWon") ?: "").split(',').filter { it.isNotBlank() }
                     if (seasons.isNotEmpty()) Ltr(fa(seasons.take(6).joinToString(L("، "))) + if (seasons.size > 6) " …" else "", style = vz(12.sp), color = C.mute, maxLines = 2)
                 }

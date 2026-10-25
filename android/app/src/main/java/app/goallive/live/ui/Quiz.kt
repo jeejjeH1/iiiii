@@ -63,7 +63,7 @@ suspend fun buildQuiz(day: Long): List<Question> {
         val right = "${m.home.score} - ${m.away.score}"
         val wrong = generateSequence { "${rnd.nextInt(0, 5)} - ${rnd.nextInt(0, 5)}" }.filter { it != right }.distinct().take(3).toList()
         val opts = (wrong + right).shuffled(rnd)
-        qs += Question(L("بازی دیروز {0} و {1} ({2}) چند شد؟", iso(teamName(m.home.id, m.home.name)), iso(teamName(m.away.id, m.away.name)), iso(m.leagueName)), opts.map { fa(it) }, opts.indexOf(right), m.home.id, L("عدد سمت راست: گل‌های میزبان"))
+        qs += Question(L("بازی دیروز {0} و {1} ({2}) چند شد؟", iso(teamName(m.home.id, m.home.name)), iso(teamName(m.away.id, m.away.name)), iso(leagueName(0, m.leagueName))), opts.map { fa(it) }, opts.indexOf(right), m.home.id, L("عدد سمت راست: گل‌های میزبان"))
     }
     played.drop(1).take(1).forEach { m ->
         val h = m.home.score ?: 0; val a = m.away.score ?: 0
@@ -141,7 +141,7 @@ fun QuizScreen() {
             }
             if (done) item {
                 Result(score, qs.size) {
-                    val text = L("امروز در کوئیز گل‌لایو {0} از {1} گرفتم ⚽\n{2}", score, qs.size, Api.SITE)
+                    val text = L("امروز در کوئیز گل‌لایو {0} از {1} گرفتم ⚽\n{2}", fa(score), fa(qs.size), BAZAAR_URL)
                     ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), L("اشتراک‌گذاری")))
                 }
             }

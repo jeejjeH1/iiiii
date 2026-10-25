@@ -82,6 +82,8 @@ fun CalendarScreen() {
         return
     }
     var team by rememberSaveable { mutableIntStateOf(teams.first().first) }
+    // a team unfollowed since: back to the first one
+    if (teams.none { it.first == team }) team = teams.first().first
     var monthOffset by rememberSaveable { mutableIntStateOf(0) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
     val l = rememberLoader(team) {
@@ -195,11 +197,11 @@ fun CalendarScreen() {
     }
 }
 
-private fun title(m: MatchItem) = "⚽ ${m.home.name} - ${m.away.name}"
+private fun title(m: MatchItem) = "⚽ ${teamName(m.home.id, m.home.name)} - ${teamName(m.away.id, m.away.name)}"
 
 private fun addEvent(m: MatchItem) = Intent(Intent.ACTION_INSERT).setData(CalendarContract.Events.CONTENT_URI)
     .putExtra(CalendarContract.Events.TITLE, title(m))
-    .putExtra(CalendarContract.Events.DESCRIPTION, "${m.leagueName}\n${BAZAAR_URL}")
+    .putExtra(CalendarContract.Events.DESCRIPTION, "${leagueName(0, m.leagueName)}\n${BAZAAR_URL}")
     .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, m.time)
     .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, m.time + 2 * 3_600_000L)
 
@@ -212,7 +214,7 @@ private fun ics(list: List<MatchItem>): String {
         for (m in list) {
             append("BEGIN:VEVENT\r\nUID:goallive-${m.id}@goallive\r\nDTSTAMP:${f.format(Date())}\r\n")
             append("DTSTART:${f.format(Date(m.time))}\r\nDTEND:${f.format(Date(m.time + 2 * 3_600_000L))}\r\n")
-            append("SUMMARY:${esc(title(m))}\r\nDESCRIPTION:${esc(m.leagueName)}\r\nEND:VEVENT\r\n")
+            append("SUMMARY:${esc(title(m))}\r\nDESCRIPTION:${esc(leagueName(0, m.leagueName))}\r\nEND:VEVENT\r\n")
         }
         append("END:VCALENDAR\r\n")
     }
