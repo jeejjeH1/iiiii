@@ -219,7 +219,9 @@ object StoryStudio {
 class Art(val logo: Bitmap?, val black: Typeface, val bold: Typeface, val faces: Map<Int, Bitmap?> = emptyMap(), val crests: Map<Int, Bitmap?> = emptyMap(),
           val leagues: Map<Int, Bitmap?> = emptyMap(), val card: CardAssets? = null, val best: PlayerRating? = null)
 
-private fun leagueLogo(id: Int) = "https://images.fotmob.com/image_resources/logo/leaguelogo/$id.png"
+
+/** The league badge for a white disc (the light version). */
+private fun badgeUrl(id: Int) = "https://images.fotmob.com/image_resources/logo/leaguelogo/$id.png"
 
 internal suspend fun Story.load(ctx: Context): Art {
     val en = Lang.en
@@ -232,13 +234,13 @@ internal suspend fun Story.load(ctx: Context): Art {
         is Story.Match -> { val best = bestOf(m); Art(logo, black, bold, card = cardAssets(ctx, m, best), best = best) }
         is Story.Player -> Art(logo, black, bold, faces(listOf(id), 480),
             crests(listOf(p.o("primaryTeam").i("teamId") ?: 0) + p.a("recentMatches").objs().take(6).map { it.i("opponentTeamId") ?: 0 }),
-            (p.o("mainLeague").i("leagueId") ?: 0).takeIf { it > 0 }?.let { mapOf(it to image(ctx, leagueLogo(it), 200)) } ?: emptyMap())
-        is Story.Table -> Art(logo, black, bold, crests = crests(rows.map { it.i("id") ?: 0 }), leagues = mapOf(league to image(ctx, leagueLogo(league), 220)))
+            (p.o("mainLeague").i("leagueId") ?: 0).takeIf { it > 0 }?.let { mapOf(it to image(ctx, badgeUrl(it), 200)) } ?: emptyMap())
+        is Story.Table -> Art(logo, black, bold, crests = crests(rows.map { it.i("id") ?: 0 }), leagues = mapOf(league to image(ctx, badgeUrl(league), 220)))
         is Story.Ballon -> Art(logo, black, bold, faces(men.map { it.i("id") ?: 0 }, 420), crests(men.map { it.i("team") ?: 0 }))
         is Story.Duel -> Art(logo, black, bold, faces(listOf(a.i("id") ?: 0, b.i("id") ?: 0), 420),
             crests(listOf(a.o("primaryTeam").i("teamId") ?: 0, b.o("primaryTeam").i("teamId") ?: 0)))
         is Story.Lineup -> Art(logo, black, bold, faces(men.map { it.id }, 220), crests(men.mapNotNull { it.crest } + listOfNotNull(crest)),
-            league?.let { mapOf(it to image(ctx, leagueLogo(it), 160)) } ?: emptyMap())
+            league?.let { mapOf(it to image(ctx, badgeUrl(it), 160)) } ?: emptyMap())
     }
 }
 
