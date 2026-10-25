@@ -439,6 +439,7 @@ private fun Summary(m: MatchData) {
     val nav = LocalNav.current
     PredictCard(m)
     TacticalPreview(m)
+    if (m.finished && m.events.isNotEmpty()) ReelBanner(m)
     if (m.finished) Card {
         CardTitle(L("خلاصه و گل‌ها"))
         Box(Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp)) { Highlights(m, compact = true) }

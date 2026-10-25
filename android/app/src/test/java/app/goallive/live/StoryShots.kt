@@ -94,6 +94,19 @@ class StoryShots {
             for ((t, b) in frames) png("71-story-$name-t${(t * 10).toInt()}", b)
         }
         System.err.println("SHOT stories: ${drawn.map { it.first }}")
+        // the match reel: a frame every two seconds
+        (stories.firstOrNull { it.first == "match" }?.second as? Story.Match)?.let { st ->
+            val reel = off {
+                val r = Story.Reel(st.m)
+                val sc = r.scene(CardOptions(), runBlocking { r.load(ctx) })
+                System.err.println("SHOT reel seconds=${sc.seconds}")
+                generateSequence(0.8f) { it + 2f }.takeWhile { it < sc.seconds }.map { t ->
+                    val b = Bitmap.createBitmap(432, 768, Bitmap.Config.ARGB_8888)
+                    val c = Canvas(b); c.scale(0.4f, 0.4f); sc.frame(c, t); t to b
+                }.toList()
+            }.orEmpty()
+            for ((t, b) in reel) png("73-reel-t${"%03d".format((t * 10).toInt())}", b)
+        }
         // the studio over the player (or the match)
         val shown = stories.firstOrNull { it.first == "player" }?.second ?: stories.firstOrNull()?.second ?: return
         rule.setContent { GoalLiveTheme(Lime) { StorySheet(shown) { } } }

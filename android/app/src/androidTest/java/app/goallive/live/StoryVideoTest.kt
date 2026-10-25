@@ -35,6 +35,17 @@ class StoryVideoTest {
         pick.firstOrNull()?.optInt("id")?.let { id -> runBlocking { runCatching { Api.fm("playerData", mapOf("id" to id)) }.getOrNull() } }
             ?.let { stories += "player" to Story.Player(it) }
         assertTrue("no data", stories.isNotEmpty())
+        // the match reel, with its own sound
+        (stories.firstOrNull { it.first == "match" }?.second as? Story.Match)?.let { st ->
+            val r = Story.Reel(st.m)
+            val sc = r.scene(CardOptions(), runBlocking { r.load(ctx) }) as app.goallive.live.ui.ReelScene
+            val t0 = System.currentTimeMillis()
+            val audio = app.goallive.live.ui.StoryAudio.make(ctx, sc.seconds, R.raw.reel_music, 0.5f, true, sc.fx)
+            val f = File(out, "story-reel.mp4")
+            val ok = StoryVideo.make(ctx, f, 720, 1280, sc.seconds, null, {}, { true }, bitrate = 4_000_000, audio = audio) { c, t -> sc.frame(c, t) }
+            println("VIDEO reel ok=$ok audio=${audio != null} seconds=${sc.seconds} bytes=${f.length()} ms=${System.currentTimeMillis() - t0}")
+            assertTrue("reel not made", ok && f.length() > 200_000 && audio != null)
+        }
         val music = listOf(R.raw.story_energy, R.raw.story_epic, R.raw.story_chill)
         stories.forEachIndexed { k, (name, s) ->
             val a = runBlocking { s.load(ctx) }

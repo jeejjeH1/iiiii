@@ -3,7 +3,7 @@ name: Story video check
 
 on:
   push:
-    paths: ['android/app/src/main/java/app/goallive/live/ui/Story*.kt', 'android/app/src/androidTest/**', '.github/workflows/story-video.yml']
+    paths: ['android/app/src/main/java/app/goallive/live/ui/Story*.kt', 'android/app/src/main/java/app/goallive/live/ui/Reel.kt', 'android/app/src/androidTest/**', '.github/workflows/story-video.yml']
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   video:
     runs-on: ubuntu-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
     defaults:
       run:
         working-directory: android
@@ -52,7 +52,7 @@ jobs:
             adb shell am instrument -w app.goallive.live.test/androidx.test.runner.AndroidJUnitRunner | tee instrument.log
             adb logcat -d | grep -E "VIDEO|AndroidRuntime|StoryVideo" | tail -80 || true
             mkdir -p videos
-            for n in match ballon player; do adb exec-out run-as app.goallive.live cat /sdcard/Android/data/app.goallive.live/files/videos/story-$n.mp4 > videos/story-$n.mp4 || true; done
+            for n in match ballon player reel; do adb exec-out run-as app.goallive.live cat /sdcard/Android/data/app.goallive.live/files/videos/story-$n.mp4 > videos/story-$n.mp4 || true; done
             adb root || true
             sleep 3
             adb pull /sdcard/Android/data/app.goallive.live/files/videos/. videos/ || true

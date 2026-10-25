@@ -33,6 +33,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
@@ -133,8 +134,11 @@ internal fun captionLine(c: Canvas, s: String, top: Float, color: Int, tf: Typef
 
 /** A story: a still layer drawn once and the moving parts drawn per frame. */
 /** [hc] / [ac]: the two colours the "team colours" design uses, for its swatch in the studio. */
-class Scene(val W: Int, val H: Int, val bg: Bitmap, val hc: Int = 0, val ac: Int = 0, val fg: (Canvas, Clock) -> Unit) {
-    private val smooth = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
+open class Scene(val W: Int, val H: Int, val bg: Bitmap, val hc: Int = 0, val ac: Int = 0, val fg: (Canvas, Clock) -> Unit) {
+    /** How long the video runs. */
+    open val seconds: Float get() = STORY_SECONDS
+
+    protected val smooth = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
 
     /** The finished picture at [scale]. */
     fun still(scale: Float): Bitmap {
@@ -147,7 +151,7 @@ class Scene(val W: Int, val H: Int, val bg: Bitmap, val hc: Int = 0, val ac: Int
     }
 
     /** Frame [t] of the video on [c] (already scaled to W×H): a slow push into the background, the parts, a light sweep at the end. */
-    fun frame(c: Canvas, t: Float) {
+    open fun frame(c: Canvas, t: Float) {
         val intro = easeOut((t / 1.6f).coerceIn(0f, 1f))
         val z = 1.12f - 0.12f * intro + 0.035f * (t / STORY_SECONDS)
         c.save(); c.scale(z, z, W / 2f, H / 2f); c.drawBitmap(bg, 0f, 0f, smooth); c.restore()
@@ -203,6 +207,12 @@ sealed class Story {
         override fun message() = personName(a.s("name") ?: "") + " × " + personName(b.s("name") ?: "")
     }
 
+    /** A finished match told in about a minute (video only). */
+    class Reel(val m: MatchData) : Story() {
+        override val file = "goallive-reel-${m.matchId}"
+        override fun message() = L("بازی در یک دقیقه") + ": " + teamName(m.homeId, m.homeName) + " ${m.home.i("score") ?: 0}-${m.away.i("score") ?: 0} " + teamName(m.awayId, m.awayName)
+    }
+
     /** A formation (a match line-up or the team of the week). */
     class Lineup(val title: String, val sub: String, val tone: Int, val men: List<PitchMan>, val crest: Int?, val league: Int?,
                  val formation: String, val starLine: String?, val name: String) : Story() {
@@ -233,6 +243,7 @@ internal suspend fun Story.load(ctx: Context): Art {
     suspend fun crests(ids: List<Int>) = ids.filter { it > 0 }.distinct().associateWith { image(ctx, teamLogo(it, true), 200) }
     return when (this) {
         is Story.Match -> { val best = bestOf(m); Art(logo, black, bold, card = cardAssets(ctx, m, best), best = best) }
+        is Story.Reel -> { val best = bestOf(m); Art(logo, black, bold, faces(reelFaces(m), 260), card = cardAssets(ctx, m, best), best = best) }
         is Story.Player -> Art(logo, black, bold, faces(listOf(id), 480),
             crests(listOf(p.o("primaryTeam").i("teamId") ?: 0) + p.a("recentMatches").objs().take(6).map { it.i("opponentTeamId") ?: 0 }),
             (p.o("mainLeague").i("leagueId") ?: 0).takeIf { it > 0 }?.let { mapOf(it to image(ctx, badgeUrl(it), 200)) } ?: emptyMap())
@@ -248,6 +259,7 @@ internal suspend fun Story.load(ctx: Context): Art {
 /** The story drawn with the chosen options. */
 internal fun Story.scene(o: CardOptions, a: Art): Scene = when (this) {
     is Story.Match -> matchScene(m, o, a.card!!, a.best)
+    is Story.Reel -> reelScene(m, o, a.card!!, a.faces, a.best)
     is Story.Lineup -> formationScene(title, sub, tone, men, a.faces, a.crests, crest?.let { a.crests[it] } ?: league?.let { a.leagues[it] }, a.logo,
         a.black, a.bold, formation, starLine, o.caption)
     is Story.Player -> playerScene(this, o, a)
@@ -258,22 +270,22 @@ internal fun Story.scene(o: CardOptions, a: Art): Scene = when (this) {
 
 /* ---------- shared drawing for the new stories ---------- */
 
-private const val SW = 1080
-private const val SH = 1920
+internal const val SW = 1080
+internal const val SH = 1920
 private val en get() = Lang.en
 /** x measured from the reading start: from the left in English, from the right in Persian. */
 private fun xs(x: Float) = if (en) x else SW - x
 
-private fun teamTone(id: Int, data: JSONObject?, crest: Bitmap?, fallback: Long): Int {
+internal fun teamTone(id: Int, data: JSONObject?, crest: Bitmap?, fallback: Long): Int {
     val club = Clubs.get(id)?.let { Color(it.c1) }
     val c = club ?: parseColor(data?.path("teamColors")?.s("color")) ?: Color(fallback)
     return cardColor(c, crest, fallback)
 }
 
-private fun darker(c: Int, k: Float = 0.55f) = androidx.core.graphics.ColorUtils.blendARGB(c, 0xFF000000.toInt(), k)
+internal fun darker(c: Int, k: Float = 0.55f) = androidx.core.graphics.ColorUtils.blendARGB(c, 0xFF000000.toInt(), k)
 
 /** The still layer for a new story: the chosen design, a faint big crest or two, and grain. */
-private fun storyBg(theme: String, hc: Int, ac: Int, marks: List<Pair<Bitmap?, Float>> = emptyList()): Pair<Bitmap, CardLook> {
+internal fun storyBg(theme: String, hc: Int, ac: Int, marks: List<Pair<Bitmap?, Float>> = emptyList()): Pair<Bitmap, CardLook> {
     val bg = Bitmap.createBitmap(SW, SH, Bitmap.Config.ARGB_8888)
     val c = Canvas(bg)
     val look = background(c, theme, SW, SH, hc, ac)
@@ -288,7 +300,7 @@ private fun storyBg(theme: String, hc: Int, ac: Int, marks: List<Pair<Bitmap?, F
 }
 
 /** A face in a ring: a soft glow of [ring], the ring, the photo clipped round. */
-private fun faceRing(c: Canvas, face: Bitmap?, cx: Float, cy: Float, r: Float, ring: Int, glow: Boolean = true) {
+internal fun faceRing(c: Canvas, face: Bitmap?, cx: Float, cy: Float, r: Float, ring: Int, glow: Boolean = true) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     if (glow) { p.shader = RadialGradient(cx, cy, r * 1.8f, intArrayOf((ring and 0x00FFFFFF) or 0x77000000, ring and 0x00FFFFFF), null, Shader.TileMode.CLAMP); c.drawCircle(cx, cy, r * 1.8f, p); p.shader = null }
     p.shader = LinearGradient(cx, cy - r, cx, cy + r, brighten(ring), darker(ring, 0.3f), Shader.TileMode.CLAMP)
@@ -302,14 +314,14 @@ private fun faceRing(c: Canvas, face: Bitmap?, cx: Float, cy: Float, r: Float, r
 }
 
 /** A white disc with a crest on it. */
-private fun crestDisc(c: Canvas, crest: Bitmap?, cx: Float, cy: Float, r: Float) {
+internal fun crestDisc(c: Canvas, crest: Bitmap?, cx: Float, cy: Float, r: Float) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); setShadowLayer(r * 0.4f, 0f, r * 0.12f, 0x66000000) }
     c.drawCircle(cx, cy, r, p)
     crest?.let { c.drawBitmap(it, null, RectF(cx - r * 0.72f, cy - r * 0.72f, cx + r * 0.72f, cy + r * 0.72f), Paint(Paint.FILTER_BITMAP_FLAG)) }
 }
 
 /** A coloured rounded chip with a rating in it. */
-private fun ratingChip(c: Canvas, v: Double, cx: Float, top: Float, size: Float, tf: Typeface) {
+internal fun ratingChip(c: Canvas, v: Double, cx: Float, top: Float, size: Float, tf: Typeface) {
     val s = fa(dec(v, 1))
     val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf }
     val w = tp.measureText(s) + size * 0.9f
@@ -318,13 +330,13 @@ private fun ratingChip(c: Canvas, v: Double, cx: Float, top: Float, size: Float,
     text(c, s, cx, top + size * 0.2f, size, 0xFFFFFFFF.toInt(), tf, (w + 20).toInt())
 }
 
-private fun num(v: Double, p: Float): String {
+internal fun num(v: Double, p: Float): String {
     val shown = v * easeOut(p)
     return fa(if (v % 1 != 0.0) dec(shown, if (v < 10) 2 else 1) else "${shown.roundToInt()}")
 }
 
 /** The app's mark and name, centred at [y]. */
-private fun footer(c: Canvas, a: Art, look: CardLook, clk: Clock, y: Float = SH - 130f) {
+internal fun footer(c: Canvas, a: Art, look: CardLook, clk: Clock, y: Float = SH - 130f) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 44f; typeface = a.black }
     val name = L("گل‌لایو"); val nw = tp.measureText(name); val lr = 30f
@@ -654,8 +666,10 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     val accent = LocalAccent.current
     val match = story as? Story.Match
+    val reel = story is Story.Reel
     var o by remember { mutableStateOf(if (match != null) loadOptions() else CardOptions(theme = story.theme)) }
-    var video by remember { mutableStateOf(Store.prefs().getBoolean("story.video", false)) }
+    var video by remember { mutableStateOf(reel || Store.prefs().getBoolean("story.video", false)) }
+    var reelSound by remember { mutableStateOf(Store.prefs().getString("reel.sound", "full") ?: "full") }
     var music by remember { mutableStateOf(Store.prefs().getString("story.music", "energy") ?: "energy") }
     var art by remember { mutableStateOf<Art?>(null) }
     LaunchedEffect(story) { art = withContext(Dispatchers.IO) { story.load(ctx) } }
@@ -677,11 +691,11 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
         var n = 0
         val start = System.nanoTime()
         while (isActive) {
-            val t = ((System.nanoTime() - start) / 1e9f) % (STORY_SECONDS + 0.8f)
+            val t = ((System.nanoTime() - start) / 1e9f) % (sc.seconds + 0.8f)
             val b = bufs[n % 2]; n++
             withContext(Dispatchers.Default) {
                 b.eraseColor(0xFF000000.toInt())
-                val c = Canvas(b); c.scale(k, k); sc.frame(c, t.coerceAtMost(STORY_SECONDS))
+                val c = Canvas(b); c.scale(k, k); sc.frame(c, t.coerceAtMost(sc.seconds))
             }
             preview = b
             withFrameNanos { }
@@ -707,7 +721,11 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                         f to "image/png"
                     } else {
                         val f = File(dir, story.file + ".mp4")
-                        val ok = StoryVideo.make(ctx, f, 720, 1280, STORY_SECONDS, musicRes(music), { making = it }, { alive.get() }) { c, t -> sc.frame(c, t) }
+                        // the match reel gets its own sound: music, the crowd and the whistle at each moment
+                        val rs = sc as? ReelScene
+                        val audio = rs?.takeIf { reelSound.isNotEmpty() }?.let { StoryAudio.make(ctx, it.seconds, if (reelSound == "full") R.raw.reel_music else null, 0.5f, true, it.fx) }
+                        val ok = StoryVideo.make(ctx, f, 720, 1280, sc.seconds, if (rs != null) null else musicRes(music), { making = it }, { alive.get() },
+                            bitrate = if (rs != null) 4_000_000 else 7_000_000, audio = audio) { c, t -> sc.frame(c, t) }
                         if (ok) f to "video/mp4" else null
                     }
                 }.getOrNull()
@@ -724,9 +742,10 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
             Box(Modifier.padding(top = 10.dp, bottom = 4.dp).width(44.dp).height(5.dp).clip(RoundedCornerShape(5.dp)).background(C.line2))
         }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
-            T(L("🎬 استودیو استوری"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+            T(if (reel) L("🎬 بازی در یک دقیقه") else L("🎬 استودیو استوری"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+            if (reel) scene?.let { T(L("ویدیوی {0} ثانیه‌ای با گل‌ها، آمار و بهترین بازیکن", fa(it.seconds.roundToInt())), 13, color = C.mute, modifier = Modifier.padding(horizontal = 16.dp)) }
             // picture or video
-            Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card2).padding(4.dp)) {
+            if (!reel) Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card2).padding(4.dp)) {
                 for ((v, label) in listOf(false to L("🖼️ عکس"), true to L("🎞️ ویدیو"))) {
                     val on = video == v
                     Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Color.Transparent)
@@ -753,7 +772,12 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                     }
                 }
             }
-            if (video) {
+            if (reel) {
+                StudioLabel(L("صدا"))
+                StudioChips(listOf("full" to L("آهنگ و ورزشگاه"), "crowd" to L("فقط صدای ورزشگاه"), "" to L("بدون صدا")), reelSound) {
+                    reelSound = it; Store.prefs().edit().putString("reel.sound", it).apply()
+                }
+            } else if (video) {
                 StudioLabel(L("آهنگ"))
                 StudioChips(MUSIC.map { it.first to L(it.second) }, music) { music = it; Store.prefs().edit().putString("story.music", it).apply() }
             } else if (match != null) {
@@ -784,14 +808,14 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                     if (Predictions.get(match.m.matchId) != null) Toggle(L("پیش‌بینی من"), o.prediction) { o = o.copy(prediction = it) }
                 }
             }
-            StudioLabel(L("نوشته‌ی خودت"))
-            Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.card2).border(1.dp, C.line2, RoundedCornerShape(14.dp))
+            if (!reel) StudioLabel(L("نوشته‌ی خودت"))
+            if (!reel) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.card2).border(1.dp, C.line2, RoundedCornerShape(14.dp))
                 .padding(horizontal = 14.dp, vertical = 12.dp)) {
                 if (o.caption.isEmpty()) T(L("مثلاً: بهترین بازی فصل! 🔥"), 14, color = C.faint)
                 BasicTextField(o.caption, { o = o.copy(caption = it.take(60)) }, Modifier.fillMaxWidth(), singleLine = true,
                     textStyle = vz(14.sp).copy(color = C.ink), cursorBrush = SolidColor(accent))
             }
-            if (story !is Story.Lineup) {
+            if (story !is Story.Lineup && !reel) {
                 StudioLabel(L("استیکر"))
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     val stickers = listOf("", "🔥", "⚽", "🏆", "😍", "💙", "❤️", "💛", "💚", "😭", "🤯", "👑", "🐐", "💪")
@@ -885,4 +909,18 @@ private fun save(ctx: Context, f: File, mime: String) {
         ctx.contentResolver.openOutputStream(uri)?.use { out -> f.inputStream().use { it.copyTo(out) } } ?: error("no stream")
     }.isSuccess
     Toast.makeText(ctx, if (ok) L("در گالری ذخیره شد") else L("ذخیره نشد؛ از «بقیه» استفاده کنید"), Toast.LENGTH_SHORT).show()
+}
+
+/** On a finished match: opens the studio on the match told in about a minute. */
+@Composable
+fun ReelBanner(m: MatchData) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Color(deep(m.homeColor)), Color(deep(m.awayColor)))))
+        .clickable { StoryStudio.story = Story.Reel(m) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) { T("🎬", 22) }
+        Column(Modifier.weight(1f)) {
+            T(L("بازی در یک دقیقه"), 16, FontWeight.Black, Color.White)
+            T(L("ویدیوی بازی با گل‌ها، آمار و بهترین بازیکن؛ آماده‌ی استوری"), 12, color = Color.White.copy(alpha = 0.85f))
+        }
+        T("▶", 18, FontWeight.Black, Color.White)
+    }
 }

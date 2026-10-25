@@ -1114,3 +1114,25 @@
 1113|Upbeat
 1114|Epic
 1115|Calm
+1116|The match in a minute
+1117|🎬 The match in a minute
+1118|A {0}-second video with the goals, the numbers and the best player
+1119|Sound
+1120|Music and stadium
+1121|Stadium sound only
+1122|The match as a video with the goals, the numbers and the best player, ready for stories
+1123|Corners
+1124|Referee: {0}
+1125|{0} spectators
+1126|Match stats
+1127|{0} win
+1128|Live football scores
+1129|Own goal!
+1130|Header
+1131|Set piece
+1132|Left foot
+1133|Right foot
+1134|Chance of scoring from there: {0}%
+1135|Red card · minute {0}
+1136|An even game
+1137|On top: {0}
