@@ -208,7 +208,8 @@ private fun Events(p: PitchMan) {
 @Composable
 fun PitchPill(text: String, bg: Color, ink: Color = inkOn(bg)) {
     Box(Modifier.clip(RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp)) {
-        Ltr(text, style = vz(13.sp, FontWeight.ExtraBold), color = ink, raw = true)
+        // isolated left to right, so a formation reads 4-2-3-1 and not 4-1-2-3
+        Ltr("\u2066" + text + "\u2069", style = vz(13.sp, FontWeight.ExtraBold), color = ink, raw = true)
     }
 }
 
