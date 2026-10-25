@@ -43,10 +43,11 @@ import app.goallive.live.data.s
 import app.goallive.live.notify.LiveAlerts
 import kotlinx.coroutines.delay
 
-/** The leagues offered on the welcome screen: FotMob id and English name. */
+/** The leagues offered on the welcome screen: FotMob id, English name (kept with the follow) and Persian name. */
 private val WELCOME_LEAGUES = listOf(
-    523 to "Persian Gulf Pro League", 42 to "Champions League", 47 to "Premier League", 87 to "LaLiga",
-    55 to "Serie A", 54 to "Bundesliga", 53 to "Ligue 1", 73 to "Europa League",
+    Triple(523, "Persian Gulf Pro League", "لیگ برتر ایران"), Triple(42, "Champions League", "لیگ قهرمانان اروپا"),
+    Triple(47, "Premier League", "لیگ برتر انگلیس"), Triple(87, "LaLiga", "لالیگا"), Triple(55, "Serie A", "سری آ"),
+    Triple(54, "Bundesliga", "بوندس‌لیگا"), Triple(53, "Ligue 1", "لیگ ۱ فرانسه"), Triple(73, "Europa League", "لیگ اروپا"),
 )
 
 /**
@@ -224,14 +225,15 @@ private fun PickLeagues(picked: MutableList<Int>) {
         Title("🏆", L("کدوم لیگ‌ها رو دنبال می‌کنی؟"), L("بازی‌های این لیگ‌ها در «دنبال‌شده‌ها» جمع می‌شه و اعلان‌هاشون برات میاد."))
         WELCOME_LEAGUES.chunked(2).forEach { row ->
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { (id, name) ->
+                row.forEach { (id, _, fa) ->
                     val on = id in picked
                     Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(if (on) accent.copy(alpha = 0.16f) else C.card)
                         .border(if (on) 2.dp else 1.dp, if (on) accent else C.line, RoundedCornerShape(18.dp))
                         .clickable { if (on) picked.remove(id) else picked.add(id) }.padding(horizontal = 12.dp, vertical = 14.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White).padding(5.dp), contentAlignment = Alignment.Center) { LeagueLogo(id, 28.dp) }
-                        T(leagueName(id, name), 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), maxLines = 2)
+                        // the badges are drawn for a dark background
+                        Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFF1B222C)).padding(5.dp), contentAlignment = Alignment.Center) { LeagueLogo(id, 26.dp) }
+                        T(L(fa), 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), maxLines = 2)
                         if (on) T("✓", 16, FontWeight.Black, accent)
                     }
                 }

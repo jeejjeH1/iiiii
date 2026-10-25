@@ -1168,3 +1168,4 @@
 1167|Games
 1168|Send anonymous crash reports and stats
 1169|Only how often each part is used and why errors happen; nothing personal. It helps make the app better.
+1170|Ligue 1
