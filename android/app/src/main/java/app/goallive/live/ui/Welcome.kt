@@ -125,6 +125,7 @@ private fun finish(ctx: android.content.Context, teams: List<Pair<Int, String>>,
     if (teams.isNotEmpty()) Telemetry.event("welcome:team")
     if (!skipped) Telemetry.event("welcome:done")
     Store.onboarded = true
+    markNewsSeen(ctx)
     Store.prefs().edit().putBoolean("askedNotify", true).putInt("askedBattery", 1).putLong("askedBatteryAt", System.currentTimeMillis()).apply()
     LiveAlerts.start(ctx)
     onDone()

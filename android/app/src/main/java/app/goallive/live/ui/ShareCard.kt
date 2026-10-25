@@ -765,7 +765,14 @@ internal fun formationScene(title: String, sub: String, tone: Int, men: List<Pit
             val bx = cx - r * 0.7f; val by = cy + r * 0.62f
             val cb = m.crest?.let { crests[it] }
             if (cb != null) { p.color = 0xFFFFFFFF.toInt(); c.drawCircle(bx, by, 24f, p); c.drawBitmap(cb, null, RectF(bx - 18, by - 18, bx + 18, by + 18), null) }
-            else if (m.number.isNotEmpty()) { p.color = tone or 0xFF000000.toInt(); c.drawRoundRect(RectF(bx - 22, by - 18, bx + 22, by + 18), 8f, 8f, p); text(c, m.number, bx, by - 15, 24f, 0xFFFFFFFF.toInt(), black, 60) }
+            else if (m.number.isNotEmpty()) {
+                // the shirt number on the team colour, its ink dark on a light kit (Real Madrid's white hid it)
+                val bg = tone or 0xFF000000.toInt()
+                val light = androidx.core.graphics.ColorUtils.calculateLuminance(bg) > 0.55
+                p.color = bg; c.drawRoundRect(RectF(bx - 22, by - 18, bx + 22, by + 18), 8f, 8f, p)
+                p.style = Paint.Style.STROKE; p.strokeWidth = 2f; p.color = if (light) 0x55000000 else 0xAAFFFFFF.toInt(); c.drawRoundRect(RectF(bx - 22, by - 18, bx + 22, by + 18), 8f, 8f, p); p.style = Paint.Style.FILL
+                text(c, m.number, bx, by - 15, 24f, if (light) 0xFF0B0F14.toInt() else 0xFFFFFFFF.toInt(), black, 60)
+            }
             if (m.captain) { p.color = gold; c.drawCircle(cx + r * 0.7f, cy + r * 0.62f, 18f, p); text(c, if (Lang.en) "C" else "ک", cx + r * 0.7f, cy + r * 0.62f - 14, 22f, 0xFF2A1A00.toInt(), black, 40) }
             // name plate
             val tp = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 30f; typeface = black }

@@ -167,6 +167,7 @@ fun SettingsScreen() {
                 SubHead(L("داده‌ها"))
                 SetRow(Ic.x, L("پاک کردن علاقه‌مندی‌ها"), null, first = true) { confirmClear = true }
                 SetRow(Ic.list, L("منابع"), L("منبع اطلاعات، تصاویر، ویدیوها و صدا"), chev = true) { sources = true }
+                SetRow(Ic.starOn, L("امتیاز به گل‌لایو"), L("با یه امتیاز و نظر در کافه‌بازار کمکمون کن")) { openBazaarRate(ctx) }
                 SetRow(Ic.info, L("ارسال ناشناس گزارش خطا و آمار"), L("فقط تعداد استفاده از بخش‌ها و علت خطاها؛ بدون هیچ اطلاعات شخصی. به بهتر شدن برنامه کمک می‌کند."),
                     on = telemetryOn) { telemetryOn = !telemetryOn; app.goallive.live.data.Telemetry.enable(telemetryOn) }
                 SetRow(Ic.people, L("حریم خصوصی"), L("گل‌لایو اطلاعات شخصی شما را دریافت نمی‌کند"), chev = true) {

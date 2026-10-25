@@ -63,6 +63,9 @@ object FaNames {
     fun word(raw: String): String {
         val lower = raw.lowercase()
         NAMES[lower]?.let { return it }
+        // the same without accents: Mbappé → mbappe
+        val plain = Normalizer.normalize(lower.map { FOLD[it] ?: it.toString() }.joinToString(""), Normalizer.Form.NFD).filter { it in 'a'..'z' }
+        NAMES[plain]?.let { return it }
         // Persian surnames: "-zadeh", "-pour", "-nia", "-far", "-i"
         for ((suf, fa) in SUFFIXES) if (lower.length > suf.length + 2 && lower.endsWith(suf)) {
             val stem = lower.dropLast(suf.length)
@@ -187,6 +190,10 @@ object FaNames {
         "kylian" to "کیلیان", "lionel" to "لیونل", "cristiano" to "کریستیانو", "mason" to "میسون", "james" to "جیمز", "john" to "جان", "george" to "جرج",
         "michael" to "مایکل", "david" to "دیوید", "daniel" to "دنیل", "jordan" to "جردن", "luke" to "لوک", "jack" to "جک", "joe" to "جو", "kevin" to "کوین",
         "thomas" to "توماس", "william" to "ویلیام", "jacob" to "جیکوب", "joshua" to "جاشوا", "ryan" to "رایان", "kyle" to "کایل", "jamie" to "جیمی",
+        // spellings the letter rules get wrong (Dutch ij/ui, Portuguese ão, Spanish x/j)
+        "huijsen" to "هویسن", "dean" to "دین", "xabi" to "ژابی", "joao" to "ژوائو", "jorginho" to "ژورژینیو", "joan" to "ژوان", "juan" to "خوان",
+        "jose" to "خوزه", "jesus" to "خسوس", "javier" to "خاویر", "julian" to "خولیان", "alvarez" to "آلوارز", "de jong" to "دی‌یونگ", "jong" to "یونگ",
+        "dijk" to "دایک", "van" to "فن", "gravenberch" to "خراونبرخ", "gakpo" to "گاکپو", "rodrygo" to "رودریگو", "vini" to "وینی",
         "town" to "تاون", "south" to "ساوت", "north" to "نورث", "west" to "وست", "east" to "ایست", "new" to "نیو",
     )
 }

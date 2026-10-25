@@ -1169,3 +1169,23 @@
 1168|Send anonymous crash reports and stats
 1169|Only how often each part is used and why errors happen; nothing personal. It helps make the app better.
 1170|Ligue 1
+1171|After every match, the whole match in one video: the goals on the pitch, the numbers, the best player and the stadium sound
+1172|Story studio
+1173|Pictures and animated videos with music of matches, players, tables, the Ballon d’Or and comparisons, straight to Instagram and Telegram
+1174|The best eleven of the week from the top five leagues, and each league’s own
+1175|New line-ups
+1176|A sharper pitch and line-ups, with a picture of the line-up for stories
+1177|A calmer home page
+1178|The days and filters stay on top as you scroll
+1179|Fairer ratings
+1180|GoalLive ratings are stricter and fairer
+1181|✨ What’s new
+1182|GoalLive was updated; here is what’s new:
+1183|See
+1184|Great!
+1185|Enjoying GoalLive? 💚
+1186|If the app is useful to you, a rating ⭐ and a short review on Cafe Bazaar helps more people find it. If something bothered you, write it there and we will fix it.
+1187|⭐ Rate it
+1188|No, thanks
+1189|Rate GoalLive
+1190|Help us with a rating and a review on Cafe Bazaar

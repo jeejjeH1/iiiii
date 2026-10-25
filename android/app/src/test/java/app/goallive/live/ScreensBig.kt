@@ -45,7 +45,7 @@ class ScreensBig {
         val ctx = ApplicationProvider.getApplicationContext<Application>()
         Api.init(ctx); Store.init(ctx); app.goallive.live.data.Predictions.init(ctx)
         Store.onboarded = true
-        Store.prefs().edit().putBoolean("askedNotify", true).putInt("askedBattery", 3).apply()
+        Store.prefs().edit().putBoolean("askedNotify", true).putInt("askedBattery", 3).putInt("newsSeen", 99999).putString("rate", "never").apply()
         Store.pickMyTeam(app.goallive.live.data.MyTeam(8634, "Barcelona", null))
         rule.mainClock.autoAdvance = false
         app.goallive.live.ui.sharedCrests = false

@@ -13,8 +13,8 @@ android {
         applicationId = "app.goallive.live"
         minSdk = 24
         targetSdk = 35
-        versionCode = 101
-        versionName = "2.1"
+        versionCode = 102
+        versionName = "2.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

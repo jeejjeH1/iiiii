@@ -55,4 +55,14 @@ class WelcomeShots {
         tap("لیگ برتر خلیج"); tap("لیگ قهرمانان"); settle(1500); shot("80-welcome-2-leagues")
         tap("ادامه"); settle(1500); shot("80-welcome-3-alerts")
     }
+
+    @Test
+    fun whatsNew() {
+        val ctx = ApplicationProvider.getApplicationContext<Application>()
+        Api.init(ctx); Store.init(ctx)
+        Store.prefs().edit().putInt("newsSeen", 0).apply()
+        rule.mainClock.autoAdvance = false
+        rule.setContent { GoalLiveTheme(Lime) { app.goallive.live.ui.WhatsNew(app.goallive.live.ui.Nav(null)) } }
+        settle(4000); shot("81-whats-new")
+    }
 }

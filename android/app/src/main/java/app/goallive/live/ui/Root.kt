@@ -181,7 +181,12 @@ fun Root(openMatch: MutableIntState) {
             }
             // first launch: the welcome steps (team, leagues, alerts) instead of separate pop-ups
             var welcome by remember { mutableStateOf(!Store.onboarded) }
-            if (welcome) Welcome { welcome = false } else AskNotifications()
+            if (welcome) Welcome { welcome = false } else {
+                AskNotifications()
+                // after an update: what's new; after some days of use: a rating on Cafe Bazaar
+                WhatsNew(nav)
+                RateAsk()
+            }
             Intro()
             StoryStudio.story?.let { st -> StorySheet(st) { StoryStudio.story = null } }
         }
