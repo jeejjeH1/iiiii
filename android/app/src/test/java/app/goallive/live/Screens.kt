@@ -231,7 +231,7 @@ class Screens {
                 java.io.FileOutputStream("build/screens/$name.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
             // a line-up as a story picture (numbers instead of photos here)
             runCatching {
-                val team = md.content.optJSONObject("lineup")!!.optJSONObject("homeTeam")!!
+                val team = md.content!!.optJSONObject("lineup")!!.optJSONObject("homeTeam")!!
                 val st = team.optJSONArray("starters")!!
                 val men = (0 until st.length()).map { st.getJSONObject(it) }.mapNotNull { p ->
                     val v = p.optJSONObject("verticalLayout") ?: return@mapNotNull null
