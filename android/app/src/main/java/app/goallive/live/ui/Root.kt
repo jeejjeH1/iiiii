@@ -184,7 +184,7 @@ fun Root(openMatch: MutableIntState) {
             LaunchedEffect(Unit) { if (!Store.onboarded) { delay(1800); onboard = true } }
             if (onboard) TeamPicker { onboard = false }
             Intro()
-            ShareStudio.match?.let { sm -> ShareStudioSheet(sm) { ShareStudio.match = null } }
+            StoryStudio.story?.let { st -> StorySheet(st) { StoryStudio.story = null } }
         }
     }
 }

@@ -90,7 +90,17 @@ fun CompareScreen(a: Int, b0: Int) {
     // second player's colour: whichever of blue / orange is further from the accent
     val other = if (accent.blue > accent.red) C.away else C.home
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
-        item { T(L("مقایسه بازیکنان"), 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp)) }
+        item {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                T(L("مقایسه بازیکنان"), 16, FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                // the two as a story picture or video
+                val pa = la.value; val pb = lb.value
+                if (pa != null && pb != null && b > 0) Box(Modifier.clip(RoundedCornerShape(50)).background(C.card2).border(1.dp, C.line2, RoundedCornerShape(50))
+                    .clickable { StoryStudio.story = Story.Duel(pa.d, pb.d) }.padding(horizontal = 14.dp, vertical = 6.dp)) {
+                    T(L("🎬 استوری"), 12, FontWeight.ExtraBold, accent)
+                }
+            }
+        }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PlayerTile(la.value, accent, Modifier.weight(1f), null)

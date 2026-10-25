@@ -195,8 +195,16 @@ private fun LeagueBody(id: Int, d: JSONObject, onSeason: (String) -> Unit) {
                             }
                         }
                     }
-                    Box(Modifier.align(Alignment.Top)) {
+                    Column(Modifier.align(Alignment.Top), horizontalAlignment = Alignment.CenterHorizontally) {
                         StarButton(Store.isLeague(id), { Store.toggleLeague(id, name) }, 20.dp, Color.White, 40.dp)
+                        // the table as a story picture or video
+                        val root = d.a("table")?.optJSONObject(0)?.let { it.o("data") ?: it }
+                        val table = (root?.a("tables").objs().ifEmpty { listOfNotNull(root) }).firstOrNull { it.o("table") != null }
+                        val rows = table?.o("table")?.a("all").objs()
+                        if (table != null && rows.isNotEmpty()) IconBtn(Ic.share, L("اشتراک‌گذاری"), Color.White, Color.Black.copy(alpha = 0.2f), 18.dp) {
+                            val mine = (listOfNotNull(Store.myTeam?.id) + Store.teams.keys).firstOrNull { f -> rows.any { it.i("id") == f } } ?: 0
+                            StoryStudio.story = Story.Table(id, table.s("leagueName") ?: name, rows, table.a("legend").objs(), mine)
+                        }
                     }
                 }
             }

@@ -15,6 +15,7 @@ android {
         targetSdk = 35
         versionCode = 101
         versionName = "2.1"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     // permanent store key: the build machine writes it from the KEYSTORE_B64 / KEYSTORE_PASS secrets
@@ -82,4 +83,7 @@ dependencies {
     testImplementation("io.github.takahirom.roborazzi:roborazzi:1.32.2")
     testImplementation("io.github.takahirom.roborazzi:roborazzi-compose:1.32.2")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+    // the story video made on a real (emulated) phone: .github/workflows/story-video.yml
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
 }

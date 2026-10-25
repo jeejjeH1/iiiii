@@ -354,6 +354,12 @@ private fun BallonDor(d: JSONObject) {
             }
             val hon = w.a("honours")?.let { arr -> (0 until arr.length()).map { arr.optString(it) } }.orEmpty()
             if (hon.isNotEmpty()) FlowRowGold(hon.take(4).map { "🏆 " + honourText(it) })
+            // the race as a story picture or video
+            Row(Modifier.padding(top = 4.dp).clip(RoundedCornerShape(50)).background(GOLD.copy(alpha = 0.15f)).border(1.dp, GOLD.copy(alpha = 0.4f), RoundedCornerShape(50))
+                .clickable { StoryStudio.story = Story.Ballon(year, listOf(w) + pick.filter { it.i("id") != w.i("id") }, official) }
+                .padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                T(L("🎬 استوری"), 12, FontWeight.ExtraBold, GOLD)
+            }
             if (w.has("apps")) Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for ((label, v) in listOf(L("نمره فصل") to fa(dec(w.d("score") ?: 0.0, 2)), L("بازی") to fa(w.i("apps") ?: 0), L("گل") to fa(w.i("goals") ?: 0), L("پاس گل") to fa(w.i("assists") ?: 0)))
                     Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(GOLD.copy(alpha = 0.1f)).border(1.dp, GOLD.copy(alpha = 0.25f), RoundedCornerShape(14.dp))

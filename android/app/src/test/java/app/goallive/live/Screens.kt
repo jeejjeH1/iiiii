@@ -244,8 +244,8 @@ class Screens {
                 java.io.FileOutputStream("build/screens/28y-share-lineup.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
             }.onFailure { System.err.println("SHOT share lineup failed: $it") }
             // the studio itself
-            app.goallive.live.ui.ShareStudio.match = md; settle(8000); shot("28z-share-studio")
-            app.goallive.live.ui.ShareStudio.match = null; settle(800)
+            app.goallive.live.ui.StoryStudio.story = app.goallive.live.ui.Story.Match(md); settle(8000); shot("28z-share-studio")
+            app.goallive.live.ui.StoryStudio.story = null; settle(800)
         }.onFailure { System.err.println("SHOT share card failed: $it") }
         // Iran's league: a match of the day and the league page
         list.firstOrNull { it.primaryId == 523 }?.matches?.firstOrNull()?.let { NavHook.nav?.match(it.id); settle(20000); shot("24-iran-match") }

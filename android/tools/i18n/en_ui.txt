@@ -1095,3 +1095,22 @@
 1094|Player of the week: {0}
 1095|{0} line-up
 1096|GoalLive player of the match: {0}
+1097|🎬 Story
+1098|{0} table
+1099|League table
+1100|GoalLive prediction · so far
+1101|This phone couldn't make the video; try a picture
+1102|🎬 Story studio
+1103|🖼️ Picture
+1104|🎞️ Video
+1105|Making video… {0}%
+1106|Music
+1107|Instagram
+1108|Telegram
+1109|More
+1110|That app isn't installed
+1111|Not saved; use "More"
+1112|No sound
+1113|Upbeat
+1114|Epic
+1115|Calm
