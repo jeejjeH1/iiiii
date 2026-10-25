@@ -147,7 +147,7 @@ private fun Hello() {
     LaunchedEffect(Unit) { repeat(5) { delay(160); shown++ } }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.height(20.dp))
-        Image(painterResource(R.drawable.logo), null, Modifier.size(104.dp).clip(RoundedCornerShape(30.dp)).background(Color.White).padding(8.dp))
+        Image(painterResource(R.drawable.logo), null, Modifier.size(104.dp))
         T(L("به گل‌لایو خوش اومدی"), 28, FontWeight.Black, modifier = Modifier.padding(top = 18.dp), align = TextAlign.Center)
         T(L("نتایج زنده‌ی فوتبال، کاملاً فارسی"), 15, color = C.mute, modifier = Modifier.padding(top = 6.dp, bottom = 22.dp))
         listOf(
@@ -252,7 +252,7 @@ private fun Alerts() {
         listOf(L("⚽ گل! پرسپولیس ۱ - ۰ استقلال") to L("دقیقه ۳۴ · گلزن: …"), L("📋 ترکیب رئال مادرید اعلام شد") to L("یک ساعت قبل از بازی"), L("🏁 پایان بازی") to L("بارسلونا ۲ - ۱ اتلتیکو")).forEach { (h, s) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(22.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(22.dp))
                 .padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Image(painterResource(R.drawable.logo), null, Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(3.dp))
+                Image(painterResource(R.drawable.logo), null, Modifier.size(40.dp))
                 Column(Modifier.weight(1f)) { T(h, 15, FontWeight.ExtraBold); T(s, 12, color = C.mute) }
             }
         }

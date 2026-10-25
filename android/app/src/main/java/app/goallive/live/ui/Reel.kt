@@ -540,7 +540,7 @@ private fun proj(x: Float, y: Float): Triple<Float, Float, Float> {
 /** One side's eleven as pitch tokens (keeper at the bottom), with GoalLive ratings when there are some. */
 private fun lineupMen(team: JSONObject, ratings: Map<Int, PlayerRating>): List<PitchMan> {
     val st = team.a("starters").objs()
-    val rated = st.mapNotNull { p -> (p.i("id") ?: 0).let { id -> (ratings[id]?.value ?: p.path("performance").d("rating"))?.let { id to it } } }
+    val rated = st.mapNotNull { p -> (p.i("id") ?: 0).let { id -> ratings[id]?.value?.let { id to it } } }
     val bestId = rated.maxByOrNull { it.second }?.first
     return st.mapNotNull { p ->
         val v = p.o("verticalLayout") ?: return@mapNotNull null
@@ -548,7 +548,7 @@ private fun lineupMen(team: JSONObject, ratings: Map<Int, PlayerRating>): List<P
         val ev = p.path("performance").a("events").objs().map { it.s("type") }
         PitchMan(id, personName(p.s("lastName") ?: (p.s("name") ?: "").substringAfterLast(' ')),
             0.89f - (v.d("x") ?: 0.5).toFloat() * 0.78f, 0.86f - ((v.d("y") ?: 0.5).toFloat() - 0.1f) / 0.77f * 0.74f,
-            p.s("shirtNumber") ?: "", ratings[id]?.value ?: p.path("performance").d("rating"),
+            p.s("shirtNumber") ?: "", ratings[id]?.value,
             ev.count { it == "goal" }, ev.count { it == "ownGoal" }, ev.count { it == "assist" }, "yellowCard" in ev, "redCard" in ev, null,
             p.b("isCaptain"), star = id == bestId)
     }

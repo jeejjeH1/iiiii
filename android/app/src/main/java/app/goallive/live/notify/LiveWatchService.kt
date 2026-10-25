@@ -74,7 +74,7 @@ class LiveWatchService : Service() {
 
     private fun notification(text: String) = NotificationCompat.Builder(this, CH)
         .setSmallIcon(R.drawable.ic_stat_ball)
-        .setColor(0xFF2BD576.toInt())
+        .setColor(0xFF9BEA00.toInt())
         .setContentTitle(L("⚡ اعلان فوری گل روشن است"))
         .setContentText(text)
         .setStyle(NotificationCompat.BigTextStyle().bigText(text))

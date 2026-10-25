@@ -240,7 +240,7 @@ object LiveAlerts {
         )
         val n = NotificationCompat.Builder(ctx, channel)
             .setSmallIcon(R.drawable.ic_stat_ball)
-            .setColor(0xFF2BD576.toInt())
+            .setColor(0xFF9BEA00.toInt())
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)

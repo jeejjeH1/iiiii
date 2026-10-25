@@ -929,7 +929,6 @@ private class LP(val p: JSONObject, val home: Boolean) {
     val name = p.s("name") ?: ""
     val short = personName(p.s("lastName") ?: name.substringAfterLast(' '))
     val number = p.s("shirtNumber") ?: ""
-    val rating = p.path("performance").d("rating")
     val events = p.path("performance").a("events").objs().map { it.s("type") }
     val subs = p.path("performance").a("substitutionEvents").objs()
     val outAt = subs.firstOrNull { it.s("type") == "subOut" }?.s("time")
@@ -965,7 +964,7 @@ private fun LineupTab(m: MatchData) {
     val vs = teamName(m.homeId, m.homeName) + " " + (if (m.started) fa("${m.home.i("score") ?: 0} - ${m.away.i("score") ?: 0}") else "-") + " " + teamName(m.awayId, m.awayName) +
         " · " + leagueName(m.leagueId, m.general.s("leagueName") ?: "")
     if (hasLayout) Pitch(team, home, color, id, vs, { nav.board(m.matchId, side) }) { sheet = it }
-    else TeamBar(team, color, id) { nav.board(m.matchId, side) }
+    else TeamBar(team, home, color, id) { nav.board(m.matchId, side) }
     if (!hasLayout) Card { team.a("starters").objs().forEachIndexed { i, p -> LineupRow(LP(p, home), i == 0) { sheet = it } } }
     val subs = team.a("subs").objs().map { LP(it, home) }
     if (subs.isNotEmpty()) Card {
@@ -983,7 +982,7 @@ private fun JSONObject.l2(k: String): Long? = (opt(k) as? Number)?.toLong()
 
 /** Strip above/below the pitch: crest, team, coach, formation and team rating. */
 @Composable
-private fun TeamBar(t: JSONObject, color: Color, id: Int, onBoard: () -> Unit) {
+private fun TeamBar(t: JSONObject, home: Boolean, color: Color, id: Int, onBoard: () -> Unit) {
     val nav = LocalNav.current
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).drawBehind { cssLinear(270f, 0f to color.copy(alpha = 0.35f), 1f to Color.Transparent) }
@@ -1000,7 +999,7 @@ private fun TeamBar(t: JSONObject, color: Color, id: Int, onBoard: () -> Unit) {
         Box(Modifier.clip(RoundedCornerShape(10.dp)).background(color).padding(horizontal = 10.dp, vertical = 4.dp)) {
             Ltr(fa(t.s("formation") ?: ""), style = vz(14.sp, FontWeight.ExtraBold), color = inkOn(color), raw = true)
         }
-        Rating(t.d("rating"))
+        Rating(teamRating(LocalRatings.current, home))
     }
 }
 
@@ -1028,7 +1027,7 @@ private fun LineupRow(p: LP, first: Boolean, onOpen: (LP) -> Unit) {
     val meta = listOfNotNull(p.number.takeIf { it.isNotEmpty() }?.let { "#$it" }, p.country.takeIf { it.isNotEmpty() },
         p.inAt?.let { L("⇧ ورود دقیقه {0}", it) }, p.outAt?.let { L("⇩ خروج دقیقه {0}", it) }).joinToString(" · ")
     PersonRow(p.id, p.name + if (p.captain) " (C)" else "", meta, first = first, trailing = {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { EventIcons(p); Rating(LocalRatings.current[p.id]?.value ?: p.rating) }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { EventIcons(p); Rating(LocalRatings.current[p.id]?.value) }
     }) { onOpen(p) }
 }
 
@@ -1071,7 +1070,7 @@ private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
         .clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
             Kit(p, color, 44.dp)
-            (LocalRatings.current[p.id]?.value ?: p.rating)?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(12.dp, (-6).dp), small = true) }
+            LocalRatings.current[p.id]?.value?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(12.dp, (-6).dp), small = true) }
         }
         Ltr(p.short, Modifier.padding(top = 6.dp), style = lat(12.sp), align = TextAlign.Center)
         if (p.inAt != null) Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1089,12 +1088,12 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: St
     var busy by remember { mutableStateOf(false) }
     val ratings = LocalRatings.current
     val players = team.a("starters").objs().map { LP(it, home) }.filter { it.layout != null }
-    val best = players.maxByOrNull { ratings[it.id]?.value ?: it.rating ?: 0.0 }?.takeIf { (ratings[it.id]?.value ?: it.rating) != null }
+    val best = players.maxByOrNull { ratings[it.id]?.value ?: 0.0 }?.takeIf { ratings[it.id] != null }
     val men = players.map { p ->
         val v = p.layout!!
         val x = (v.d("x") ?: 0.5).toFloat(); val y = (v.d("y") ?: 0.5).toFloat()
         // FotMob: y 0.1 (keeper) … 0.87 (strikers); x 0 is the right back: seen from behind the team, that is the right edge
-        PitchMan(p.id, p.short, 0.89f - x * 0.78f, 0.86f - (y - 0.1f) / 0.77f * 0.74f, p.number, ratings[p.id]?.value ?: p.rating,
+        PitchMan(p.id, p.short, 0.89f - x * 0.78f, 0.86f - (y - 0.1f) / 0.77f * 0.74f, p.number, ratings[p.id]?.value,
             p.goals, p.own, p.assists, p.yellow, p.red, p.outAt, p.captain, star = p === best)
     }
     FormationPitch(men, color, header = {
@@ -1105,14 +1104,14 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: St
         }
         Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onBoard), contentAlignment = Alignment.Center) { T("📋", 15) }
         PitchPill(fa(team.s("formation") ?: ""), color)
-        Rating(team.d("rating"))
+        Rating(teamRating(ratings, home))
         // the line-up as a story picture
         IconBtn(Ic.share, L("اشتراک‌گذاری"), Color.White, Color.White.copy(alpha = 0.12f), 18.dp) {
             if (busy) return@IconBtn
             busy = true
             scope.launch {
                 runCatching {
-                    val starName = best?.let { b -> personName(b.name) + " · " + fa(dec(ratings[b.id]?.value ?: b.rating, 1)) }
+                    val starName = best?.let { b -> personName(b.name) + " · " + fa(dec(ratings[b.id]?.value, 1)) }
                     shareFormation(ctx, L("ترکیب {0}", teamName(id, team.s("name") ?: "")), vs, color, men, crest = id, formation = fa(team.s("formation") ?: ""),
                         starLine = starName?.let { L("بهترین بازیکن گل‌لایو: {0}", it) }, fileName = "goallive-lineup-$id")
                 }
@@ -1127,7 +1126,7 @@ private fun PitchPlayer(p: LP, color: Color, modifier: Modifier, onClick: () -> 
     Column(modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
             Box(Modifier.padding(horizontal = 14.dp).glow(Color.Black.copy(alpha = 0.45f), 6.dp, CircleShape)) { Kit(p, color, 42.dp) }
-            (LocalRatings.current[p.id]?.value ?: p.rating)?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(2.dp, (-4).dp), small = true) }
+            LocalRatings.current[p.id]?.value?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(2.dp, (-4).dp), small = true) }
         }
         Row(Modifier.padding(top = 3.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 5.dp, vertical = 1.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -1174,7 +1173,7 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
     val teamId = if (p.home) m.homeId else m.awayId
     val all = LocalRatings.current
     val mine = all[p.id]
-    val rating = mine?.value ?: p.rating ?: ps?.let { statOf(it, "FotMob rating") }
+    val rating = mine?.value
     var why by rememberSaveable(p.id) { mutableStateOf(false) }
     // opens all the way up: there is a lot to read
     val state = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -1205,7 +1204,7 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                         positionName(ps?.i("usualPosition"))?.let { T(it, 12, color = C.mute) }
                     }
                     if (rating != null && rating > 0) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = mine != null) { why = !why }) { BigRating(rating, if (mine != null) L("نمره گل‌لایو") else L("نمره")) }
+                        Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = mine != null) { why = !why }) { BigRating(rating, L("نمره گل‌لایو")) }
                         mine?.let { r ->
                             if (r.minutes < 60) T("± " + fa(dec(r.margin, 1)), 11, FontWeight.Bold, C.mute)
                         }

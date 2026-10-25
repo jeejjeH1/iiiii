@@ -198,7 +198,7 @@ private fun score(p: FPlayer, m: JSONObject): Pair<Int, List<String>> {
     if (p.pos <= 1 && conceded >= 2) { pts -= conceded / 2; why += L("{0} گل خورده: -{1}", conceded, conceded / 2) }
     if ("ownGoal" in ev) { pts -= 2; why += L("گل به خودی: -۲") }
     if ("redCard" in ev || "yellowRedCard" in ev) { pts -= 3; why += L("کارت قرمز: -۳") } else if ("yellowCard" in ev) { pts -= 1; why += L("کارت زرد: -۱") }
-    val r = lp.path("performance").d("rating") ?: ps.a("stats").objs().firstNotNullOfOrNull { it.o("stats")?.o("FotMob rating")?.o("stat")?.d("value") }
+    val r = runCatching { rateMatch(MatchData(m))[p.id]?.value }.getOrNull()
     if (r != null) { val bonus = when { r >= 8.5 -> 3; r >= 7.5 -> 2; r >= 7.0 -> 1; else -> 0 }; if (bonus > 0) { pts += bonus; why += L("پاداش نمره {0}: +{1}", dec(r, 1), bonus) } }
     return pts to why
 }

@@ -164,13 +164,11 @@ fun CoachTab(m: MatchData) {
     val byId = squad.associateBy { it.id }
     MyPitch(plan, byId, color)
 
-    // ratings from this match (live or final), else the player's season rating (an estimate)
+    // GoalLive ratings from this match (live or final), else the player's season rating (an estimate)
     val lu = m.content.o("lineup")
     val side = if (plan.team == m.homeId) lu.o("homeTeam") else lu.o("awayTeam")
     val official = side.a("starters").objs()
-    val matchRating = HashMap<Int, Double>().apply {
-        (official + side.a("subs").objs()).forEach { p -> p.path("performance").d("rating")?.let { put(p.i("id") ?: 0, it) } }
-    }
+    val matchRating = remember(m.d) { runCatching { rateMatch(m) }.getOrDefault(emptyMap()) }.mapValues { it.value.value }
     val rate = { id: Int -> matchRating[id]?.let { it to false } ?: ((byId[id]?.seasonRating ?: 6.0) to true) }
 
     if (official.isNotEmpty() && plan.xi.size == 11) {

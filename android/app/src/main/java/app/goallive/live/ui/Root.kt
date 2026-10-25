@@ -207,7 +207,7 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
         if (canBack) IconBtn(Ic.back, L("بازگشت"), size = 22.dp) { nav.back() }
         Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { nav.tab("home") }.padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Image(painterResource(R.drawable.logo), null, Modifier.size(if (canBack) 26.dp else 28.dp).clip(RoundedCornerShape(8.dp)))
+            Image(painterResource(R.drawable.logo), null, Modifier.size(if (canBack) 26.dp else 28.dp))
             if (!canBack) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 T(L("گل‌لایو"), 18, FontWeight.Black)
                 Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(C.live))

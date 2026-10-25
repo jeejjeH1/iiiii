@@ -46,7 +46,7 @@ class RatingItem(val group: String, val label: String, val points: Double, val c
 
 class PlayerRating(
     val id: Int, val name: String, val home: Boolean, val role: String, val minutes: Int,
-    val value: Double, val margin: Double, val items: List<RatingItem>, val fotmob: Double?,
+    val value: Double, val margin: Double, val items: List<RatingItem>,
 ) {
     /** Points per group, biggest effect first. */
     val groups: List<Pair<String, Double>> get() = items.groupBy { it.group }.map { (g, l) -> g to l.sumOf { it.points } }.sortedByDescending { abs(it.second) }
@@ -138,6 +138,13 @@ private val BASE = mapOf(
     "ST" to Base(0.7, 0.2, 0.9, 2.2, 0.1, 4.8, 1.1, 0.8, 0.8, 2.1, 14.7, 2.1, 2.8, 0.5, 0.2, 0.76),
 )
 
+/** The match clock in minutes ("67'", "45+2'", "HT"), or null when it can't be read. */
+private fun liveClock(s: String): Int? {
+    if (s.equals("HT", true)) return 45
+    val n = Regex("\\d+").findAll(s).map { it.value.toInt() }.toList()
+    return if (n.isEmpty()) null else n.sum()
+}
+
 /** Every player's GoalLive rating in this match, by FotMob player id (empty when FotMob has no player stats). */
 fun rateMatch(m: MatchData): Map<Int, PlayerRating> {
     val stats = m.content.o("playerStats") ?: return emptyMap()
@@ -158,6 +165,7 @@ fun rateMatch(m: MatchData): Map<Int, PlayerRating> {
         return if (home) hh - aa else aa - hh
     }
     val finalDiff = { home: Boolean -> diffAt(1000, home) }
+    val clock = if (m.live) liveClock(m.minute) else null
     val out = HashMap<Int, PlayerRating>()
     for ((side, home) in listOf("homeTeam" to true, "awayTeam" to false)) {
         val team = lu.o(side) ?: continue
@@ -166,23 +174,23 @@ fun rateMatch(m: MatchData): Map<Int, PlayerRating> {
             val id = p.i("id") ?: continue
             val ps = stats.optJSONObject(id.toString()) ?: continue
             val st = HashMap<String, Pair<Double, Double>>()
-            var fotmob: Double? = null
             for (g in ps.a("stats").objs()) {
                 val all = g.o("stats") ?: continue
                 for (t in all.keys()) {
                     val one = all.optJSONObject(t) ?: continue
                     val s = one.o("stat") ?: continue
                     one.s("key")?.let { st[it] = (s.d("value") ?: 0.0) to (s.d("total") ?: 0.0) }
-                    if (t == "FotMob rating") fotmob = s.d("value")
                 }
             }
             fun v(k: String) = st[k]?.first ?: 0.0
             fun tot(k: String) = st[k]?.second ?: 0.0
-            val mins = v("minutes_played").toInt()
-            if (mins <= 0) continue
             val subs = p.o("performance").a("substitutionEvents").objs()
             val tin = subs.firstOrNull { it.s("type") == "subIn" }?.i("time") ?: if (starter) 0 else continue
             val tout = subs.firstOrNull { it.s("type") == "subOut" }?.i("time") ?: 200
+            var mins = v("minutes_played").toInt()
+            // live, FotMob sometimes has no minutes yet: count them from the clock and the substitutions
+            if (mins <= 0 && clock != null) mins = min(tout, clock) - tin
+            if (mins <= 0) continue
             var role = roleOf(if (starter) p.i("positionId") else null, p.i("usualPlayingPositionId"))
             if (ps.b("isGoalkeeper")) role = "GK"
             // piled-up numbers are judged per 90 minutes (partly: a short game is noisy)
@@ -306,10 +314,18 @@ fun rateMatch(m: MatchData): Map<Int, PlayerRating> {
             r = r.coerceIn(3.0, 10.0)
             // a short game says less: the margin grows as the minutes fall
             val margin = 0.25 + 0.9 * max(0.0, 1 - mins / 90.0)
-            out[id] = PlayerRating(id, p.s("name") ?: "", home, role, mins, Math.round(r * 10) / 10.0, Math.round(margin * 10) / 10.0, weighted, fotmob)
+            out[id] = PlayerRating(id, p.s("name") ?: "", home, role, mins, Math.round(r * 10) / 10.0, Math.round(margin * 10) / 10.0, weighted)
         }
     }
     return out
+}
+
+/** A side's GoalLive rating: its players' ratings weighted by the minutes each has played. */
+fun teamRating(all: Map<Int, PlayerRating>, home: Boolean): Double? {
+    val side = all.values.filter { it.home == home }
+    val mins = side.sumOf { it.minutes }
+    if (mins == 0) return null
+    return Math.round(side.sumOf { it.value * it.minutes } / mins * 10) / 10.0
 }
 
 /** Every player's rating in the match on screen, by player id. */
