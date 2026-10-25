@@ -116,7 +116,9 @@ private fun TeamOfWeek(d: JSONObject) {
     val xi = (if (league == 0 || league !in leagues) w.a("all") else w.o("leagues")?.a(league.toString())).objs()
     if (xi.isEmpty()) { Card { T(L("برای این هفته هنوز بازی کافی انجام نشده است."), 13, color = C.mute, modifier = Modifier.padding(20.dp)) }; return }
     val star = xi.maxByOrNull { it.d("rating") ?: 0.0 }
-    TeamPitch(xi, star)
+    val weekLabel = if (wk == 0 && dayOf(w.s("end") ?: "") + 12 * 3_600_000L >= today) L("این هفته (تا الان)")
+        else persianDate(dayOf(w.s("start") ?: ""), "d MMMM") + " – " + persianDate(dayOf(w.s("end") ?: ""), "d MMMM")
+    TeamPitch(xi, star, if (league in leagues) league else 0, weekLabel)
     // the eleven as a list, best first
     Card {
         CardTitle(L("⭐ تیم هفته‌ی گل‌لایو"))
@@ -126,50 +128,43 @@ private fun TeamOfWeek(d: JSONObject) {
     }
 }
 
+/** Each league's own colour for its team of the week (gold for the five together). */
+private fun leagueTone(id: Int) = when (id) {
+    47 -> Color(0xFF5B2A86); 87 -> Color(0xFFD9363E); 55 -> Color(0xFF1E5BD8); 54 -> Color(0xFFD20515); 53 -> Color(0xFF0E6E5C); else -> Color(0xFFB8860B)
+}
+
 @Composable
-private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?) {
+private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?, league: Int, week: String) {
     val nav = LocalNav.current
-    Box(Modifier.fillMaxWidth().aspectRatio(0.78f).clip(RoundedCornerShape(22.dp))
-        .background(Brush.verticalGradient(listOf(Color(0xFF1F7A45), Color(0xFF17643A))))) {
-        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
-            val w = size.width; val h = size.height
-            for (k in 0 until 9) if (k % 2 == 0) drawRect(Color.White.copy(alpha = 0.04f), androidx.compose.ui.geometry.Offset(0f, h * k / 9), androidx.compose.ui.geometry.Size(w, h / 9))
-            val line = Color.White.copy(alpha = 0.35f); val st = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
-            drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.04f, h * 0.03f), androidx.compose.ui.geometry.Size(w * 0.92f, h * 0.94f), style = st)
-            drawLine(line, androidx.compose.ui.geometry.Offset(w * 0.04f, h * 0.5f), androidx.compose.ui.geometry.Offset(w * 0.96f, h * 0.5f), 2.dp.toPx())
-            drawCircle(line, w * 0.14f, androidx.compose.ui.geometry.Offset(w / 2, h / 2), style = st)
-            drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.03f), androidx.compose.ui.geometry.Size(w * 0.52f, h * 0.15f), style = st)
-            drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.82f), androidx.compose.ui.geometry.Size(w * 0.52f, h * 0.15f), style = st)
+    val count = HashMap<String, Int>()
+    val men = xi.map { p ->
+        val slot = p.s("slot") ?: "CM"
+        val n = count.getOrDefault(slot, 0); count[slot] = n + 1
+        val (fx, fy) = slotSpot(slot, n)
+        PitchMan(p.i("id") ?: 0, personName(p.s("name") ?: "").split(" ").last(), fx, fy - 0.02f, rating = p.d("rating"),
+            goals = p.i("goals") ?: 0, assists = p.i("assists") ?: 0, crest = (p.i("team") ?: 0).takeIf { it > 0 }, star = p === star)
+    }
+    val tone = leagueTone(league)
+    FormationPitch(men, tone, header = {
+        if (league != 0) Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White).padding(5.dp), contentAlignment = Alignment.Center) { LeagueLogo(league, 26.dp) }
+        else GoldenBall(36.dp)
+        Column(Modifier.weight(1f)) {
+            T(L("تیم هفته‌ی گل‌لایو"), 15, FontWeight.Black, Color.White, maxLines = 1)
+            T(if (league == 0) L("۵ لیگ معتبر") + " · " + week else compName(league) + " · " + week, 11, color = Color.White.copy(alpha = 0.72f), maxLines = 1)
         }
-        // pitch spots are screen positions: left stays left in both languages (children start at the top-left corner)
-        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            val count = HashMap<String, Int>()
-            for (p in xi) {
-                val slot = p.s("slot") ?: "CM"
-                val n = count.getOrDefault(slot, 0); count[slot] = n + 1
-                val (fx, fy) = slotSpot(slot, n)
-                val isStar = p === star
-                run {
-                    Column(Modifier.width(84.dp).absoluteOffset(x = maxWidth * fx - 42.dp, y = maxHeight * fy - 34.dp).clickable { nav.player(p.i("id") ?: 0) },
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box {
-                            Face(p.i("id") ?: 0, 46.dp, if (isStar) GOLD else Color.White, if (isStar) 3.dp else 2.dp)
-                            Box(Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-4).dp)) { Rating(p.d("rating"), small = true) }
-                            (p.i("team") ?: 0).takeIf { it > 0 }?.let { Box(Modifier.align(Alignment.BottomStart).offset(x = (-6).dp, y = 4.dp)) { Crest(it, 18.dp) } }
-                        }
-                        Box(Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 6.dp, vertical = 1.dp)) {
-                            T(personName(p.s("name") ?: "").split(" ").last(), 12, FontWeight.ExtraBold, if (isStar) GOLD else Color.White, maxLines = 1)
-                        }
-                        val ga = listOfNotNull((p.i("goals") ?: 0).takeIf { it > 0 }?.let { "⚽" + if (it > 1) fa(it) else "" },
-                            (p.i("assists") ?: 0).takeIf { it > 0 }?.let { "👟" + if (it > 1) fa(it) else "" }).joinToString(" ")
-                        if (ga.isNotEmpty()) T(ga, 12, color = Color.White, maxLines = 1)
-                    }
+        PitchPill(fa("4-3-3"), tone)
+    }, footer = star?.let { s ->
+        {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Face(s.i("id") ?: 0, 40.dp, GOLD, 2.dp)
+                Column(Modifier.weight(1f)) {
+                    T(L("★ بهترین بازیکن هفته"), 11, FontWeight.Bold, GOLD)
+                    T(personName(s.s("name") ?: ""), 15, FontWeight.Black, Color.White, maxLines = 1)
                 }
+                Rating(s.d("rating"))
             }
         }
-    }
-    }
+    }) { man -> nav.player(man.id) }
 }
 
 // kept left to right inside Persian text, so "2026-27" does not come out as "27-2026"

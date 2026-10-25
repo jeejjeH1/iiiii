@@ -1090,3 +1090,5 @@
 1089|Big five leagues
 1090|Not enough matches played this week yet.
 1091|⭐ GoalLive team of the week
+1092|GoalLive team of the week
+1093|★ Player of the week

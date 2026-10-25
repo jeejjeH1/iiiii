@@ -958,9 +958,9 @@ private fun LineupTab(m: MatchData) {
         Pill(L("ترکیب احتمالی"), PillKind.Accent); T(L("ترکیب رسمی حدود یک ساعت قبل از بازی اعلام می‌شود"), 11, color = C.mute)
     }
     Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), side) { side = it }
-    TeamBar(team, color, id) { nav.board(m.matchId, side) }
-    if (hasLayout) Pitch(team, home, color) { sheet = it }
-    else Card { team.a("starters").objs().forEachIndexed { i, p -> LineupRow(LP(p, home), i == 0) { sheet = it } } }
+    if (hasLayout) Pitch(team, home, color, id, { nav.board(m.matchId, side) }) { sheet = it }
+    else TeamBar(team, color, id) { nav.board(m.matchId, side) }
+    if (!hasLayout) Card { team.a("starters").objs().forEachIndexed { i, p -> LineupRow(LP(p, home), i == 0) { sheet = it } } }
     val subs = team.a("subs").objs().map { LP(it, home) }
     if (subs.isNotEmpty()) Card {
         CardTitle(L("ذخیره‌ها"), sub = subs.count { it.inAt != null }.takeIf { it > 0 }?.let { L("{0} بازیکن وارد زمین شد", it) })
@@ -1074,37 +1074,30 @@ private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
     }
 }
 
-/** One team's eleven on a full pitch, keeper at the bottom. Each player: photo, rating, short name and what they did. */
+/** One team's eleven on the formation pitch, keeper at the bottom; the header carries the team, coach, formation and rating. */
 @Composable
-private fun Pitch(team: JSONObject, home: Boolean, color: Color, onOpen: (LP) -> Unit) {
+private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, onBoard: () -> Unit, onOpen: (LP) -> Unit) {
+    val nav = LocalNav.current
+    val ratings = LocalRatings.current
     val players = team.a("starters").objs().map { LP(it, home) }.filter { it.layout != null }
-    BoxWithConstraints(
-        Modifier.fillMaxWidth().aspectRatio(68f / 100f).clip(RoundedCornerShape(20.dp)).border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(20.dp))
-            .drawBehind {
-                val n = 12
-                for (i in 0 until n) drawRect(if (i % 2 == 0) C.pitch else C.pitch2, Offset(0f, size.height * i / n), Size(size.width, size.height / n + 1))
-                drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.35f)), Offset(size.width / 2, size.height / 2), size.height * 0.7f))
-                // the attacking half on top, own goal at the bottom
-                val sx = size.width / 68f; val sy = size.height / 100f
-                val c = Color.White.copy(alpha = 0.5f); val st = Stroke(1.2.dp.toPx())
-                drawRoundRect(c, Offset(sx, sy), Size(66 * sx, 98 * sy), CornerRadius(8.dp.toPx()), style = st)
-                drawArc(c, 0f, 180f, false, Offset(25 * sx, sy - 9 * sx), Size(18 * sx, 18 * sx), style = st)
-                drawRect(c, Offset(13.85f * sx, 99 * sy - 16.5f * sx), Size(40.3f * sx, 16.5f * sx), style = st)
-                drawRect(c, Offset(24.85f * sx, 99 * sy - 5.5f * sx), Size(18.3f * sx, 5.5f * sx), style = st)
-                drawArc(c, 180f, 180f, false, Offset(26.7f * sx, 99 * sy - 16.5f * sx - 7.3f * sx), Size(14.6f * sx, 14.6f * sx), style = st)
-            },
-    ) {
-        val w = maxWidth; val h = maxHeight
-        val chipW = 78.dp
-        for (p in players) {
-            val v = p.layout ?: continue
-            val x = (v.d("x") ?: 0.5).toFloat(); val y = (v.d("y") ?: 0.5).toFloat()
-            // FotMob: y 0.1 (keeper) … 0.87 (strikers); x 0 is the right back: seen from behind the team, that is the right edge
-            val top = 0.86f - (y - 0.1f) / 0.77f * 0.76f
-            val left = 0.9f - x * 0.8f
-            PitchPlayer(p, color, Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * left - chipW / 2, h * top - 30.dp).width(chipW)) { onOpen(p) }
-        }
+    val best = players.maxByOrNull { ratings[it.id]?.value ?: it.rating ?: 0.0 }?.takeIf { (ratings[it.id]?.value ?: it.rating) != null }
+    val men = players.map { p ->
+        val v = p.layout!!
+        val x = (v.d("x") ?: 0.5).toFloat(); val y = (v.d("y") ?: 0.5).toFloat()
+        // FotMob: y 0.1 (keeper) … 0.87 (strikers); x 0 is the right back: seen from behind the team, that is the right edge
+        PitchMan(p.id, p.short, 0.89f - x * 0.78f, 0.86f - (y - 0.1f) / 0.77f * 0.74f, p.number, ratings[p.id]?.value ?: p.rating,
+            p.goals, p.own, p.assists, p.yellow, p.red, p.outAt, p.captain, star = p === best)
     }
+    FormationPitch(men, color, header = {
+        Crest(id, 32.dp)
+        Column(Modifier.weight(1f).clickable { nav.team(id) }) {
+            TeamText(id, team.s("name") ?: "", size = 15, w = FontWeight.ExtraBold, maxLines = 1, color = Color.White)
+            team.o("coach")?.s("name")?.let { T(L("سرمربی: {0}", personName(it)), 11, color = Color.White.copy(alpha = 0.7f), maxLines = 1) }
+        }
+        Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onBoard), contentAlignment = Alignment.Center) { T("📋", 15) }
+        PitchPill(fa(team.s("formation") ?: ""), color)
+        Rating(team.d("rating"))
+    }) { man -> players.firstOrNull { it.id == man.id }?.let(onOpen) }
 }
 
 @Composable
