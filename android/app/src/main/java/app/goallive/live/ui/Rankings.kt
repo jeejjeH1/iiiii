@@ -141,6 +141,8 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?) {
             drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.03f), androidx.compose.ui.geometry.Size(w * 0.52f, h * 0.15f), style = st)
             drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.82f), androidx.compose.ui.geometry.Size(w * 0.52f, h * 0.15f), style = st)
         }
+        // pitch spots are screen positions: left stays left in both languages (children start at the top-left corner)
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val count = HashMap<String, Int>()
             for (p in xi) {
@@ -148,8 +150,7 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?) {
                 val n = count.getOrDefault(slot, 0); count[slot] = n + 1
                 val (fx, fy) = slotSpot(slot, n)
                 val isStar = p === star
-                // pitch spots are screen positions: left stays left in both languages
-                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                run {
                     Column(Modifier.width(84.dp).absoluteOffset(x = maxWidth * fx - 42.dp, y = maxHeight * fy - 34.dp).clickable { nav.player(p.i("id") ?: 0) },
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         Box {
@@ -167,6 +168,7 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?) {
                 }
             }
         }
+    }
     }
 }
 
