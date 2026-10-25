@@ -1092,3 +1092,6 @@
 1091|⭐ GoalLive team of the week
 1092|GoalLive team of the week
 1093|★ Player of the week
+1094|Player of the week: {0}
+1095|{0} line-up
+1096|GoalLive player of the match: {0}

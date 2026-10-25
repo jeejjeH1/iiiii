@@ -229,6 +229,20 @@ class Screens {
             java.io.File("build/screens").mkdirs()
             for ((name, bmp) in drawn ?: error("not drawn in 40 s"))
                 java.io.FileOutputStream("build/screens/$name.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            // a line-up as a story picture (numbers instead of photos here)
+            runCatching {
+                val team = md.content.optJSONObject("lineup")!!.optJSONObject("homeTeam")!!
+                val st = team.optJSONArray("starters")!!
+                val men = (0 until st.length()).map { st.getJSONObject(it) }.mapNotNull { p ->
+                    val v = p.optJSONObject("verticalLayout") ?: return@mapNotNull null
+                    app.goallive.live.ui.PitchMan(p.optInt("id"), p.optString("lastName"), 0.89f - v.optDouble("x").toFloat() * 0.78f,
+                        0.86f - (v.optDouble("y").toFloat() - 0.1f) / 0.77f * 0.74f, p.optString("shirtNumber"), 7.2, goals = if (p.optString("shirtNumber") == "10") 1 else 0,
+                        captain = p.optBoolean("isCaptain"), star = p.optString("shirtNumber") == "10")
+                }
+                val bmp = app.goallive.live.ui.drawFormation("ترکیب تاتنهام", "تاتنهام ۳ - ۱ کاونتری · لیگ برتر", 0xFF132257.toInt(), men, emptyMap(), emptyMap(), null,
+                    null, android.graphics.Typeface.DEFAULT_BOLD, android.graphics.Typeface.DEFAULT_BOLD, "۴-۲-۳-۱", "بهترین بازیکن گل‌لایو: مدیسون · ۸٫۰")
+                java.io.FileOutputStream("build/screens/28y-share-lineup.png").use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            }.onFailure { System.err.println("SHOT share lineup failed: $it") }
             // the studio itself
             app.goallive.live.ui.ShareStudio.match = md; settle(8000); shot("28z-share-studio")
             app.goallive.live.ui.ShareStudio.match = null; settle(800)

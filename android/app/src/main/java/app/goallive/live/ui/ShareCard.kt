@@ -772,3 +772,137 @@ private fun text(c: Canvas, s: String, cx: Float, top: Float, size: Float, color
         .setMaxLines(maxLines).setEllipsize(TextUtils.TruncateAt.END).setIncludePad(false).build()
     c.save(); c.translate(cx - width / 2f, top); l.draw(c); c.restore()
 }
+
+/* ---------- a formation as a story picture: team of the week and match line-ups ---------- */
+
+/** Draws [men] on a pitch under [title] / [sub] and opens the share sheet; [crest] (a club) or [league] marks the header. */
+suspend fun shareFormation(ctx: Context, title: String, sub: String, color: Color, men: List<PitchMan>, crest: Int? = null, league: Int? = null,
+                           formation: String = "", starLine: String? = null, fileName: String = "goallive-xi") {
+    val bmp = withContext(Dispatchers.IO) {
+        val faces = men.associate { it.id to image(ctx, playerFace(it.id), 220) }
+        val crests = (men.mapNotNull { it.crest } + listOfNotNull(crest)).distinct().associateWith { image(ctx, teamLogo(it, true), 160) }
+        val lg = league?.let { image(ctx, "https://images.fotmob.com/image_resources/logo/leaguelogo/$it.png", 160) }
+        val logo = BitmapFactory.decodeResource(ctx.resources, R.drawable.logo)
+        val en = Lang.en
+        val black = if (en) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else ResourcesCompat.getFont(ctx, R.font.vazir_black) ?: Typeface.DEFAULT_BOLD
+        val bold = if (en) Typeface.DEFAULT_BOLD else ResourcesCompat.getFont(ctx, R.font.vazir_bold) ?: Typeface.DEFAULT_BOLD
+        withContext(Dispatchers.Default) { drawFormation(title, sub, color.toArgb(), men, faces, crests, crest?.let { crests[it] } ?: lg, logo, black, bold, formation, starLine) }
+    }
+    val send = Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "$title\n$sub\n" + L("نتایج زنده فوتبال در گل‌لایو") + "\n$BAZAAR_URL")
+    runCatching {
+        val dir = File(ctx.cacheDir, "share").apply { mkdirs() }
+        val f = File(dir, "$fileName.png").also { f -> f.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+        val uri = FileProvider.getUriForFile(ctx, ctx.packageName + ".files", f)
+        send.setType("image/png").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }.onFailure { send.setType("text/plain") }
+    ctx.startActivity(Intent.createChooser(send, L("اشتراک‌گذاری")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
+
+internal fun drawFormation(title: String, sub: String, tone: Int, men: List<PitchMan>, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
+                           badge: Bitmap?, logo: Bitmap?, black: Typeface, bold: Typeface, formation: String, starLine: String?): Bitmap {
+    val W = 1080; val H = 1920
+    val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+    val c = Canvas(bmp)
+    val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    val gold = 0xFFF5C542.toInt()
+    val toneB = brighten(tone)
+    // night background lit in the team / league colour
+    p.shader = LinearGradient(0f, 0f, 0f, H.toFloat(), intArrayOf(0xFF0B1016.toInt(), 0xFF06080B.toInt()), null, Shader.TileMode.CLAMP); c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), p)
+    for ((x, y, r, a) in listOf(floatArrayOf(160f, 160f, 820f, 0.55f), floatArrayOf(980f, 1500f, 900f, 0.35f))) {
+        p.shader = RadialGradient(x, y, r, intArrayOf((toneB and 0x00FFFFFF) or ((a * 255).toInt() shl 24), toneB and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
+        c.drawCircle(x, y, r, p)
+    }
+    p.shader = null
+    grain(c, W, H, false)
+    // header: badge, title, subtitle, formation
+    var y = 90f
+    badge?.let {
+        p.color = 0xFFFFFFFF.toInt(); p.setShadowLayer(30f, 0f, 10f, 0x66000000); c.drawCircle(W / 2f, y + 62, 66f, p); p.clearShadowLayer()
+        c.drawBitmap(it, null, RectF(W / 2f - 48, y + 14, W / 2f + 48, y + 110), null)
+        y += 150f
+    }
+    text(c, title, W / 2f, y, 64f, 0xFFFFFFFF.toInt(), black, W - 120)
+    y += 92f
+    text(c, sub, W / 2f, y, 34f, 0xCCFFFFFF.toInt(), bold, W - 120, 2)
+    y += 70f
+    if (formation.isNotEmpty()) { pill(c, "⁦" + formation + "⁩", W / 2f, y, 30f, 0xFFFFFFFF.toInt(), 0x33FFFFFF, black, 300, 0x55FFFFFF); y += 80f }
+    // the pitch
+    val pl = 50f; val pr = W - 50f; val pt = y + 10f; val pb = H - (if (starLine != null) 250f else 170f)
+    val pw = pr - pl; val ph = pb - pt
+    c.save()
+    val clip = Path().apply { addRoundRect(RectF(pl, pt, pr, pb), 46f, 46f, Path.Direction.CW) }
+    p.setShadowLayer(60f, 0f, 24f, 0x99000000.toInt()); p.color = 0xFF1B6B3B.toInt(); c.drawPath(clip, p); p.clearShadowLayer()
+    c.clipPath(clip)
+    p.shader = LinearGradient(0f, pt, 0f, pb, intArrayOf(0xFF237F47.toInt(), 0xFF1B6B3B.toInt(), 0xFF155A31.toInt()), null, Shader.TileMode.CLAMP); c.drawRect(pl, pt, pr, pb, p); p.shader = null
+    for (k in 0 until 12) if (k % 2 == 0) { p.color = 0x0BFFFFFF; c.drawRect(pl, pt + ph * k / 12, pr, pt + ph * (k + 1) / 12, p) }
+    p.shader = LinearGradient(pl, pt, pl + pw * 0.7f, pt + ph * 0.45f, 0x22FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP); c.drawRect(pl, pt, pr, pb, p)
+    p.shader = RadialGradient(W / 2f, pb + 60, pw * 0.9f, intArrayOf((toneB and 0x00FFFFFF) or 0x55000000, toneB and 0x00FFFFFF), null, Shader.TileMode.CLAMP); c.drawRect(pl, pt, pr, pb, p); p.shader = null
+    // markings
+    val mx = pl + pw * 0.05f; val my = pt + ph * 0.035f; val mw = pw * 0.9f; val mh = ph * 0.93f
+    val sx = mw / 68f; val sy = mh / 105f
+    fun X(m: Float) = mx + m * sx
+    fun Y(m: Float) = my + m * sy
+    p.style = Paint.Style.STROKE; p.strokeWidth = 4f; p.color = 0x9EFFFFFF.toInt()
+    c.drawRoundRect(RectF(mx, my, mx + mw, my + mh), 6f, 6f, p)
+    c.drawLine(mx, Y(52.5f), mx + mw, Y(52.5f), p); c.drawCircle(X(34f), Y(52.5f), 9.15f * sx, p)
+    for (top in listOf(true, false)) {
+        val g = if (top) 0f else 105f; val d = if (top) 1f else -1f
+        for ((depth, half) in listOf(16.5f to 20.16f, 5.5f to 9.16f)) { val y0 = Y(g); val y1 = Y(g + d * depth); c.drawRect(X(34f - half), minOf(y0, y1), X(34f + half), maxOf(y0, y1), p) }
+        val pen = Y(g + d * 11f); val r = 9.15f * sx
+        c.drawArc(RectF(X(34f) - r, pen - r, X(34f) + r, pen + r), if (top) 37f else 217f, 106f, false, p)
+        val gx0 = X(30.34f); val gx1 = X(37.66f); val gy = Y(g); val gy2 = gy - d * 3f * sy * 1.3f
+        p.strokeWidth = 5f; p.color = 0xFFFFFFFF.toInt(); c.drawLine(gx0, gy, gx0, gy2, p); c.drawLine(gx1, gy, gx1, gy2, p); c.drawLine(gx0, gy2, gx1, gy2, p)
+        p.strokeWidth = 4f; p.color = 0x9EFFFFFF.toInt()
+    }
+    p.style = Paint.Style.FILL
+    p.shader = RadialGradient(W / 2f, pt + ph * 0.45f, ph * 0.8f, intArrayOf(0x00000000, 0x66000000), null, Shader.TileMode.CLAMP); c.drawRect(pl, pt, pr, pb, p); p.shader = null
+    c.restore()
+    // the players, back to front
+    for (m in men.sortedBy { it.y }) {
+        val cx = pl + pw * m.x; val cy = pt + ph * m.y
+        val r = 62f
+        val ring = if (m.star) gold else toneB
+        p.color = 0x66000000; c.drawOval(RectF(cx - 52, cy + r - 10, cx + 52, cy + r + 14), p)
+        if (m.star) { p.shader = RadialGradient(cx, cy, r * 1.7f, intArrayOf(0x88F5C542.toInt(), 0x00F5C542), null, Shader.TileMode.CLAMP); c.drawCircle(cx, cy, r * 1.7f, p); p.shader = null }
+        p.color = ring; c.drawCircle(cx, cy, r + 6, p)
+        p.color = 0xFF1A2128.toInt(); c.drawCircle(cx, cy, r, p)
+        faces[m.id]?.let { f -> c.save(); c.clipPath(Path().apply { addCircle(cx, cy, r, Path.Direction.CW) }); c.drawBitmap(f, null, RectF(cx - r, cy - r + 6, cx + r, cy + r + 6), null); c.restore() }
+            ?: text(c, m.number, cx, cy - 26, 44f, 0xFFFFFFFF.toInt(), black, 120)
+        // rating
+        m.rating?.let { rt ->
+            val s = fa(dec(rt, 1)); val tp = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 30f; typeface = black }
+            val bw = tp.measureText(s) + 24; val bx = cx + r * 0.55f; val by = cy - r - 4
+            p.color = ratingColor(rt); c.drawRoundRect(RectF(bx - bw / 2, by, bx + bw / 2, by + 42), 12f, 12f, p)
+            text(c, s, bx, by + 4, 30f, 0xFFFFFFFF.toInt(), black, 140)
+        }
+        // crest or number
+        val bx = cx - r * 0.7f; val by = cy + r * 0.62f
+        val cb = m.crest?.let { crests[it] }
+        if (cb != null) { p.color = 0xFFFFFFFF.toInt(); c.drawCircle(bx, by, 24f, p); c.drawBitmap(cb, null, RectF(bx - 18, by - 18, bx + 18, by + 18), null) }
+        else if (m.number.isNotEmpty()) { p.color = tone or 0xFF000000.toInt(); c.drawRoundRect(RectF(bx - 22, by - 18, bx + 22, by + 18), 8f, 8f, p); text(c, m.number, bx, by - 15, 24f, 0xFFFFFFFF.toInt(), black, 60) }
+        if (m.captain) { p.color = gold; c.drawCircle(cx + r * 0.7f, cy + r * 0.62f, 18f, p); text(c, if (Lang.en) "C" else "ک", cx + r * 0.7f, cy + r * 0.62f - 14, 22f, 0xFF2A1A00.toInt(), black, 40) }
+        // name plate
+        val tp = android.text.TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 30f; typeface = black }
+        val nw = minOf(230f, tp.measureText(m.name) + 32); val ny = cy + r + 14
+        p.color = 0xE60B0F14.toInt(); c.drawRoundRect(RectF(cx - nw / 2, ny, cx + nw / 2, ny + 46), 14f, 14f, p)
+        if (m.star) { p.style = Paint.Style.STROKE; p.strokeWidth = 2.5f; p.color = gold; c.drawRoundRect(RectF(cx - nw / 2, ny, cx + nw / 2, ny + 46), 14f, 14f, p); p.style = Paint.Style.FILL }
+        text(c, m.name, cx, ny + 5, 30f, if (m.star) gold else 0xFFFFFFFF.toInt(), black, (nw - 16).toInt())
+        // goals and assists
+        val marks = buildList { repeat(m.goals.coerceAtMost(4)) { add("g") }; repeat(m.assists.coerceAtMost(3)) { add("a") }; if (m.red) add("r") else if (m.yellow) add("y") }
+        var ex = cx - (marks.size - 1) * 17f
+        for (k in marks) {
+            when (k) {
+                "g" -> { p.color = 0xFFFFFFFF.toInt(); c.drawCircle(ex, ny + 70, 14f, p); p.color = 0xFF111111.toInt(); c.drawCircle(ex, ny + 70, 5f, p) }
+                "a" -> { p.color = 0xFF39D98A.toInt(); c.drawCircle(ex, ny + 70, 14f, p); text(c, if (Lang.en) "A" else "پ", ex, ny + 58, 18f, 0xFF052914.toInt(), black, 30) }
+                "r", "y" -> { p.color = if (k == "r") 0xFFFF3358.toInt() else 0xFFFFC53D.toInt(); c.drawRoundRect(RectF(ex - 9, ny + 58, ex + 9, ny + 82), 3f, 3f, p) }
+            }
+            ex += 34f
+        }
+    }
+    // the star of the week, then the brand
+    starLine?.let { pill(c, "★ $it", W / 2f, pb + 34, 32f, gold, 0x26F5C542, black, 960, 0x66F5C542) }
+    val fy = H - 110f
+    logo?.let { p.color = 0xFFFFFFFF.toInt(); c.drawCircle(W / 2f + 92, fy + 26, 30f, p); c.drawBitmap(it, null, RectF(W / 2f + 66, fy, W / 2f + 118, fy + 52), null) }
+    text(c, L("گل‌لایو"), W / 2f - 20, fy + 2, 40f, 0xFFFFFFFF.toInt(), black, 220)
+    return bmp
+}

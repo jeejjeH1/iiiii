@@ -26,6 +26,7 @@ import app.goallive.live.data.o
 import app.goallive.live.data.objs
 import app.goallive.live.data.s
 import org.json.JSONObject
+import kotlinx.coroutines.launch
 
 /** Rebuilt every day on GitHub from every match of the big competitions (tools/rankings). */
 private const val RANKINGS_URL = "https://github.com/jeejjeH1/iiiii/releases/download/rankings/rankings.json"
@@ -145,6 +146,9 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?, league: Int, week
             goals = p.i("goals") ?: 0, assists = p.i("assists") ?: 0, crest = (p.i("team") ?: 0).takeIf { it > 0 }, star = p === star)
     }
     val tone = leagueTone(league)
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
     FormationPitch(men, tone, header = {
         if (league != 0) Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White).padding(5.dp), contentAlignment = Alignment.Center) { LeagueLogo(league, 26.dp) }
         else GoldenBall(36.dp)
@@ -153,6 +157,19 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?, league: Int, week
             T(if (league == 0) L("۵ لیگ معتبر") + " · " + week else compName(league) + " · " + week, 11, color = Color.White.copy(alpha = 0.72f), maxLines = 1)
         }
         PitchPill(fa("4-3-3"), tone)
+        // the team as a story picture
+        IconBtn(Ic.share, L("اشتراک‌گذاری"), Color.White, Color.White.copy(alpha = 0.12f), 18.dp) {
+            if (busy) return@IconBtn
+            busy = true
+            scope.launch {
+                runCatching {
+                    shareFormation(ctx, L("تیم هفته‌ی گل‌لایو"), (if (league == 0) L("۵ لیگ معتبر") else compName(league)) + " · " + week, tone, men,
+                        league = league.takeIf { it != 0 }, formation = fa("4-3-3"),
+                        starLine = star?.let { L("بهترین بازیکن هفته: {0}", personName(it.s("name") ?: "")) + " · " + fa(dec(it.d("rating"), 1)) }, fileName = "goallive-team-of-week")
+                }
+                busy = false
+            }
+        }
     }, footer = star?.let { s ->
         {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

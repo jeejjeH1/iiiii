@@ -958,7 +958,9 @@ private fun LineupTab(m: MatchData) {
         Pill(L("ترکیب احتمالی"), PillKind.Accent); T(L("ترکیب رسمی حدود یک ساعت قبل از بازی اعلام می‌شود"), 11, color = C.mute)
     }
     Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), side) { side = it }
-    if (hasLayout) Pitch(team, home, color, id, { nav.board(m.matchId, side) }) { sheet = it }
+    val vs = teamName(m.homeId, m.homeName) + " " + (if (m.started) fa("${m.home.i("score") ?: 0} - ${m.away.i("score") ?: 0}") else "-") + " " + teamName(m.awayId, m.awayName) +
+        " · " + leagueName(m.leagueId, m.general.s("leagueName") ?: "")
+    if (hasLayout) Pitch(team, home, color, id, vs, { nav.board(m.matchId, side) }) { sheet = it }
     else TeamBar(team, color, id) { nav.board(m.matchId, side) }
     if (!hasLayout) Card { team.a("starters").objs().forEachIndexed { i, p -> LineupRow(LP(p, home), i == 0) { sheet = it } } }
     val subs = team.a("subs").objs().map { LP(it, home) }
@@ -1076,8 +1078,11 @@ private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
 
 /** One team's eleven on the formation pitch, keeper at the bottom; the header carries the team, coach, formation and rating. */
 @Composable
-private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, onBoard: () -> Unit, onOpen: (LP) -> Unit) {
+private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: String, onBoard: () -> Unit, onOpen: (LP) -> Unit) {
     val nav = LocalNav.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
     val ratings = LocalRatings.current
     val players = team.a("starters").objs().map { LP(it, home) }.filter { it.layout != null }
     val best = players.maxByOrNull { ratings[it.id]?.value ?: it.rating ?: 0.0 }?.takeIf { (ratings[it.id]?.value ?: it.rating) != null }
@@ -1097,6 +1102,19 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, onBoar
         Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onBoard), contentAlignment = Alignment.Center) { T("📋", 15) }
         PitchPill(fa(team.s("formation") ?: ""), color)
         Rating(team.d("rating"))
+        // the line-up as a story picture
+        IconBtn(Ic.share, L("اشتراک‌گذاری"), Color.White, Color.White.copy(alpha = 0.12f), 18.dp) {
+            if (busy) return@IconBtn
+            busy = true
+            scope.launch {
+                runCatching {
+                    val starName = best?.let { b -> personName(b.name) + " · " + fa(dec(ratings[b.id]?.value ?: b.rating, 1)) }
+                    shareFormation(ctx, L("ترکیب {0}", teamName(id, team.s("name") ?: "")), vs, color, men, crest = id, formation = fa(team.s("formation") ?: ""),
+                        starLine = starName?.let { L("بهترین بازیکن گل‌لایو: {0}", it) }, fileName = "goallive-lineup-$id")
+                }
+                busy = false
+            }
+        }
     }) { man -> players.firstOrNull { it.id == man.id }?.let(onOpen) }
 }
 
