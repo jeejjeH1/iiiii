@@ -44,7 +44,7 @@ object Predictions {
 
     fun get(matchId: Int) = all[matchId]
 
-    fun put(pick: Pick) { all = all + (pick.matchId to pick); save() }
+    fun put(pick: Pick) { all = all + (pick.matchId to pick); save(); Telemetry.event("predict:made") }
 
     /** Records the final score; returns the points the pick earned. */
     fun settle(matchId: Int, home: Int, away: Int): Int? {

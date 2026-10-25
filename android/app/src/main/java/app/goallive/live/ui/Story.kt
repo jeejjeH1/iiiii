@@ -701,6 +701,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
             withFrameNanos { }
         }
     }
+    LaunchedEffect(Unit) { app.goallive.live.data.Telemetry.event("story:open") }
     var making by remember { mutableStateOf<Float?>(null) }
     val alive = remember { AtomicBoolean(true) }
     DisposableEffect(Unit) { onDispose { alive.set(false) } }
@@ -731,6 +732,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                 }.getOrNull()
             }
             making = null
+            if (out != null) app.goallive.live.data.Telemetry.event(if (!video) "story:image" else if (sc is ReelScene) "story:reel" else "story:video")
             if (out != null) then(out.first, out.second)
             else if (alive.get()) Toast.makeText(ctx, L("ساختن ویدیو روی این گوشی ممکن نشد؛ عکس را امتحان کنید"), Toast.LENGTH_LONG).show()
         }
@@ -832,12 +834,12 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
             // where it goes
             val ready = scene != null && making == null
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 18.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ShareTarget(L("اینستاگرام"), "📸", Modifier.weight(1f), ready, Color(0xFFDD2A7B)) { produce { f, mime -> send(ctx, f, mime, story, INSTAGRAM) } }
-                ShareTarget(L("تلگرام"), "✈️", Modifier.weight(1f), ready, Color(0xFF229ED9)) { produce { f, mime -> send(ctx, f, mime, story, TELEGRAM) } }
+                ShareTarget(L("اینستاگرام"), "📸", Modifier.weight(1f), ready, Color(0xFFDD2A7B)) { produce { f, mime -> app.goallive.live.data.Telemetry.event("share:instagram"); send(ctx, f, mime, story, INSTAGRAM) } }
+                ShareTarget(L("تلگرام"), "✈️", Modifier.weight(1f), ready, Color(0xFF229ED9)) { produce { f, mime -> app.goallive.live.data.Telemetry.event("share:telegram"); send(ctx, f, mime, story, TELEGRAM) } }
             }
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ShareTarget(L("بقیه"), "↗️", Modifier.weight(1f), ready, null) { produce { f, mime -> send(ctx, f, mime, story, emptyList()) } }
-                ShareTarget(L("ذخیره در گالری"), "⬇️", Modifier.weight(1f), ready, null) { produce { f, mime -> save(ctx, f, mime) } }
+                ShareTarget(L("بقیه"), "↗️", Modifier.weight(1f), ready, null) { produce { f, mime -> app.goallive.live.data.Telemetry.event("share:other"); send(ctx, f, mime, story, emptyList()) } }
+                ShareTarget(L("ذخیره در گالری"), "⬇️", Modifier.weight(1f), ready, null) { produce { f, mime -> app.goallive.live.data.Telemetry.event("share:save"); save(ctx, f, mime) } }
             }
         }
     }

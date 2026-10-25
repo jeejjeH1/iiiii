@@ -130,6 +130,7 @@ fun Root(openMatch: MutableIntState) {
         CompositionLocalProvider(LocalNav provides nav) {
             val entry by nc.currentBackStackEntryAsState()
             val route = entry?.destination?.route
+            LaunchedEffect(route) { app.goallive.live.data.Telemetry.screen(route) }
             Box(Modifier.fillMaxSize()) {
                 Stadium(accent)
                 Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -178,11 +179,9 @@ fun Root(openMatch: MutableIntState) {
                 // the streaming browser and the assistant's chat use the bottom of the screen themselves
                 if (route != "assistant") BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
             }
-            AskNotifications()
-            // first launch: ask for the favourite team, like the site's onboarding sheet
-            var onboard by remember { mutableStateOf(false) }
-            LaunchedEffect(Unit) { if (!Store.onboarded) { delay(1800); onboard = true } }
-            if (onboard) TeamPicker { onboard = false }
+            // first launch: the welcome steps (team, leagues, alerts) instead of separate pop-ups
+            var welcome by remember { mutableStateOf(!Store.onboarded) }
+            if (welcome) Welcome { welcome = false } else AskNotifications()
             Intro()
             StoryStudio.story?.let { st -> StorySheet(st) { StoryStudio.story = null } }
         }

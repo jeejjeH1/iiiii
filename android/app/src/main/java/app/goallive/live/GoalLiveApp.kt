@@ -15,6 +15,7 @@ class GoalLiveApp : Application(), ImageLoaderFactory {
         Lang.init(this)
         Api.init(this)
         Store.init(this)
+        app.goallive.live.data.Telemetry.init(this)
         app.goallive.live.data.Predictions.init(this)
         app.goallive.live.data.Translate.init(this)
         app.goallive.live.ui.Look.mode = Store.theme

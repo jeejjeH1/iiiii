@@ -1136,3 +1136,35 @@
 1135|Red card · minute {0}
 1136|An even game
 1137|On top: {0}
+1138|Skip
+1139|Start
+1140|Continue without a team
+1141|Continue ({0} teams)
+1142|Continue without a league
+1143|Continue ({0} leagues)
+1144|🔔 Turn on alerts
+1145|Welcome to GoalLive
+1146|Live football scores
+1147|Live scores and goal alerts, even with the app closed
+1148|GoalLive ratings for every player, and the team of the week
+1149|Story pictures and videos of any match, in one tap
+1150|Full stats: shots, line-ups, momentum and tables
+1151|Your favourite teams?
+1152|The first team you tap becomes "my team": the app takes its colours and its matches stay at the top.
+1153|Which leagues do you follow?
+1154|Their matches gather under "Following" and you get their alerts.
+1155|Know the moment a goal goes in
+1156|For the teams and leagues you picked: goals, line-ups, kick-off and full time.
+1157|⚽ GOAL! Real Madrid 1 - 0 Barcelona
+1158|34' · scorer: …
+1159|📋 Real Madrid line-up is out
+1160|An hour before kick-off
+1161|🏁 Full time
+1162|Barcelona 2 - 1 Atlético
+1163|So alerts arrive with the app closed, tap "Allow" in the next windows.
+1164|Line-up
+1165|🧠 Your eleven
+1166|Tools
+1167|Games
+1168|Send anonymous crash reports and stats
+1169|Only how often each part is used and why errors happen; nothing personal. It helps make the app better.

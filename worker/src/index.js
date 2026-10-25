@@ -8,6 +8,8 @@ import hl from '../../api/hl.js';
 import img from '../../api/img.js';
 import { tts } from './tts.js';
 import { v1, DOCS, HttpError } from './v1.js';
+import { telemetry } from './telemetry.js';
+export { Telemetry } from './telemetry.js';
 
 const ROUTES = { fm, today, widget, hl, img };
 
@@ -50,6 +52,9 @@ async function cached(request, ctx, make) {
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    if (url.pathname.startsWith('/t/')) {
+      try { return await telemetry(request, env, url); } catch (e) { return new Response(String(e && e.message || e), { status: 500 }); }
+    }
     const m = url.pathname.match(/^\/api\/([a-z]+)$/);
     if (url.pathname === '/v1' || url.pathname.startsWith('/v1/')) return api(request, ctx, url);
     if (!m) return Response.json({

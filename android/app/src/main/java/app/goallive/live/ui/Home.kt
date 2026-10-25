@@ -99,6 +99,7 @@ fun DrawScope.cssLinear(deg: Float, vararg stops: Pair<Float, Color>) {
     drawRect(Brush.linearGradient(*stops, start = c - Offset(dx, dy) * (len / 2), end = c + Offset(dx, dy) * (len / 2)))
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen() {
     val nav = LocalNav.current
@@ -134,16 +135,10 @@ fun HomeScreen() {
     val list = loader.value
     Refreshable(loader) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace)) {
-        if (day == 0 && list != null) {
-            val live = list.flatMap { b -> b.matches.filter { it.live }.map { it to b } }
-            if (live.isNotEmpty()) item(key = "ticker") { Ticker(live.sortedByDescending { (_, b) -> if (b.primaryId in BIG) 1 else 0 }.take(24).map { it.first }) }
-        }
+        // a calmer top: the shortcuts, my team and the big games; the live ticker and the competition banner are gone
+        // (the «زنده» filter and the match list already show both)
         if (day == 0) item(key = "stories") { StoryRow() }
         if (day == 0) Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name, list) } }
-        if (day == 0 && list != null) {
-            val hit = list.mapNotNull { b -> Comps.get(b.primaryId)?.let { b to it } }.filter { it.first.matches.isNotEmpty() }.maxByOrNull { it.first.matches.size }
-            if (hit != null) item(key = "comp") { CompNight(hit.first, hit.second) }
-        }
         if (list != null) {
             val picks = featured(list)
             if (picks.isNotEmpty()) {
@@ -151,8 +146,9 @@ fun HomeScreen() {
                 item(key = "feat") { Featured(picks) }
             }
         }
-        item(key = "dates") { DateStrip(day) { day = it } }
-        item(key = "tools") {
+        // the days and the filters stay at the top while the matches scroll under them
+        stickyHeader(key = "dates") { Column(Modifier.fillMaxWidth().background(C.bg).padding(top = 2.dp)) {
+            DateStrip(day) { day = it }
             val all = list?.flatMap { it.matches }.orEmpty()
             val liveN = all.count { it.live }
             val favN = list?.sumOf { b -> b.matches.count { Store.followsWithLeague(it) } } ?: 0
@@ -166,7 +162,7 @@ fun HomeScreen() {
                     Icon(if (byTime) Ic.list else Ic.trophy, if (byTime) L("مرتب‌سازی بر اساس لیگ") else L("مرتب‌سازی بر اساس زمان"), Modifier.size(20.dp), tint = C.ink)
                 }
             }
-        }
+        } }
         when (val s = loader.state) {
             is Load.Loading -> item { Skeleton(6) }
             is Load.Err -> item { ErrorView({ loader.state = Load.Loading; loader.reload() }) }

@@ -73,6 +73,7 @@ fun AssistantScreen() {
     val brain = remember { Brain() }
 
     fun ask(q: String) {
+        app.goallive.live.data.Telemetry.event("ask:assistant")
         val clean = q.trim()
         if (clean.isEmpty() || busy) return
         msgs += Msg(true, clean)

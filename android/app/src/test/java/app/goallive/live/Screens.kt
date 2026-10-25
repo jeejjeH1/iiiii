@@ -129,7 +129,7 @@ class Screens {
             tap("ترکیب", exact = true); settle(3000); shot("04-match-lineup")
             tap(teamName(match.home.id, match.home.name), exact = true); settle(2000); shot("04c-lineup-one-team")
             tap("فهرست"); settle(1500); shot("04d-lineup-list")
-            tap("مربی تو"); settle(3000); shot("04e-coach-guide")
+            tap("ترکیب تو"); settle(3000); shot("04e-coach-guide")
             tap("فهمیدم"); settle(4000); shot("04e-coach")
             tap("رودررو", exact = true); settle(3000); shot("05-match-h2h")
             tap("جدول", exact = true); settle(6000); shot("06-match-table")

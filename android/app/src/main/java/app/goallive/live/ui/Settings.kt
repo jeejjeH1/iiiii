@@ -83,6 +83,7 @@ import kotlinx.coroutines.launch
 @SuppressLint("BatteryLife")
 @Composable
 fun SettingsScreen() {
+    var telemetryOn by remember { mutableStateOf(app.goallive.live.data.Telemetry.on) }
     val ctx = LocalContext.current
     var picker by remember { mutableStateOf(false) }
     var widgetHelp by remember { mutableStateOf(false) }
@@ -166,6 +167,8 @@ fun SettingsScreen() {
                 SubHead(L("داده‌ها"))
                 SetRow(Ic.x, L("پاک کردن علاقه‌مندی‌ها"), null, first = true) { confirmClear = true }
                 SetRow(Ic.list, L("منابع"), L("منبع اطلاعات، تصاویر، ویدیوها و صدا"), chev = true) { sources = true }
+                SetRow(Ic.info, L("ارسال ناشناس گزارش خطا و آمار"), L("فقط تعداد استفاده از بخش‌ها و علت خطاها؛ بدون هیچ اطلاعات شخصی. به بهتر شدن برنامه کمک می‌کند."),
+                    on = telemetryOn) { telemetryOn = !telemetryOn; app.goallive.live.data.Telemetry.enable(telemetryOn) }
                 SetRow(Ic.people, L("حریم خصوصی"), L("گل‌لایو اطلاعات شخصی شما را دریافت نمی‌کند"), chev = true) {
                     runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL))) }
                 }

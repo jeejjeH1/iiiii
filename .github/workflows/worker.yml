@@ -34,6 +34,11 @@ jobs:
           fi
       - name: Deploy
         run: npx -y wrangler@4 deploy 2>&1 | tee deploy.log
+      # the dashboard's password (/t/dash?key=…), when the DASH_KEY secret is set
+      - name: Dashboard key
+        env:
+          DASH_KEY: ${{ secrets.DASH_KEY }}
+        run: if [ -n "$DASH_KEY" ]; then printf '%s' "$DASH_KEY" | npx -y wrangler@4 secret put DASH_KEY; else echo "no DASH_KEY secret yet"; fi
       - name: Check
         run: |
           url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
@@ -42,6 +47,10 @@ jobs:
           for p in /v1 /v1/leagues?lang=fa "/v1/matches?date=today&lang=fa" /v1/live /v1/leagues/523/table?lang=fa /v1/teams/101610 /v1/players/30981 "/v1/search?q=persepolis" / "/api/fm?e=matches&date=$d&timezone=Asia/Tehran" /api/fm?e=tltable\&leagueId=47 /api/fm?e=suggest\&term=persepolis /api/today /api/widget?team=8634 /api/hl?q=goal "/api/tts?t=hello&v=ryan"; do
             curl -s "$url$p" -o out -w "%{http_code} %{size_download}B  $p\n"; head -c 160 out | tr -d '\0' ; echo
           done
+          # telemetry: a test batch goes in (its device id is all zeros, so it is easy to spot) and the dashboard answers
+          curl -s -X POST "$url/t/up" -H 'content-type: application/json' -w " %{http_code} /t/up\n" \
+            -d "{\"d\":\"00000000-0000-0000-0000-000000000000\",\"v\":\"ci\",\"sdk\":34,\"m\":\"CI\",\"l\":\"fa\",\"days\":{\"$(date +%F)\":{\"open\":1}}}"
+          curl -s "$url/t/dash" -o /dev/null -w "%{http_code} /t/dash (503 until DASH_KEY is set, 403 with it)\n"
           curl -sf "$url/api/fm?e=suggest&term=persepolis" -o /dev/null
           curl -sf "$url/v1/matches?date=today" -o /dev/null
           curl -sf "$url/v1/leagues/47/table" -o /dev/null

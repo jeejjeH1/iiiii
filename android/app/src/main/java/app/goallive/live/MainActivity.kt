@@ -34,6 +34,16 @@ class MainActivity : ComponentActivity() {
         if (id > 0) openMatch.intValue = id
     }
 
+    override fun onStart() {
+        super.onStart()
+        app.goallive.live.data.Telemetry.sessionStart()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (!isChangingConfigurations) app.goallive.live.data.Telemetry.sessionEnd()
+    }
+
     override fun onPause() {
         super.onPause()
         // the user may have just picked "my team": let the home-screen widget catch up

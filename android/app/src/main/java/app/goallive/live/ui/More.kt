@@ -70,13 +70,16 @@ private fun go(key: String, nav: Nav, tv: () -> Unit) = when (key) {
     else -> Unit
 }
 
+private val HOME_KEYS = listOf("my", "tv", "rank", "predict", "ai")
+
 /** Home: the shortcuts as a row of story circles; a bright ring means something new is waiting there. */
 @Composable
 fun StoryRow() {
     val nav = LocalNav.current
     val accent = LocalAccent.current
     var tv by remember { mutableStateOf(false) }
-    val list = shortcuts()
+    // five on home (the rest live on the «بیشتر» tab), so the row fits without scrolling
+    val list = shortcuts().filter { it.key in HOME_KEYS }.sortedBy { HOME_KEYS.indexOf(it.key) }
     LazyRow(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(horizontal = 2.dp)) {
         items(list.size) { i ->
@@ -139,11 +142,17 @@ fun MoreScreen() {
     val nav = LocalNav.current
     var tv by remember { mutableStateOf(false) }
     var widgetHelp by remember { mutableStateOf(false) }
+    val all = shortcuts()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace)) {
         item {
             T(L("بیشتر"), 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
-            Card {
-                shortcuts().forEachIndexed { i, s ->
+        }
+        // two groups instead of one long list: tools, then games
+        for ((title, keys) in listOf(L("ابزارها") to listOf("my", "tv", "rank", "ai", "calendar"), L("بازی و سرگرمی") to listOf("predict", "fantasy", "quiz", "board"))) item {
+            val group = all.filter { it.key in keys }.sortedBy { keys.indexOf(it.key) }
+            if (group.isNotEmpty()) SectionTitle(title)
+            if (group.isNotEmpty()) Card {
+                group.forEachIndexed { i, s ->
                     ListRow(first = i == 0, onClick = { go(s.key, nav) { tv = true } }) {
                         Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Brush.linearGradient(listOf(s.color, darken(s.color, 0.55f)))),
                             contentAlignment = Alignment.Center) {
@@ -159,6 +168,8 @@ fun MoreScreen() {
                     }
                 }
             }
+        }
+        item {
             SectionTitle(L("اپلیکیشن"))
             Card {
                 MoreRow(Ic.search, L("جستجو"), L("تیم، بازیکن یا لیگ"), true) { nav.tab("search") }

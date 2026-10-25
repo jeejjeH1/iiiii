@@ -172,6 +172,7 @@ private fun MatchBody(m: MatchData) {
     // fewer, bigger tabs: related views live together behind a small switch inside the tab
     var liveView by rememberSaveable { mutableStateOf("pitch") }
     var statsView by rememberSaveable { mutableStateOf("team") }
+    var lineupView by rememberSaveable { mutableStateOf("real") }
     // numbers only once the ball is rolling
     val statViews = if (!m.started) emptyList() else buildList {
         if (m.hasStats) add("team" to L("آمار تیمی"))
@@ -183,8 +184,8 @@ private fun MatchBody(m: MatchData) {
         // the live pitch only while the ball is rolling; afterwards just the written commentary, when there is one
         if (m.live) add("live" to L("زنده")) else if (m.finished && m.hasTicker) add("text" to L("گزارش متنی"))
         if (statViews.isNotEmpty()) add("stats" to L("آمار"))
-        if (m.hasLineup) add("lineup" to L("ترکیب"))
-        if (!m.cancelled) add("coach" to L("🧠 مربی تو"))
+        // the real line-up and «مربی تو» (pick your own eleven) share one tab
+        if (m.hasLineup || !m.cancelled) add("lineup" to L("ترکیب"))
         if (m.hasTable) add("table" to L("جدول"))
         if (m.hasH2h) add("h2h" to L("رودررو"))
     }
@@ -212,8 +213,10 @@ private fun MatchBody(m: MatchData) {
                             else -> StatsTab(m)
                         }
                     }
-                    "lineup" -> LineupTab(m)
-                    "coach" -> CoachTab(m)
+                    "lineup" -> {
+                        if (m.hasLineup && !m.cancelled) Seg(listOf("real" to L("ترکیب بازی"), "coach" to L("🧠 ترکیب تو")), lineupView) { lineupView = it }
+                        if (m.hasLineup && (lineupView == "real" || m.cancelled)) LineupTab(m) else CoachTab(m)
+                    }
                     "table" -> MatchTable(m)
                     "h2h" -> H2h(m, 50)
                 }

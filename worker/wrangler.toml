@@ -4,3 +4,12 @@ name = "goallive"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
+
+# crash reports and anonymous usage counts from the app (src/telemetry.js); the dashboard needs the DASH_KEY secret
+[[durable_objects.bindings]]
+name = "TELEMETRY"
+class_name = "Telemetry"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Telemetry"]
