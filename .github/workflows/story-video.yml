@@ -51,11 +51,16 @@ jobs:
             adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w app.goallive.live.test/androidx.test.runner.AndroidJUnitRunner | tee instrument.log
             adb logcat -d | grep -E "VIDEO|AndroidRuntime|StoryVideo" | tail -80 || true
-            mkdir -p videos && adb pull /sdcard/Android/data/app.goallive.live/files/videos videos/ || true
+            mkdir -p videos
+            for n in match ballon player; do adb exec-out run-as app.goallive.live cat /sdcard/Android/data/app.goallive.live/files/videos/story-$n.mp4 > videos/story-$n.mp4 || true; done
+            adb root || true
+            sleep 3
+            adb pull /sdcard/Android/data/app.goallive.live/files/videos/. videos/ || true
             grep -q "^OK (" instrument.log
       - name: Video info
         if: always()
         run: |
+          find videos -name '*.mp4' -size -50k -delete || true
           ls -laR videos || true
           for f in $(find videos -name '*.mp4'); do ffprobe -v error -show_entries stream=codec_name,width,height,duration,nb_frames -of compact "$f"; done || true
       - name: Publish videos
