@@ -671,3 +671,40 @@ class Brain {
         else Msg(false, L("بازی‌های مهم {0} ({1} بازی در کل):", dayWord(day), fa(list.sumOf { it.matches.size })), shown)
     }
 }
+
+/* ---------- Persian search ---------- */
+
+private fun normFa(s: String) = s.replace('ي', 'ی').replace('ك', 'ک').replace("‌", "").replace(" ", "").replace("‌", "").lowercase()
+
+/** Rough Latin letters for a Persian word, for names no list knows (طارمی → tarmi); search is forgiving enough to find many. */
+private fun latinOf(fa: String): String {
+    val map = mapOf('ا' to "a", 'آ' to "a", 'ب' to "b", 'پ' to "p", 'ت' to "t", 'ث' to "s", 'ج' to "j", 'چ' to "ch", 'ح' to "h", 'خ' to "kh", 'د' to "d",
+        'ذ' to "z", 'ر' to "r", 'ز' to "z", 'ژ' to "zh", 'س' to "s", 'ش' to "sh", 'ص' to "s", 'ض' to "z", 'ط' to "t", 'ظ' to "z", 'ع' to "", 'غ' to "gh",
+        'ف' to "f", 'ق' to "gh", 'ک' to "k", 'گ' to "g", 'ل' to "l", 'م' to "m", 'ن' to "n", 'و' to "o", 'ه' to "h", 'ی' to "i", 'ئ' to "i", 'ء' to "", ' ' to " ")
+    return fa.replace('ي', 'ی').replace('ك', 'ک').map { map[it] ?: if (it.isLetterOrDigit() && it.code < 128) it.toString() else "" }.joinToString("")
+}
+
+/**
+ * The English names to search FotMob for when the user typed Persian («پرسپولیس», «رونالدو», «لیگ برتر»): every team, player,
+ * nickname and league whose Persian name contains what was typed (or the other way round), best matches first, and a rough
+ * spelling of the words themselves as a last try.
+ */
+fun persianSearchTerms(q: String): List<String> {
+    val n = normFa(q)
+    if (n.length < 2) return emptyList()
+    val hits = ArrayList<Pair<Int, String>>()
+    fun take(fa: String, en: String) {
+        val f = normFa(fa)
+        val score = when { f == n -> 0; f.startsWith(n) -> 1; f.contains(n) -> 2; n.contains(f) && f.length >= 3 -> 3; else -> return }
+        hits += score to en
+    }
+    PLAYERS.forEach { (fa, en) -> take(fa, en) }
+    NICKS.forEach { (fa, en) -> take(fa, en) }
+    TEAMS_FA.forEach { (en, fa) -> take(fa, en) }
+    Clubs.ids.forEach { id -> Clubs.get(id)?.let { c -> TEAMS_FA.entries.firstOrNull { it.value == c.fa }?.key?.let { en -> take(c.fa, en) } } }
+    listOf(523 to "Persian Gulf Pro League", 47 to "Premier League", 87 to "LaLiga", 55 to "Serie A", 54 to "Bundesliga", 53 to "Ligue 1",
+        42 to "Champions League", 73 to "Europa League", 525 to "AFC Champions League").forEach { (id, en) -> take(leagueFa(id, en), en) }
+    val terms = hits.sortedBy { it.first }.map { it.second }.distinct().take(3).toMutableList()
+    if (terms.isEmpty()) latinOf(q.trim()).trim().takeIf { it.length >= 3 }?.let { terms += it }
+    return terms
+}

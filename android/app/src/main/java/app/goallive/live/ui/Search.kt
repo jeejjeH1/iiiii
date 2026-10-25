@@ -41,8 +41,11 @@ import org.json.JSONObject
 class Found(val teams: List<JSONObject>, val players: List<JSONObject>, val leagues: List<JSONObject>, val matches: List<JSONObject>)
 
 suspend fun search(term: String): Found {
-    val arr = Api.fmArray("suggest", mapOf("term" to term), 60_000)
-    val all = arr.objs().flatMap { it.a("suggestions").objs() }
+    // FotMob only knows English names: Persian is turned into the English names it may mean first
+    val persian = term.any { it in '\u0600'..'\u06FF' }
+    val terms = if (persian) persianSearchTerms(term).ifEmpty { listOf(term) } else listOf(term)
+    val all = terms.flatMap { t -> runCatching { Api.fmArray("suggest", mapOf("term" to t), 60_000) }.getOrElse { if (terms.size == 1) throw it else null }.objs()
+        .flatMap { it.a("suggestions").objs() } }
     fun of(t: String) = all.filter { it.s("type") == t }.distinctBy { it.s("id") }
     return Found(of("team"), of("player"), of("league"), of("match"))
 }
@@ -81,7 +84,7 @@ fun SearchScreen() {
             failed -> item { ErrorView({ retry++ }) }
             r == null -> {}
             r.teams.isEmpty() && r.players.isEmpty() && r.leagues.isEmpty() && r.matches.isEmpty() -> item {
-                EmptyView(L("نتیجه‌ای برای «{0}» پیدا نشد", q.trim()), Ic.search, L("املای انگلیسی را امتحان کنید؛ مثلاً Sepahan یا Mbappe."), L("پاک کردن جستجو")) { q = "" }
+                EmptyView(L("نتیجه‌ای برای «{0}» پیدا نشد", q.trim()), Ic.search, L("نام کامل‌تر یا املای انگلیسی را امتحان کنید؛ مثلاً «سپاهان» یا Mbappe."), L("پاک کردن جستجو")) { q = "" }
             }
             else -> {
                 if (r.teams.isNotEmpty()) item {

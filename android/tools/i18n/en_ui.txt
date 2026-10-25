@@ -1189,3 +1189,4 @@
 1188|No, thanks
 1189|Rate GoalLive
 1190|Help us with a rating and a review on Cafe Bazaar
+1191|Try a fuller name or the English spelling, e.g. Sepahan or Mbappe.
