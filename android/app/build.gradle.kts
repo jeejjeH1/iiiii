@@ -13,8 +13,8 @@ android {
         applicationId = "app.goallive.live"
         minSdk = 24
         targetSdk = 35
-        versionCode = 100
-        versionName = "2.0"
+        versionCode = 101
+        versionName = "2.1"
     }
 
     // permanent store key: the build machine writes it from the KEYSTORE_B64 / KEYSTORE_PASS secrets

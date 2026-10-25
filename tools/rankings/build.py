@@ -244,6 +244,10 @@ def ballon(ms, ongoing):
                 ws, wm = knock.get(pid, (0.0, 0))
                 knock[pid] = (ws + p[5] * p[4], wm + p[4])
             if lvl == 5: play[(pid, p[1], 'final%d' % m['league'])] = 1
+    # the most any player of a team has played in a competition: a league part is judged against it (early in a season nobody has 900 minutes)
+    team_most = {}
+    for (q, team, comp), mins in play.items():
+        if isinstance(comp, int): team_most[(team, comp)] = max(team_most.get((team, comp), 0), mins)
     rows = []
     for pid, a in agg.items():
         if a['minutes'] < floor or a['wmin'] <= 0: continue
@@ -255,7 +259,8 @@ def ballon(ms, ongoing):
                 kind, cid, _ = code.split(':')
                 if int(cid) != comp: continue
                 # a league needs a real part of the season; a cup two games or the final
-                enough = mins >= 900 if kind == 'L' else (mins >= 120 or (pid, team, 'final%d' % comp) in play)
+                enough = (mins >= min(900, max(270, 0.5 * team_most.get((team, comp), 0)))) if kind == 'L' \
+                    else (mins >= 120 or (pid, team, 'final%d' % comp) in play)
                 if enough: got.append((code, pts))
         trophy = sum(p for _, p in got)
         ks = knock.get(pid)
@@ -266,7 +271,9 @@ def ballon(ms, ongoing):
     def z(key):
         vals = [r[key] for r in rows]
         mu = sum(vals) / len(vals); sd = (sum((v - mu) ** 2 for v in vals) / len(vals)) ** 0.5 or 1
-        for r in rows: r['z_' + key] = (r[key] - mu) / sd
+        # capped, so one part where almost nobody scores (trophies early in a season) cannot decide alone
+        cap = 2.0 if key == 'trophy' else 4.0
+        for r in rows: r['z_' + key] = max(-cap, min(cap, (r[key] - mu) / sd))
     for k in ('avg', 'ga', 'trophy', 'big'): z(k)
     for r in rows: r['total'] = 0.5 * r['z_avg'] + 0.2 * r['z_ga'] + 0.2 * r['z_trophy'] + 0.1 * r['z_big']
     rows.sort(key=lambda r: -r['total'])
