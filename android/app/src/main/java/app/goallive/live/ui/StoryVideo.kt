@@ -196,7 +196,7 @@ object StoryAudio {
     class Sample(val data: ByteArray, val timeUs: Long, val flags: Int)
     class Encoded(val format: MediaFormat, val samples: List<Sample>)
 
-    enum class Fx { WHISTLE, WHISTLE_END, ROAR, WHOOSH, BOOM, CHEER }
+    enum class Fx { WHISTLE, WHISTLE_HALF, WHISTLE_END, ROAR, WHOOSH, BOOM, CHEER }
 
     /** [seconds] of sound: [music] (a raw resource, or null for none) at [musicGain], [fx] at their times, a stadium murmur under it all when [crowd]. */
     fun make(ctx: Context, seconds: Float, music: Int?, musicGain: Float, crowd: Boolean, fx: List<Pair<Float, Fx>>): Encoded? = runCatching {
@@ -223,6 +223,7 @@ object StoryAudio {
         for ((at, k) in fx) {
             val sig = when (k) {
                 Fx.WHISTLE -> whistle(0.55f, 1)
+                Fx.WHISTLE_HALF -> whistle(0.4f, 2)
                 Fx.WHISTLE_END -> whistle(0.45f, 3)
                 Fx.ROAR -> roar(rnd, 4.2f, 1f)
                 Fx.CHEER -> roar(rnd, 2.6f, 0.6f)
