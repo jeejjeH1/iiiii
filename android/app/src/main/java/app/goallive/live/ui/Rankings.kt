@@ -150,7 +150,7 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?) {
                 val isStar = p === star
                 // pitch spots are screen positions: left stays left in both languages
                 androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-                    Column(Modifier.width(84.dp).offset(x = maxWidth * fx - 42.dp, y = maxHeight * fy - 34.dp).clickable { nav.player(p.i("id") ?: 0) },
+                    Column(Modifier.width(84.dp).absoluteOffset(x = maxWidth * fx - 42.dp, y = maxHeight * fy - 34.dp).clickable { nav.player(p.i("id") ?: 0) },
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         Box {
                             Face(p.i("id") ?: 0, 46.dp, if (isStar) GOLD else Color.White, if (isStar) 3.dp else 2.dp)
