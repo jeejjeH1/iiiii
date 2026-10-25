@@ -181,7 +181,7 @@ internal fun matchScene(m: MatchData, o: CardOptions, a: CardAssets, best: Playe
         bc.drawBitmap(it, null, RectF(x - wm / 2, y0, x + wm / 2, y0 + wm), p); p.alpha = 255
     }
     grain(bc, W, H, o.theme == "light")
-    return Scene(W, H, bg) { c, clk -> matchFront(c, m, o, a, best, look, clk) }
+    return Scene(W, H, bg, a.hc, a.ac) { c, clk -> matchFront(c, m, o, a, best, look, clk) }
 }
 
 private fun matchFront(c: Canvas, m: MatchData, o: CardOptions, a: CardAssets, best: PlayerRating?, look: CardLook, clk: Clock) {
@@ -730,7 +730,7 @@ internal fun formationScene(title: String, sub: String, tone: Int, men: List<Pit
     p.style = Paint.Style.FILL
     p.shader = RadialGradient(W / 2f, pt + ph * 0.45f, ph * 0.8f, intArrayOf(0x00000000, 0x66000000), null, Shader.TileMode.CLAMP); bc.drawRect(pl, pt, pr, pb, p); p.shader = null
     bc.restore()
-    return Scene(W, H, bg) { c, clk ->
+    return Scene(W, H, bg, tone, tone) { c, clk ->
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
         c.enter(clk.at(0.1f), 0f, pt) {
             badge?.let {

@@ -132,7 +132,8 @@ internal fun captionLine(c: Canvas, s: String, top: Float, color: Int, tf: Typef
 }
 
 /** A story: a still layer drawn once and the moving parts drawn per frame. */
-class Scene(val W: Int, val H: Int, val bg: Bitmap, val fg: (Canvas, Clock) -> Unit) {
+/** [hc] / [ac]: the two colours the "team colours" design uses, for its swatch in the studio. */
+class Scene(val W: Int, val H: Int, val bg: Bitmap, val hc: Int = 0, val ac: Int = 0, val fg: (Canvas, Clock) -> Unit) {
     private val smooth = Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG)
 
     /** The finished picture at [scale]. */
@@ -366,8 +367,8 @@ private fun playerScene(s: Story.Player, o: CardOptions, a: Art): Scene {
     val age = infoOf("Age")?.i("numberValue")
     val country = infoOf("Country")?.s("fallback")
     val pos = tr(p.path("positionDescription.primaryPosition").s("label"))
-    val captionY = SH - 270f
-    return Scene(SW, SH, bg) { c, clk ->
+    val captionY = SH - 255f
+    return Scene(SW, SH, bg, tone, darker(tone, 0.35f)) { c, clk ->
         // the competition and season over everything
         c.enter(clk.at(0.1f), 60f, 200f) {
             val lid = ml.i("leagueId") ?: 0
@@ -392,7 +393,7 @@ private fun playerScene(s: Story.Player, o: CardOptions, a: Art): Scene {
             pill(c, line, SW / 2f, 905f, 30f, look.ink, look.panel, a.bold, SW - 120, look.stroke)
         }
         // the season in six numbers
-        val gy = 1030f; val tw = (SW - 112f - 2 * 20f) / 3; val th = 176f
+        val gy = 1000f; val tw = (SW - 112f - 2 * 20f) / 3; val th = 160f
         tiles.forEachIndexed { k, (label, v) ->
             val col = k % 3; val row = k / 3
             val left = if (en) 56f + col * (tw + 20f) else SW - 56f - (col + 1) * tw - col * 20f
@@ -400,12 +401,12 @@ private fun playerScene(s: Story.Player, o: CardOptions, a: Art): Scene {
             c.enter(clk.at(1.3f + k * 0.12f), top, top + th) {
                 glass(c, left, top, left + tw, top + th, look)
                 text(c, num(v, clk.at(1.4f + k * 0.12f, 0.9f)), left + tw / 2, top + 26f, 64f, look.ink, a.black, tw.toInt())
-                text(c, label, left + tw / 2, top + 116f, 26f, look.sub, a.bold, (tw - 20).toInt(), 1)
+                text(c, label, left + tw / 2, top + 104f, 26f, look.sub, a.bold, (tw - 20).toInt(), 1)
             }
         }
         // the last five games: opponent and rating
         if (recent.isNotEmpty()) {
-            val ry = gy + 2 * (th + 20f) + 30f
+            val ry = gy + 2 * (th + 20f) + 14f
             c.enter(clk.at(2.2f), ry, ry + 60f) { text(c, L("بازی‌های اخیر"), SW / 2f, ry, 30f, look.sub, a.bold, 600) }
             val cw = (SW - 112f) / 5
             recent.forEachIndexed { k, m ->
@@ -413,8 +414,15 @@ private fun playerScene(s: Story.Player, o: CardOptions, a: Art): Scene {
                 c.pop(clk.at(2.4f + k * 0.1f, 0.45f), cx, ry + 120f) {
                     crestDisc(c, a.crests[m.i("opponentTeamId") ?: 0], cx, ry + 110f, 46f)
                     m.path("ratingProps").s("rating")?.toDoubleOrNull()?.let { ratingChip(c, it, cx, ry + 172f, 30f, a.black) }
-                    val ga = listOfNotNull((m.i("goals") ?: 0).takeIf { it > 0 }?.let { "⚽".repeat(min(it, 3)) }, (m.i("assists") ?: 0).takeIf { it > 0 }?.let { "🅰".repeat(min(it, 2)) })
-                    if (ga.isNotEmpty()) text(c, ga.joinToString(""), cx, ry + 230f, 24f, look.ink, a.bold, cw.toInt())
+                    // goals as little balls, assists as green discs
+                    val marks = List(min(m.i("goals") ?: 0, 3)) { true } + List(min(m.i("assists") ?: 0, 2)) { false }
+                    var mx = cx - (marks.size - 1) * 15f
+                    val mp = Paint(Paint.ANTI_ALIAS_FLAG)
+                    for (g in marks) {
+                        if (g) { mp.color = 0xFFFFFFFF.toInt(); c.drawCircle(mx, ry + 236f, 12f, mp); mp.color = 0xFF111111.toInt(); c.drawCircle(mx, ry + 236f, 4.5f, mp) }
+                        else { mp.color = 0xFF39D98A.toInt(); c.drawCircle(mx, ry + 236f, 12f, mp); text(c, if (en) "A" else "پ", mx, ry + 225f, 16f, 0xFF052914.toInt(), a.black, 30) }
+                        mx += 30f
+                    }
                 }
             }
         }
@@ -433,7 +441,7 @@ private fun tableScene(s: Story.Table, o: CardOptions, a: Art): Scene {
     val markAt = s.rows.indexOfFirst { (it.i("id") ?: 0) == s.mark && s.mark > 0 }
     val rows = if (markAt >= 10) s.rows.take(9) + s.rows[markAt] else s.rows.take(10)
     val captionY = SH - 270f
-    return Scene(SW, SH, bg) { c, clk ->
+    return Scene(SW, SH, bg, darker(tone, 0.2f), darker(tone, 0.5f)) { c, clk ->
         c.pop(clk.at(0.1f, 0.6f), SW / 2f, 150f) { crestDisc(c, lg, SW / 2f, 150f, 74f) }
         c.enter(clk.at(0.4f), 250f, 380f) {
             text(c, leagueName(s.league, s.name), SW / 2f, 250f, 58f, look.ink, a.black, SW - 120)
@@ -506,7 +514,7 @@ private fun ballonScene(s: Story.Ballon, o: CardOptions, a: Art): Scene {
     val (bg, look) = storyBg(o.theme, 0xFF6B4A06.toInt(), 0xFF2E2206.toInt())
     val gold = 0xFFF5C542.toInt()
     val captionY = SH - 270f
-    return Scene(SW, SH, bg) { c, clk ->
+    return Scene(SW, SH, bg, 0xFF6B4A06.toInt(), 0xFF2E2206.toInt()) { c, clk ->
         c.pop(clk.at(0.1f, 0.7f), SW / 2f, 210f) { goldBall(c, SW / 2f, 210f, 105f) }
         c.enter(clk.at(0.5f), 350f, 480f) {
             text(c, L("توپ طلای {0}", fa(s.year)), SW / 2f, 350f, 66f, look.ink, a.black, SW - 120)
@@ -579,7 +587,7 @@ private fun duelScene(s: Story.Duel, o: CardOptions, a: Art): Scene {
     val keys = sa.keys.filter { it in sb }.take(7)
     val left = if (en) SW * 0.26f else SW * 0.74f; val right = SW - left
     val captionY = SH - 270f
-    return Scene(SW, SH, bg) { c, clk ->
+    return Scene(SW, SH, bg, ca, cb) { c, clk ->
         c.enter(clk.at(0.1f), 80f, 150f) {
             val la = s.a.o("mainLeague").s("leagueName"); val lb = s.b.o("mainLeague").s("leagueName")
             text(c, L("مقایسه بازیکنان") + if (la != null && la == lb) " · " + leagueName(0, la) else "", SW / 2f, 90f, 32f, look.sub, a.bold, SW - 160)
@@ -754,7 +762,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
             }
             if (story !is Story.Lineup) {
                 StudioLabel(L("طرح"))
-                val hc = art?.card?.hc ?: accent.toArgb(); val ac = art?.card?.ac ?: deep(accent)
+                val hc = art?.card?.hc ?: scene?.hc?.takeIf { it != 0 } ?: accent.toArgb(); val ac = art?.card?.ac ?: scene?.ac?.takeIf { it != 0 } ?: deep(accent)
                 LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(CARD_THEMES.size) { k ->
                         val t = CARD_THEMES[k]
