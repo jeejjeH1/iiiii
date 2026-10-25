@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
@@ -196,6 +197,15 @@ class Screens {
         }
         NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
         NavHook.nav?.rankings(); settle(9000); shot("50-rank-best")
+        // the team of the week: one league, further down, its story
+        tap("لالیگا", exact = true); settle(4000); shot("50c-week-laliga")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("50d-week-list")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(4) { swipeDown(durationMillis = 200) } } }; settle(800)
+        tap("۵ لیگ معتبر", exact = true); settle(3000)
+        runCatching { rule.onAllNodesWithContentDescription("اشتراک‌گذاری").let { n -> n[n.fetchSemanticsNodes().size - 1].performSemanticsAction(SemanticsActions.OnClick) } }
+        settle(12000); shot("50e-week-studio")
+        app.goallive.live.ui.StoryStudio.story = null; settle(800)
+        tap("برترین‌ها", exact = true); settle(1500)
         tap("توپ طلا", exact = true); settle(1500); shot("51-rank-ballon")
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1200); shot("51b-rank-ballon-down")
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500); swipeUp(durationMillis = 500) } }; settle(1200); shot("51c-rank-ballon-history")
