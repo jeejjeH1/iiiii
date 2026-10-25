@@ -39,20 +39,130 @@ private val GOLD = Color(0xFFF5C542)
 @Composable
 fun RankingsScreen() {
     val l = rememberLoader("rankings") { Api.get(RANKINGS_URL, 3 * 3_600_000L) as JSONObject }
-    var tab by rememberSaveable { mutableStateOf("best") }
+    var tab by rememberSaveable { mutableStateOf("week") }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             T(L("🏆 رتبه‌بندی گل‌لایو"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
-            Seg(listOf("best" to L("برترین‌ها"), "ballon" to L("توپ طلا"), "shoe" to L("کفش طلا")), tab) { tab = it }
+            Seg(listOf("week" to L("تیم هفته"), "best" to L("برترین‌ها"), "ballon" to L("توپ طلا"), "shoe" to L("کفش طلا")), tab) { tab = it }
         }
         item {
             LoadBox(l, 4) { d ->
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     when (tab) {
+                        "week" -> TeamOfWeek(d)
                         "best" -> BestPlayers(d)
                         "ballon" -> BallonDor(d)
                         else -> GoldenShoe(d)
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val TOP5_LEAGUES = listOf(47, 87, 55, 54, 53)
+
+/** Where each place of the 4-3-3 stands on the pitch (attacking upwards; 0..1 across, 0..1 down). */
+private fun slotSpot(slot: String, nth: Int): Pair<Float, Float> = when (slot) {
+    "GK" -> 0.5f to 0.88f
+    "RB" -> 0.87f to 0.67f
+    "LB" -> 0.13f to 0.67f
+    "CB" -> (if (nth == 0) 0.63f else 0.37f) to 0.7f
+    "CM" -> listOf(0.5f, 0.8f, 0.2f)[nth.coerceIn(0, 2)] to (if (nth == 0) 0.45f else 0.42f)
+    "RW" -> 0.82f to 0.17f
+    "LW" -> 0.18f to 0.17f
+    else -> 0.5f to 0.12f
+}
+
+private fun dayOf(iso: String): Long = runCatching { java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).parse(iso)!!.time + 12 * 3_600_000L }.getOrDefault(0L)
+
+/**
+ * "تیم هفته": the best eleven of the week by GoalLive rating, Monday to Sunday, from the big five leagues together or one league,
+ * in a 4-3-3 on a pitch, then the same eleven as a list with their goals and assists.
+ */
+@Composable
+private fun TeamOfWeek(d: JSONObject) {
+    val weeks = d.a("weeks").objs()
+    if (weeks.isEmpty()) { Card { T(L("تیم هفته بعد از به‌روزرسانی بعدی رتبه‌بندی اینجا می‌آید."), 13, color = C.mute, modifier = Modifier.padding(20.dp)) }; return }
+    var wk by rememberSaveable { mutableIntStateOf(0) }
+    var league by rememberSaveable { mutableIntStateOf(0) }
+    val w = weeks[wk.coerceIn(0, weeks.size - 1)]
+    val today = System.currentTimeMillis()
+    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(weeks.size) { k ->
+            val e = weeks[k]
+            val end = dayOf(e.s("end") ?: "")
+            val label = if (k == 0 && end + 12 * 3_600_000L >= today) L("این هفته (تا الان)")
+                else persianDate(dayOf(e.s("start") ?: ""), "d MMMM") + " – " + persianDate(end, "d MMMM")
+            val on = k == wk
+            Box(Modifier.clip(RoundedCornerShape(50)).background(if (on) LocalAccent.current else C.card2).clickable { wk = k }.padding(horizontal = 14.dp, vertical = 7.dp)) {
+                T(label, 13, FontWeight.Bold, if (on) LocalAccentInk.current else C.ink, maxLines = 1)
+            }
+        }
+    }
+    val leagues = TOP5_LEAGUES.filter { w.o("leagues")?.has(it.toString()) == true }
+    androidx.compose.foundation.lazy.LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val opts = listOf(0) + leagues
+        items(opts.size) { k ->
+            val id = opts[k]; val on = id == league
+            Row(Modifier.clip(RoundedCornerShape(50)).background(if (on) C.ink else C.card2).clickable { league = id }.padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (id != 0) LeagueLogo(id, 16.dp)
+                T(if (id == 0) L("۵ لیگ معتبر") else compName(id), 13, FontWeight.Bold, if (on) C.bg else C.ink, maxLines = 1)
+            }
+        }
+    }
+    val xi = (if (league == 0 || league !in leagues) w.a("all") else w.o("leagues")?.a(league.toString())).objs()
+    if (xi.isEmpty()) { Card { T(L("برای این هفته هنوز بازی کافی انجام نشده است."), 13, color = C.mute, modifier = Modifier.padding(20.dp)) }; return }
+    val star = xi.maxByOrNull { it.d("rating") ?: 0.0 }
+    TeamPitch(xi, star)
+    // the eleven as a list, best first
+    Card {
+        CardTitle(L("⭐ تیم هفته‌ی گل‌لایو"))
+        xi.sortedByDescending { it.d("rating") ?: 0.0 }.forEachIndexed { k, p ->
+            RankRow(k + 1, JSONObject(p.toString()).put("apps", p.i("games") ?: 1), first = k == 0, score = p.d("rating"))
+        }
+    }
+}
+
+@Composable
+private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?) {
+    val nav = LocalNav.current
+    Box(Modifier.fillMaxWidth().aspectRatio(0.78f).clip(RoundedCornerShape(22.dp))
+        .background(Brush.verticalGradient(listOf(Color(0xFF1F7A45), Color(0xFF17643A))))) {
+        androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+            val w = size.width; val h = size.height
+            for (k in 0 until 9) if (k % 2 == 0) drawRect(Color.White.copy(alpha = 0.04f), androidx.compose.ui.geometry.Offset(0f, h * k / 9), androidx.compose.ui.geometry.Size(w, h / 9))
+            val line = Color.White.copy(alpha = 0.35f); val st = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx())
+            drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.04f, h * 0.03f), androidx.compose.ui.geometry.Size(w * 0.92f, h * 0.94f), style = st)
+            drawLine(line, androidx.compose.ui.geometry.Offset(w * 0.04f, h * 0.5f), androidx.compose.ui.geometry.Offset(w * 0.96f, h * 0.5f), 2.dp.toPx())
+            drawCircle(line, w * 0.14f, androidx.compose.ui.geometry.Offset(w / 2, h / 2), style = st)
+            drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.03f), androidx.compose.ui.geometry.Size(w * 0.52f, h * 0.15f), style = st)
+            drawRect(line, androidx.compose.ui.geometry.Offset(w * 0.24f, h * 0.82f), androidx.compose.ui.geometry.Size(w * 0.52f, h * 0.15f), style = st)
+        }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val count = HashMap<String, Int>()
+            for (p in xi) {
+                val slot = p.s("slot") ?: "CM"
+                val n = count.getOrDefault(slot, 0); count[slot] = n + 1
+                val (fx, fy) = slotSpot(slot, n)
+                val isStar = p === star
+                // pitch spots are screen positions: left stays left in both languages
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                    Column(Modifier.width(84.dp).offset(x = maxWidth * fx - 42.dp, y = maxHeight * fy - 34.dp).clickable { nav.player(p.i("id") ?: 0) },
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box {
+                            Face(p.i("id") ?: 0, 46.dp, if (isStar) GOLD else Color.White, if (isStar) 3.dp else 2.dp)
+                            Box(Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-4).dp)) { Rating(p.d("rating"), small = true) }
+                            (p.i("team") ?: 0).takeIf { it > 0 }?.let { Box(Modifier.align(Alignment.BottomStart).offset(x = (-6).dp, y = 4.dp)) { Crest(it, 18.dp) } }
+                        }
+                        Box(Modifier.padding(top = 4.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 6.dp, vertical = 1.dp)) {
+                            T(personName(p.s("name") ?: "").split(" ").last(), 12, FontWeight.ExtraBold, if (isStar) GOLD else Color.White, maxLines = 1)
+                        }
+                        val ga = listOfNotNull((p.i("goals") ?: 0).takeIf { it > 0 }?.let { "⚽" + if (it > 1) fa(it) else "" },
+                            (p.i("assists") ?: 0).takeIf { it > 0 }?.let { "👟" + if (it > 1) fa(it) else "" }).joinToString(" ")
+                        if (ga.isNotEmpty()) T(ga, 12, color = Color.White, maxLines = 1)
                     }
                 }
             }

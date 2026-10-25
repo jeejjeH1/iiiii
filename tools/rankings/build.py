@@ -301,6 +301,55 @@ def find_ids(awards):
 STORE_PATH = 'store.json'
 
 
+# team of the week: a 4-3-3 of the best GoalLive ratings in the big five leagues, Monday to Sunday
+SLOTS = [('GK', ['GK']), ('RB', ['FB']), ('CB', ['CB']), ('CB', ['CB']), ('LB', ['FB']),
+         ('CM', ['DM', 'CM', 'AM']), ('CM', ['DM', 'CM', 'AM']), ('CM', ['DM', 'CM', 'AM']), ('RW', ['W']), ('ST', ['ST']), ('LW', ['W'])]
+NEAR = {'GK': [], 'FB': ['CB', 'DM'], 'CB': ['FB', 'DM'], 'DM': ['CM', 'CB'], 'CM': ['DM', 'AM'], 'AM': ['CM', 'W', 'ST'], 'W': ['AM', 'ST'], 'ST': ['W', 'AM']}
+
+
+def best_xi(matches):
+    """The week's eleven from these matches: each player once (the average of his games that week), 45 minutes or more."""
+    per = {}
+    for m in matches:
+        for pid, p in m['players'].items():
+            name, team, team_name, role, mins, rating, goals, assists = p
+            if mins < 45: continue
+            a = per.setdefault(pid, dict(id=int(pid), name=name, team=team, teamName=team_name, role=role, n=0, sum=0.0, goals=0, assists=0, league=m['league']))
+            a['n'] += 1; a['sum'] += rating; a['goals'] += goals; a['assists'] += assists
+    for a in per.values(): a['rating'] = round(a['sum'] / a['n'], 2)
+    pool = sorted(per.values(), key=lambda a: -a['rating'])
+    used, xi = set(), []
+    for slot, roles in SLOTS:
+        pick = next((a for a in pool if a['id'] not in used and a['role'] in roles), None)
+        if pick is None:  # nobody in the role: the closest role takes the place (never a keeper)
+            near = {r for x in roles for r in NEAR.get(x, [])}
+            pick = next((a for a in pool if a['id'] not in used and a['role'] in near), None)
+        if pick is None: continue
+        used.add(pick['id'])
+        xi.append(dict(slot=slot, id=pick['id'], name=pick['name'], team=pick['team'], teamName=pick['teamName'], role=pick['role'],
+                       rating=pick['rating'], goals=pick['goals'], assists=pick['assists'], games=pick['n'], league=pick['league']))
+    return xi
+
+
+def teams_of_week(matches, weeks=10):
+    """The last [weeks] weeks (the current one so far included): the best eleven of all five leagues and of each league."""
+    by = {}
+    for m in matches.values():
+        if m['league'] not in TOP5 or not m['players']: continue
+        d = dt.date(int(m['date'][:4]), int(m['date'][4:6]), int(m['date'][6:8]))
+        monday = d - dt.timedelta(days=d.weekday())
+        by.setdefault(monday, []).append(m)
+    out = []
+    for monday in sorted(by, reverse=True)[:weeks]:
+        ms = by[monday]
+        entry = dict(start=monday.isoformat(), end=(monday + dt.timedelta(days=6)).isoformat(), matches=len(ms), all=best_xi(ms), leagues={})
+        for lid in TOP5:
+            lm = [m for m in ms if m['league'] == lid]
+            if len(lm) >= 3: entry['leagues'][str(lid)] = best_xi(lm)
+        out.append(entry)
+    return out
+
+
 def main(store_path, out_path):
     global STORE_PATH
     STORE_PATH = store_path
@@ -330,7 +379,7 @@ def main(store_path, out_path):
         print(s['key'], 'matches', len(ms), 'ranked', len(top), flush=True)
     out = dict(updated=dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), current=SEASONS[-1]['key'], last=SEASONS[-2]['key'],
                order=[x['key'] for x in reversed(SEASONS)],
-               seasons=seasons, awards=awards)
+               seasons=seasons, awards=awards, weeks=teams_of_week(store['matches']))
     json.dump(out, open(out_path, 'w'), ensure_ascii=False, separators=(',', ':'))
 
 

@@ -1084,3 +1084,9 @@
 1083|Usual for the role: {0}%
 1084|Penalty conceded
 1085|Heavy team defeat
+1086|Team of the week
+1087|The team of the week appears here after the next rankings update.
+1088|This week (so far)
+1089|Big five leagues
+1090|Not enough matches played this week yet.
+1091|⭐ GoalLive team of the week
