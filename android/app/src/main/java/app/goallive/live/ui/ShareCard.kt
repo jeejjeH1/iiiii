@@ -825,7 +825,7 @@ internal fun drawFormation(title: String, sub: String, tone: Int, men: List<Pitc
     y += 92f
     text(c, sub, W / 2f, y, 34f, 0xCCFFFFFF.toInt(), bold, W - 120, 2)
     y += 70f
-    if (formation.isNotEmpty()) { pill(c, ltrDigits(formation), W / 2f, y, 30f, 0xFFFFFFFF.toInt(), 0x33FFFFFF, black, 300, 0x55FFFFFF); y += 80f }
+    if (formation.isNotEmpty()) { formationPill(c, formation, W / 2f, y, black); y += 80f }
     // the pitch
     val pl = 50f; val pr = W - 50f; val pt = y + 10f; val pb = H - (if (starLine != null) 250f else 170f)
     val pw = pr - pl; val ph = pb - pt
@@ -905,4 +905,19 @@ internal fun drawFormation(title: String, sub: String, tone: Int, men: List<Pitc
     logo?.let { p.color = 0xFFFFFFFF.toInt(); c.drawCircle(W / 2f + 92, fy + 26, 30f, p); c.drawBitmap(it, null, RectF(W / 2f + 66, fy, W / 2f + 118, fy + 52), null) }
     text(c, L("گل‌لایو"), W / 2f - 20, fy + 2, 40f, 0xFFFFFFFF.toInt(), black, 220)
     return bmp
+}
+
+/** The formation in a pill, its pieces drawn one after another left to right (Persian digits would otherwise reverse). */
+private fun formationPill(c: Canvas, f: String, cx: Float, top: Float, tf: Typeface) {
+    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 30f; typeface = tf; color = 0xFFFFFFFF.toInt() }
+    val parts = f.split("-"); val dash = tp.measureText(" - ")
+    val w = parts.sumOf { tp.measureText(it).toDouble() }.toFloat() + dash * (parts.size - 1)
+    val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33FFFFFF }
+    val r = RectF(cx - w / 2 - 30, top, cx + w / 2 + 30, top + 60)
+    c.drawRoundRect(r, 30f, 30f, p); p.style = Paint.Style.STROKE; p.strokeWidth = 2f; p.color = 0x55FFFFFF; c.drawRoundRect(r, 30f, 30f, p)
+    var x = cx - w / 2
+    parts.forEachIndexed { i, part ->
+        if (i > 0) { c.drawText(" - ", x, top + 41, tp); x += dash }
+        c.drawText(part, x, top + 41, tp); x += tp.measureText(part)
+    }
 }
