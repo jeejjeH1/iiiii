@@ -132,6 +132,8 @@ class CommentaryService : Service() {
     private fun name(e: JSONObject) = (e.o("player").s("lastName") ?: e.s("nameStr")?.substringAfterLast(' ') ?: e.o("player").s("name") ?: "")
         .let { if (app.goallive.live.Lang.en) it else app.goallive.live.data.FaNames.of(it) }
     private fun pick(vararg s: String) = s[rnd.nextInt(s.size)]
+    /** A last name as the voice should read it: in Persian letters for the Persian voice. */
+    private fun said(n: String) = if (app.goallive.live.Lang.en) n else app.goallive.live.data.FaNames.of(n)
 
     /** What to say about one match since the last check. */
     private fun lines(m: MatchData): List<String> {
@@ -165,7 +167,7 @@ class CommentaryService : Service() {
                         e.b("ownGoal") -> L("گل به خودی! {0} توپ را به دروازه خودشان زد. دقیقه {1}. {2}", name(e), min, score)
                         e.s("goalDescriptionKey") == "penalty" || (e.s("suffix") ?: "").contains("pen", true) -> L("پنالتی… و گل! {0} برای {1} گل زد. دقیقه {2}. {3}", name(e), tm, min, score)
                         else -> pick(L("گللللل! {0} برای {1}! دقیقه {2}.", name(e), tm, min), L("گل! چه گلی! {0} دروازه را باز کرد، دقیقه {1}.", name(e), min), L("توپ در دروازه است! {0} برای {1} گل زد!", name(e), tm)) +
-                            (e.s("assistInput")?.let { L(" پاس گل از {0}.", it.substringAfterLast(' ')) } ?: "") + " $score"
+                            (e.s("assistInput")?.let { L(" پاس گل از {0}.", said(it.substringAfterLast(' '))) } ?: "") + " $score"
                     }
                 }
                 "Card" -> when (e.s("card")) {
@@ -175,7 +177,7 @@ class CommentaryService : Service() {
                 }
                 "Substitution" -> if (!Commentary.importantOnly) {
                     val sw = e.a("swap").objs()
-                    out += L("تعویض در {0}: {1} به جای {2}.", tm, sw.getOrNull(0).s("name")?.substringAfterLast(' ') ?: "", sw.getOrNull(1).s("name")?.substringAfterLast(' ') ?: "")
+                    out += L("تعویض در {0}: {1} به جای {2}.", tm, said(sw.getOrNull(0).s("name")?.substringAfterLast(' ') ?: ""), said(sw.getOrNull(1).s("name")?.substringAfterLast(' ') ?: ""))
                 }
             }
         }
@@ -183,7 +185,7 @@ class CommentaryService : Service() {
         if (h + a < prev.h + prev.a && m.live) out += L("گل مردود شد! داور بعد از بررسی ویدیویی گل را قبول نکرد. نتیجه {0} {1}، {2} {3}.", hn, h, an, a)
         // big chances and the woodwork
         if (!Commentary.importantOnly) for (s in m.shots.filter { (it.s("id") ?: "") !in prev.shots && it.s("eventType") != "Goal" }.takeLast(2)) {
-            val who = s.s("lastName") ?: s.s("playerName")?.substringAfterLast(' ') ?: ""
+            val who = said(s.s("lastName") ?: s.s("playerName")?.substringAfterLast(' ') ?: "")
             val xg = s.d("expectedGoals") ?: 0.0
             out += when {
                 s.s("eventType") == "Post" -> L("وای! شوت {0} به تیرک خورد!", who)

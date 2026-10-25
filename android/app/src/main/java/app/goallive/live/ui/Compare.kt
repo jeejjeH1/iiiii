@@ -172,7 +172,7 @@ private fun PlayerTile(p: Profile?, color: Color, modifier: Modifier, onChange: 
         Face(p.id, 64.dp, color, 3.dp)
         Ltr(p.name, style = lat(16.sp, FontWeight.ExtraBold), align = TextAlign.Center, maxLines = 2)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            Crest(p.teamId, 16.dp); T(Clubs.get(p.teamId)?.fa ?: p.teamName, 11, color = C.mute, maxLines = 1)
+            Crest(p.teamId, 16.dp); T(teamName(p.teamId, p.teamName), 11, color = C.mute, maxLines = 1)
         }
         if (p.position.isNotEmpty()) T(p.position, 11, FontWeight.Bold, color)
         if (onChange != null) Pill(L("تغییر"), onClick = onChange)

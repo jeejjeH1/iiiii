@@ -32,17 +32,18 @@ object Translate {
     suspend fun toPersian(texts: List<String>): List<String> = withContext(Dispatchers.IO) {
         val todo = texts.filter { it.isNotBlank() && mem[it] == null }.distinct()
         // one request per ~3500 characters: lines joined by new lines come back in the same lines
-        var batch = ArrayList<String>(); var len = 0
+        // each line as asked (the key) and as sent (on one line, so the lines come back in order)
+        var batch = ArrayList<Pair<String, String>>(); var len = 0
         suspend fun flush() {
             if (batch.isEmpty()) return
-            val out = runCatching { request(batch.joinToString("\n")) }.getOrNull()?.split("\n")
-            if (out != null && out.size == batch.size) batch.zip(out).forEach { (en, fa) -> if (fa.isNotBlank()) mem[en] = fa.trim() }
-            else for (one in batch) runCatching { request(one) }.getOrNull()?.let { mem[one] = it.trim() }
+            val out = runCatching { request(batch.joinToString("\n") { it.second }) }.getOrNull()?.split("\n")
+            if (out != null && out.size == batch.size) batch.zip(out).forEach { (en, fa) -> if (fa.isNotBlank()) mem[en.first] = fa.trim() }
+            else for (one in batch) runCatching { request(one.second) }.getOrNull()?.let { mem[one.first] = it.trim() }
             batch = ArrayList(); len = 0
         }
         for (t in todo) {
             if (len + t.length > 3500) flush()
-            batch += t.replace('\n', ' '); len += t.length + 1
+            batch += t to t.replace('\n', ' '); len += t.length + 1
         }
         flush()
         if (todo.isNotEmpty()) save()

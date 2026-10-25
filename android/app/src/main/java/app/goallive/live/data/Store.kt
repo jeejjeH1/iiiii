@@ -97,6 +97,7 @@ object Store {
     fun toggleLeague(id: Int, name: String) {
         leagues = if (id in leagues) leagues - id else leagues + (id to name)
         writeMap("leagues", leagues)
+        onFollowChange?.invoke()
     }
 
     fun toggleMatch(id: Int) {

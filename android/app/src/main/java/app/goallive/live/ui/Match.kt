@@ -624,10 +624,10 @@ private fun InfoCard(m: MatchData) {
             add(Triple(Ic.trophy, L("رقابت"), leagueName(t.i("id") ?: m.leagueId, t.s("leagueName") ?: "") + (r?.let { if (it.all(Char::isDigit)) L(" · هفته {0}", fa(it)) else " · " + tr(it) } ?: "")))
         }
         ib.o("Stadium")?.let { s ->
-            add(Triple(Ic.stadium, L("ورزشگاه"), listOfNotNull(s.s("name"), s.s("city")).joinToString(L("، ")) + (s.i("capacity")?.let { L(" · ظرفیت {0}", "%,d".format(it)) } ?: "") +
+            add(Triple(Ic.stadium, L("ورزشگاه"), listOfNotNull(s.s("name")?.let { personName(it) }, s.s("city")?.let { personName(it) }).joinToString(L("، ")) + (s.i("capacity")?.let { L(" · ظرفیت {0}", "%,d".format(it)) } ?: "") +
                 (s.s("surface")?.let { if (it == "grass") L(" · چمن طبیعی") else L(" · چمن مصنوعی") } ?: "")))
         }
-        ib.o("Referee")?.s("text")?.let { add(Triple(Ic.whistle, L("داور"), it + (ib.o("Referee").s("country")?.let { c -> " · $c" } ?: ""))) }
+        ib.o("Referee")?.s("text")?.let { add(Triple(Ic.whistle, L("داور"), personName(it) + (ib.o("Referee").s("country")?.let { c -> " · " + tr(c).let { t -> if (t == c) personName(c) else t } } ?: ""))) }
         ib.i("Attendance")?.let { add(Triple(Ic.people, L("تماشاگر"), "%,d".format(it))) }
         m.content.o("weather")?.let { w -> w.d("temperature")?.let { t -> add(Triple(Ic.cloud, L("آب‌وهوا"), "${t.toInt()}° · ${tr(w.s("defaultTitle") ?: w.s("description"))}")) } }
     }
@@ -1007,13 +1007,13 @@ private fun TeamBar(t: JSONObject, color: Color, id: Int, onBoard: () -> Unit) {
 @Composable
 private fun Absentees(H: JSONObject, A: JSONObject) {
     val nav = LocalNav.current
-    val all = H.a("unavailable").objs().map { it to (H.s("name") ?: "") } + A.a("unavailable").objs().map { it to (A.s("name") ?: "") }
+    val all = H.a("unavailable").objs().map { it to teamName(H.i("id") ?: 0, H.s("name") ?: "") } + A.a("unavailable").objs().map { it to teamName(A.i("id") ?: 0, A.s("name") ?: "") }
     if (all.isEmpty()) return
     Card {
         CardTitle(L("غایبان"), sub = L("{0} بازیکن", all.size))
         all.forEachIndexed { i, (p, team) ->
             val type = p.o("unavailability").s("type")
-            val ret = p.o("unavailability").s("expectedReturn")?.let { L(" · بازگشت: ") + if (it == "Doubtful") L("نامشخص") else it } ?: ""
+            val ret = p.o("unavailability").s("expectedReturn")?.let { L(" · بازگشت: ") + if (it == "Doubtful") L("نامشخص") else returnFa(it) } ?: ""
             PersonRow(p.i("id") ?: 0, p.s("name") ?: "", "$team · " + when (type) { "injury" -> L("مصدوم"); "suspension" -> L("محروم"); else -> L("غایب") } + ret, first = i == 0,
                 trailing = { Icon(Ic.bandage, null, tint = C.live, modifier = Modifier.size(18.dp)) }) { nav.player(p.i("id") ?: 0) }
         }

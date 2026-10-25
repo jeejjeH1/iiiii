@@ -71,10 +71,11 @@ fun statusText(m: MatchItem): String = when {
     else -> ""
 }
 
+/** A number with up to [digits] decimals, in Persian digits with the Persian decimal mark (٫) in Persian. */
 fun dec(v: Double?, digits: Int = 2): String {
     if (v == null) return "–"
-    if (v == v.roundToInt().toDouble()) return v.roundToInt().toString()
-    return String.format(Locale.US, "%.${digits}f", v).trimEnd('0').trimEnd('.')
+    if (v == v.roundToInt().toDouble()) return fa(v.roundToInt())
+    return fa(String.format(Locale.US, "%.${digits}f", v).trimEnd('0').trimEnd('.'))
 }
 
 fun money(v: Long?): String {

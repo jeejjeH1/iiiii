@@ -80,10 +80,9 @@ fun StoryRow() {
     var tv by remember { mutableStateOf(false) }
     // five on home (the rest live on the «بیشتر» tab), so the row fits without scrolling
     val list = shortcuts().filter { it.key in HOME_KEYS }.sortedBy { HOME_KEYS.indexOf(it.key) }
-    LazyRow(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), horizontalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(horizontal = 2.dp)) {
-        items(list.size) { i ->
-            val s = list[i]
+    // spread over the width (a scrolling row cut the last circle off at the edge)
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        list.forEach { s ->
             Column(
                 Modifier.width(70.dp).clip(RoundedCornerShape(16.dp)).clickable { go(s.key, nav) { tv = true } }
                     .semantics(mergeDescendants = true) { role = Role.Button; contentDescription = L("{0}، {1}", s.title, s.sub) }.padding(vertical = 4.dp),

@@ -73,6 +73,8 @@ object Api {
         try {
             val text = fetch(url)
             val v = parse(text)
+            // a blocked or broken answer (an HTML page, an empty body) must not replace the last good copy
+            if (v !is JSONObject && v !is JSONArray) throw IOException("not JSON")
             mem[url] = System.currentTimeMillis() to v
             if (mem.size > 300) mem.keys.take(100).forEach { mem.remove(it) }
             runCatching { snapFile(url).writeText(text) }
@@ -118,7 +120,11 @@ object Api {
         // FotMob first: every second counts for goals, cards and line-ups; our server only when FotMob can't be reached
         if (System.currentTimeMillis() < directDownUntil) return runCatching { fetchRaw(url, fotmob = false) }.getOrElse { fetchRaw(direct, fotmob = true) }
         return try {
-            fetchRaw(direct, fotmob = true)
+            fetchRaw(direct, fotmob = true).also { t ->
+                // FotMob answering with a page instead of data (a block, a challenge) counts as down too
+                val c = t.trimStart().firstOrNull()
+                if (c != '{' && c != '[') throw IOException("FotMob answered without data")
+            }
         } catch (e: IOException) {
             directDownUntil = System.currentTimeMillis() + 2 * 60_000
             fetchRaw(url, fotmob = false)

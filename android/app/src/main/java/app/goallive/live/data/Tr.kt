@@ -1,7 +1,10 @@
 // Generated from assets/fa.js — English FotMob titles to Persian.
 package app.goallive.live.data
 
-fun tr(s: String?): String = if (s == null) "" else if (app.goallive.live.Lang.en) s else T[s] ?: T[s.trim()] ?: s
+fun tr(s: String?): String = if (s == null) "" else if (app.goallive.live.Lang.en) s else T[s] ?: T[s.trim()] ?: T_LOWER[s.trim().lowercase()] ?: s
+
+/** The same table without case, for titles FotMob capitalises differently ("Partly Cloudy"). */
+private val T_LOWER: Map<String, String> by lazy { T.entries.associate { it.key.lowercase() to it.value } }
 
 private val T: Map<String, String> = hashMapOf(
     // positions on a player's page

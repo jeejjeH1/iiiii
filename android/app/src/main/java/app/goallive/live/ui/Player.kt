@@ -138,7 +138,7 @@ private fun PlayerBody(id: Int, p: JSONObject) {
                     }
                     val kpis = ml.a("stats").objs().take(8).map { s ->
                         val v = s.d("value")
-                        tr(s.s("title")) to (if (v == null) "–" else if (v % 1 != 0.0) dec(v) else "${v.toInt()}")
+                        tr(s.s("title")) to fa(if (v == null) "–" else if (v % 1 != 0.0) dec(v) else "${v.toInt()}")
                     }
                     if (kpis.isNotEmpty()) { Divider(); Grid(kpis, 2, true) }
                 }

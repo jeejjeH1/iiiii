@@ -152,13 +152,14 @@ object LiveAlerts {
 
     /** One check. Returns the delay until the next one, or null when nothing is followed. */
     private suspend fun tick(ctx: Context, maxAge: Long): Long? {
-        if (Store.teams.isEmpty() && Store.matches.isEmpty() && Store.myTeam == null) { liveNow = emptyList(); liveSoon = false; return null }
+        if (Store.teams.isEmpty() && Store.matches.isEmpty() && Store.leagues.isEmpty() && Store.myTeam == null) { liveNow = emptyList(); liveSoon = false; return null }
         val now = System.currentTimeMillis()
         // yesterday + today covers late-night matches that run past midnight
         val lists = listOf(now - 86_400_000L, now).map { t ->
             runCatching { parseMatchList(Api.fm("matches", Api.matchesParams(dayKey(t)), if (t == now) maxAge else 10 * 60_000L)) }.getOrDefault(emptyList())
         }
-        val followed = lists.flatten().flatMap { it.matches }.filter { Store.follows(it) }.distinctBy { it.id }
+        // followed leagues bring their matches' goals, kick-offs and results too (line-ups only for followed teams and matches)
+        val followed = lists.flatten().flatMap { it.matches }.filter { Store.followsWithLeague(it) }.distinctBy { it.id }
             .filter { it.live || it.finished || (it.time - now in -3_600_000L..36 * 3_600_000L) }
 
         val state = runCatching { JSONObject(Store.prefs().getString("alertsState", "{}")!!) }.getOrDefault(JSONObject())
@@ -181,7 +182,7 @@ object LiveAlerts {
                 }
             }
             // line-ups come out about an hour before kick-off
-            if (Store.notifyLineups && !m.started && !cur.optBoolean("lu") && m.time - now in 0..80 * 60_000L) {
+            if (Store.notifyLineups && Store.follows(m) && !m.started && !cur.optBoolean("lu") && m.time - now in 0..80 * 60_000L) {
                 val d = runCatching { Api.fm("matchDetails", mapOf("matchId" to m.id), 30_000) }.getOrNull()
                 val lu = d?.path("content.lineup")
                 val starters = lu?.o("homeTeam")?.a("starters")?.length() ?: 0
@@ -197,8 +198,10 @@ object LiveAlerts {
         // forget matches older than two days
         state.keys().asSequence().toList().forEach { k -> if (now - (state.optJSONObject(k)?.optLong("t") ?: 0) > 2 * 86_400_000L) state.remove(k) }
         Store.prefs().edit().putString("alertsState", state.toString()).apply()
-        liveNow = followed.filter { it.live }
-        liveSoon = liveNow.isNotEmpty() || followed.any { !it.started && !it.cancelled && it.time - now in -15 * 60_000L..10 * 60_000L }
+        // the ten-second watcher is for the user's own teams and matches, not every match of a followed league
+        val own = followed.filter { Store.follows(it) }
+        liveNow = own.filter { it.live }
+        liveSoon = liveNow.isNotEmpty() || own.any { !it.started && !it.cancelled && it.time - now in -15 * 60_000L..10 * 60_000L }
 
         return when {
             followed.any { it.live } -> 60_000L
@@ -226,6 +229,7 @@ object LiveAlerts {
         }
         val title = L("⚽ گل! {0} {1} - {2} {3}", app.goallive.live.ui.teamName(m.home.id, m.home.name), fa(m.home.score), fa(m.away.score), app.goallive.live.ui.teamName(m.away.id, m.away.name))
         notify(ctx, m.id * 10 + 5, CH_GOALS, title, body.ifEmpty { m.leagueName }, m.id)
+        app.goallive.live.data.Telemetry.event("notify:goal")
     }
 
     fun notify(ctx: Context, id: Int, channel: String, title: String, text: String, matchId: Int) {

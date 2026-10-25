@@ -568,7 +568,7 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
         m.live -> L("{0} {1}، {2} {3}، زنده، {4}", hn, m.home.score ?: 0, an, m.away.score ?: 0, statusText(m))
         m.finished -> L("{0} {1}، {2} {3}، پایان بازی", hn, m.home.score ?: 0, an, m.away.score ?: 0)
         else -> L("{0} و {1}، {2} ساعت {3}", hn, an, persianDate(m.time, "EEEE d MMMM"), timeOf(m.time))
-    } + (sub?.let { L("، {0}", it) } ?: "")
+    } + (sub?.let { L("، {0}", personName(it)) } ?: "")
     val datePlace = showDate && !m.live && dayKey(m.time) != dayKey(System.currentTimeMillis())
     Box(Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = onClick)
         .semantics { contentDescription = desc }) {
@@ -607,7 +607,7 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
             }
             if (star) StarButton(Store.follows(m), { Store.toggleMatch(m.id) }, 16.dp, box = 26.dp) else Spacer(Modifier.width(26.dp))
         }
-        if (sub != null) T(sub, 12, color = C.faint, maxLines = 1, align = TextAlign.Center,
+        if (sub != null) T(personName(sub), 12, color = C.faint, maxLines = 1, align = TextAlign.Center,
             modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 1.dp, start = 50.dp, end = 34.dp).clearAndSetSemantics {})
         // live minute progress along the bottom edge
         val min = m.minute.substringBefore('+').filter(Char::isDigit).toIntOrNull()

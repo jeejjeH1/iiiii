@@ -89,7 +89,7 @@ private val LEAGUES = listOf(
 
 private fun leagueFa(id: Int, name: String) = when (id) {
     523 -> L("لیگ برتر ایران"); 47 -> L("لیگ برتر انگلیس"); 87 -> L("لالیگا"); 55 -> L("سری آ"); 54 -> L("بوندسلیگا"); 53 -> L("لوشامپیونه")
-    42 -> L("لیگ قهرمانان اروپا"); 73 -> L("لیگ اروپا"); 10216 -> L("لیگ کنفرانس اروپا"); 525 -> L("لیگ نخبگان آسیا"); else -> name
+    42 -> L("لیگ قهرمانان اروپا"); 73 -> L("لیگ اروپا"); 10216 -> L("لیگ کنفرانس اروپا"); 525 -> L("لیگ نخبگان آسیا"); else -> leagueName(id, name)
 }
 
 /** Everyday Persian nicknames, searched by their English name. */
@@ -102,7 +102,8 @@ private val NICKS = mapOf(
 )
 
 /** FotMob's English return dates ("Early January 2027", "Back in training") in Persian. */
-private fun returnFa(s: String): String {
+/** FotMob's expected return ("Late October", "Doubtful") in Persian. */
+fun returnFa(s: String): String {
     if (app.goallive.live.Lang.en) return s
     var t = s
     listOf("Back in training" to "به تمرین برگشته", "Doubtful" to "مشکوک به بازی", "Unknown" to "نامشخص", "Early" to "اوایل", "Mid" to "اواسط",
@@ -362,7 +363,7 @@ class Brain {
         val d = Api.fm("matchDetails", mapOf("matchId" to matchId), 120_000)
         val goals = d.path("content.matchFacts.events").a("events").objs().filter { it.s("type") == "Goal" }
         if (goals.isEmpty()) null else L("گل‌ها: ") + goals.joinToString(L("، ")) {
-            (it.o("player").s("name") ?: it.s("nameStr") ?: "") + " " + fa((it.s("time") ?: "") + "'") + if (it.b("ownGoal")) L(" (به خودی)") else ""
+            playerFa(it.o("player").s("name") ?: it.s("nameStr") ?: "") + " " + fa((it.s("time") ?: "") + "'") + if (it.b("ownGoal")) L(" (به خودی)") else ""
         }
     }.getOrNull()
 
@@ -416,30 +417,30 @@ class Brain {
                 if (hurt.isEmpty()) Msg(false, L("طبق FotMob، {0} الان بازیکن مصدومی ندارد.", name), links = links)
                 else Msg(false, L("مصدوم‌های {0}:\n", name) + hurt.joinToString("\n") { p ->
                     val inj = p.o("injury")
-                    "• ${p.s("name")}" + (inj.s("expectedReturn")?.let { L(" (بازگشت: {0})", returnFa(it)) } ?: "")
+                    "• ${playerFa(p.s("name"))}" + (inj.s("expectedReturn")?.let { L(" (بازگشت: {0})", returnFa(it)) } ?: "")
                 }, links = links)
             }
             has(q, "سرمربی", "مربی") -> {
                 val coach = td.d.o("squad").a("squad").objs().firstOrNull { it.s("title") == "coach" }?.a("members").objs().firstOrNull()?.s("name")
-                Msg(false, coach?.let { L("سرمربی {0}: {1}", name, it) } ?: L("نام سرمربی {0} پیدا نشد.", name), links = links)
+                Msg(false, coach?.let { L("سرمربی {0}: {1}", name, playerFa(it)) } ?: L("نام سرمربی {0} پیدا نشد.", name), links = links)
             }
             has(q, "پاس گل", "پاسور", "پاس") -> td.stat("Assists")?.let { p ->
-                Msg(false, L("بهترین پاسور {0} این فصل {1} است با {2} پاس گل.", name, p.s("name"), fa(dec(p.d("value"), 0))), links = listOf(Link(L("صفحه {0}", p.s("name"))) { it.player(p.i("id") ?: 0) }) + links)
+                Msg(false, L("بهترین پاسور {0} این فصل {1} است با {2} پاس گل.", name, playerFa(p.s("name")), fa(dec(p.d("value"), 0))), links = listOf(Link(L("صفحه {0}", playerFa(p.s("name")))) { it.player(p.i("id") ?: 0) }) + links)
             } ?: Msg(false, L("آمار پاس گل {0} در دسترس نیست.", name), links = links)
             has(q, "گلزن", "آقای گل", "گل زن", "بهترین بازیکن", "ستاره", "نمره") -> {
                 val top = td.stat("Top scorer"); val rated = td.stat("FotMob rating")
                 val lines = listOfNotNull(
-                    top?.let { L("بهترین گلزن {0} این فصل {1} است با {2} گل.", name, it.s("name"), fa(dec(it.d("value"), 0))) },
-                    rated?.let { L("بهترین نمره را {0} گرفته ({1}).", it.s("name"), dec(it.d("value"), 2)) },
+                    top?.let { L("بهترین گلزن {0} این فصل {1} است با {2} گل.", name, playerFa(it.s("name")), fa(dec(it.d("value"), 0))) },
+                    rated?.let { L("بهترین نمره را {0} گرفته ({1}).", playerFa(it.s("name")), fa(dec(it.d("value"), 2))) },
                 )
                 Msg(false, lines.joinToString("\n").ifEmpty { L("آمار بازیکنان {0} در دسترس نیست.", name) },
-                    links = listOfNotNull(top?.let { p -> Link(L("صفحه {0}", p.s("name"))) { it.player(p.i("id") ?: 0) } }) + links)
+                    links = listOfNotNull(top?.let { p -> Link(L("صفحه {0}", playerFa(p.s("name")))) { it.player(p.i("id") ?: 0) } }) + links)
             }
             has(q, "بازیکنان", "بازیکن ها", "لیست", "اسکواد", "ترکیب تیم") -> {
                 val groups = td.d.o("squad").a("squad").objs().filter { it.s("title") != "coach" }
                 val lines = mapOf("keepers" to L("دروازه‌بان‌ها"), "defenders" to L("مدافعان"), "midfielders" to L("هافبک‌ها"), "attackers" to L("مهاجمان"))
                 Msg(false, L("بازیکنان {0}:\n", name) + groups.joinToString("\n") { g ->
-                    "${lines[g.s("title")] ?: g.s("title")}: " + g.a("members").objs().joinToString(L("، ")) { it.s("name") ?: "" }
+                    "${lines[g.s("title")] ?: g.s("title")}: " + g.a("members").objs().joinToString(L("، ")) { playerFa(it.s("name")) }
                 }, links = links)
             }
             has(q, "ورزشگاه", "استادیوم", "زمین خانگی") -> {
@@ -453,8 +454,8 @@ class Brain {
             has(q, "قهرمان", "افتخار", "جام", "عنوان") -> {
                 val tl = td.d.o("history").a("trophyList").objs().sortedByDescending { it.i("won") ?: 0 }.filter { (it.i("won") ?: 0) > 0 }
                 if (tl.isEmpty()) Msg(false, L("افتخارات {0} در FotMob ثبت نشده.", name), links = links)
-                else Msg(false, L("افتخارات {0}:\n", name) + tl.take(8).joinToString("\n") { L("• {0}: {1} قهرمانی", tr(it.s("name")), fa(it.i("won") ?: 0)) +
-                    (it.s("seasonsWon")?.substringBefore(',')?.let { s -> L(" (آخرین بار {0})", fa(s)) } ?: "") }, links = links)
+                else Msg(false, L("افتخارات {0}:\n", name) + tl.take(8).joinToString("\n") { L("• {0}: {1} قهرمانی", (it.s("name") ?: "").let { n -> tr(n).takeIf { t -> t != n } ?: leagueName(0, n) }, fa(it.i("won") ?: 0)) +
+                    (it.s("seasonsWon")?.substringBefore(',')?.let { s -> L(" (آخرین بار {0})", fa(personName(s))) } ?: "") }, links = links)
             }
             has(q, "خانه", "خارج", "بیرون", "میزبان", "مهمان") -> {
                 fun rec(k: String) = td.table?.a(k).objs().firstOrNull { it.i("id") == id }?.let {
@@ -534,7 +535,7 @@ class Brain {
             append("${t.name}: ")
             t.row?.let { append(L("رتبه {0} در {1}، {2} امتیاز از {3} بازی، گل {4}", fa(it.i("idx") ?: 0), t.leagueName, fa(it.i("pts") ?: 0), fa(it.i("played") ?: 0), fa(it.s("scoresStr") ?: ""))) }
             if (t.form.isNotEmpty()) append(L("؛ فرم: {0}", formFa(t.form)))
-            t.stat("Top scorer")?.let { append(L("؛ گلزن برتر: {0} ({1})", it.s("name"), fa(it.i("value") ?: 0))) }
+            t.stat("Top scorer")?.let { append(L("؛ گلزن برتر: {0} ({1})", playerFa(it.s("name")), fa(it.i("value") ?: 0))) }
         }
         val better = when {
             a.ppg > b.ppg + 0.2 -> L("{0} این فصل نتایج بهتری گرفته.", a.name)
@@ -636,12 +637,12 @@ class Brain {
             }
             has(q, "پاس گل", "پاسور") -> top("Assists").let { t ->
                 if (t.isEmpty()) Msg(false, L("آمار پاس گل {0} هنوز منتشر نشده.", name), links = links)
-                else Msg(false, L("بهترین پاسورهای {0}:\n", name) + t.mapIndexed { k, p -> L("{0}. {1} ({2}) {3} پاس گل", fa(k + 1), p.s("name"), teamName(p.i("teamId") ?: 0, p.s("teamName") ?: ""), fa(p.i("value") ?: 0)) }.joinToString("\n"), links = links)
+                else Msg(false, L("بهترین پاسورهای {0}:\n", name) + t.mapIndexed { k, p -> L("{0}. {1} ({2}) {3} پاس گل", fa(k + 1), playerFa(p.s("name")), teamName(p.i("teamId") ?: 0, p.s("teamName") ?: ""), fa(p.i("value") ?: 0)) }.joinToString("\n"), links = links)
             }
             has(q, "آقای گل", "گلزن", "گل زن", "بهترین بازیکن") -> top("Top scorer").let { t ->
                 if (t.isEmpty()) Msg(false, L("آمار گلزنان {0} هنوز منتشر نشده.", name), links = links)
-                else Msg(false, L("گلزنان برتر {0}:\n", name) + t.mapIndexed { k, p -> L("{0}. {1} ({2}) {3} گل", fa(k + 1), p.s("name"), teamName(p.i("teamId") ?: 0, p.s("teamName") ?: ""), fa(p.i("value") ?: 0)) }.joinToString("\n"),
-                    links = t.firstOrNull()?.let { p -> listOf(Link(L("صفحه {0}", p.s("name"))) { it.player(p.i("id") ?: 0) }) }.orEmpty() + links)
+                else Msg(false, L("گلزنان برتر {0}:\n", name) + t.mapIndexed { k, p -> L("{0}. {1} ({2}) {3} گل", fa(k + 1), playerFa(p.s("name")), teamName(p.i("teamId") ?: 0, p.s("teamName") ?: ""), fa(p.i("value") ?: 0)) }.joinToString("\n"),
+                    links = t.firstOrNull()?.let { p -> listOf(Link(L("صفحه {0}", playerFa(p.s("name")))) { it.player(p.i("id") ?: 0) }) }.orEmpty() + links)
             }
             rows.isEmpty() -> Msg(false, L("جدول {0} در دسترس نیست.", name), links = links)
             has(q, "سقوط", "ته جدول", "آخر جدول", "قعر") -> Msg(false, L("ته جدول {0}:\n", name) + rows.takeLast(4).joinToString("\n") { rowTxt(it) }, links = links)
@@ -651,7 +652,7 @@ class Brain {
                     ?: Msg(false, L("{0} فقط {1} تیم دارد.", name, fa(rows.size)), links = links)
             }
             else -> Msg(false, L("صدر جدول {0}:\n", name) + rows.take(5).joinToString("\n") { rowTxt(it) } +
-                (top("Top scorer").firstOrNull()?.let { L("\nآقای گل: {0} با {1} گل", it.s("name"), fa(it.i("value") ?: 0)) } ?: ""), links = links)
+                (top("Top scorer").firstOrNull()?.let { L("\nآقای گل: {0} با {1} گل", playerFa(it.s("name")), fa(it.i("value") ?: 0)) } ?: ""), links = links)
         }
     }
 

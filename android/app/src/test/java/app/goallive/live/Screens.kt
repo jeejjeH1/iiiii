@@ -127,8 +127,9 @@ class Screens {
             tap("شوت‌ها", exact = true); settle(3000); shot("03b-match-shots")
             tap("بازیکنان", exact = true); settle(3000); shot("04b-match-players")
             tap("ترکیب", exact = true); settle(3000); shot("04-match-lineup")
-            tap(teamName(match.home.id, match.home.name), exact = true); settle(2000); shot("04c-lineup-one-team")
-            tap("فهرست"); settle(1500); shot("04d-lineup-list")
+            // the team switch inside the tab (the team's name elsewhere on the page opens the team)
+            runCatching { rule.onAllNodesWithText(teamName(match.home.id, match.home.name), substring = false).let { n -> if (n.fetchSemanticsNodes().size >= 3) n[1].performSemanticsAction(SemanticsActions.OnClick) } }
+            settle(2000); shot("04c-lineup-one-team")
             tap("ترکیب تو"); settle(3000); shot("04e-coach-guide")
             tap("فهمیدم"); settle(4000); shot("04e-coach")
             tap("رودررو", exact = true); settle(3000); shot("05-match-h2h")
