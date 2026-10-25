@@ -11,6 +11,12 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleOut
@@ -191,21 +197,24 @@ private fun NavGraphBuilder.screen(route: String, arguments: List<NamedNavArgume
 @Composable
 private fun TopBar(canBack: Boolean, nav: Nav) {
     val accent = LocalAccent.current
-    Row(Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // a quiet bar: the mark and the name on the main tabs (just the mark inside a page), a breathing live dot, two plain icons
+    val pulse by rememberInfiniteTransition(label = "live").animateFloat(0.35f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "p")
+    Row(Modifier.fillMaxWidth().height(54.dp).padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (canBack) IconBtn(Ic.back, L("بازگشت"), size = 22.dp) { nav.back() }
-        Row(Modifier.clickable { nav.tab("home") }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Image(painterResource(R.drawable.logo), null, Modifier.size(34.dp).glow(accent.copy(alpha = 0.35f), 8.dp, RoundedCornerShape(11.dp))
-                .clip(RoundedCornerShape(11.dp)))
-            T(L("گل‌لایو"), 20, FontWeight.Black)
-            Box(Modifier.border(1.dp, C.live, RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 1.dp)) {
-                Text("LIVE", color = C.live, style = lat(11.sp, FontWeight.Bold).copy(letterSpacing = 2.sp))
+        Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { nav.tab("home") }.padding(horizontal = 4.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            Image(painterResource(R.drawable.logo), null, Modifier.size(if (canBack) 26.dp else 28.dp).clip(RoundedCornerShape(8.dp)))
+            if (!canBack) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                T(L("گل‌لایو"), 18, FontWeight.Black)
+                Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(C.live))
             }
         }
         Spacer(Modifier.weight(1f))
-        IconBtn(Ic.search, L("جستجو")) { nav.tab("search") }
-        IconBtn(Ic.sliders, L("تنظیمات")) { nav.tab("settings") }
+        IconBtn(Ic.search, L("جستجو"), tint = C.mute, size = 21.dp) { nav.tab("search") }
+        IconBtn(Ic.sliders, L("تنظیمات"), tint = C.mute, size = 21.dp) { nav.tab("settings") }
     }
+    // a hairline under the bar, brightest in the middle
+    Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, C.line2, accent.copy(alpha = 0.25f), C.line2, Color.Transparent))))
 }
 
 /** ".nav": the floating pill tab bar. */
