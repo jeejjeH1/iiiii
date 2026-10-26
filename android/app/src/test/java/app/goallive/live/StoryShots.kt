@@ -122,6 +122,12 @@ class StoryShots {
                 for (row in 0..1) app.goallive.live.ui.drawSticker(c, k, 60f + i * 105f, 160f + row * 320f, 44f, 0xFF1E5BD8.toInt(), tf)
             }
             png("75-stickers", sheet)
+            // each sticker large on a clear ground, for the promo video
+            app.goallive.live.ui.STICKERS.filter { it.isNotEmpty() }.forEach { k ->
+                val b = Bitmap.createBitmap(400, 400, Bitmap.Config.ARGB_8888)
+                app.goallive.live.ui.drawSticker(Canvas(b), k, 200f, 200f, 130f, 0xFF1E5BD8.toInt(), tf)
+                png("76-sticker-$k", b)
+            }
         }
         // the match reel: a frame every two seconds
         (stories.firstOrNull { it.first == "match" }?.second as? Story.Match)?.let { st ->
