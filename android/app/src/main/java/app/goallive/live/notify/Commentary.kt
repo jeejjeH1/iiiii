@@ -230,7 +230,7 @@ class CommentaryService : Service() {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop = PendingIntent.getService(this, 79, Intent(this, CommentaryService::class.java).setAction(STOP), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CH)
-            .setSmallIcon(R.drawable.ic_stat_ball).setColor(0xFF9BEA00.toInt())
+            .setSmallIcon(R.drawable.ic_stat_ball).setColor(0xFF2BD576.toInt())
             .setContentTitle(L("🎙️ گزارش زنده گل‌لایو")).setContentText(text)
             .setOngoing(true).setSilent(true).setContentIntent(open)
             .addAction(0, L("توقف گزارش"), stop)
