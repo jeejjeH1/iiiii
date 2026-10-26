@@ -40,7 +40,7 @@ import kotlin.math.roundToInt
  */
 
 /** One finding: [home] is the side it is about (null for both). */
-class Insight(val icon: String, val title: String, val text: String, val home: Boolean?, val weight: Double)
+class Finding(val icon: String, val title: String, val text: String, val home: Boolean?, val weight: Double)
 
 /** A moment that turned the match. */
 class Turn(val minute: Int, val icon: String, val text: String, val home: Boolean?)
@@ -51,7 +51,7 @@ class Analysis(
     val pHome: Double, val pDraw: Double, val pAway: Double,
     /** The most likely scores, best first: (home, away, chance). */
     val likely: List<Triple<Int, Int, Double>>,
-    val insights: List<Insight>,
+    val insights: List<Finding>,
     val turns: List<Turn>,
 ) {
     val fair: Pair<Int, Int> get() = likely.firstOrNull()?.let { it.first to it.second } ?: (0 to 0)
@@ -113,7 +113,7 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
     val hG = m.home.i("score") ?: goals.count { it.b("isHome") }
     val aG = m.away.i("score") ?: goals.count { !it.b("isHome") }
     val live = m.live
-    val ins = ArrayList<Insight>()
+    val ins = ArrayList<Finding>()
     val turns = ArrayList<Turn>()
 
     // 1. the verdict: the result against the chances
@@ -127,16 +127,16 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
                 val pw = if (wHome) pH else pA
                 val wx = if (wHome) hXg else aXg; val lx = if (wHome) aXg else hXg
                 when {
-                    pw >= 0.6 -> ins += Insight("✅", sofar + L("برتری شایسته"), L("{0} موقعیت‌های بهتری ساخت (xG {1} در برابر {2}). از روی همین موقعیت‌ها، شانس بردش {3} بود.", w, x2(wx), x2(lx), pct(pw)), wHome, 100.0)
-                    pw <= 0.35 -> ins += Insight("🍀", sofar + L("برتری با کمک شانس"), L("{0} موقعیت‌های بهتری داشت (xG {1} در برابر {2})، ولی {3} کارآمدتر بود. شانس جلو افتادن {3} از روی موقعیت‌ها فقط {4} بود.", l, x2(lx), x2(wx), w, pct(pw)), wHome, 100.0)
-                    else -> ins += Insight("⚖️", sofar + L("برتری در بازی نزدیک"), L("موقعیت‌ها نزدیک بود (xG {0} در برابر {1}) و {2} توانست فرق را بسازد. شانس بردش {3} بود.", x2(wx), x2(lx), w, pct(pw)), wHome, 95.0)
+                    pw >= 0.6 -> ins += Finding("✅", sofar + L("برتری شایسته"), L("{0} موقعیت‌های بهتری ساخت (xG {1} در برابر {2}). از روی همین موقعیت‌ها، شانس بردش {3} بود.", w, x2(wx), x2(lx), pct(pw)), wHome, 100.0)
+                    pw <= 0.35 -> ins += Finding("🍀", sofar + L("برتری با کمک شانس"), L("{0} موقعیت‌های بهتری داشت (xG {1} در برابر {2})، ولی {3} کارآمدتر بود. شانس جلو افتادن {3} از روی موقعیت‌ها فقط {4} بود.", l, x2(lx), x2(wx), w, pct(pw)), wHome, 100.0)
+                    else -> ins += Finding("⚖️", sofar + L("برتری در بازی نزدیک"), L("موقعیت‌ها نزدیک بود (xG {0} در برابر {1}) و {2} توانست فرق را بسازد. شانس بردش {3} بود.", x2(wx), x2(lx), w, pct(pw)), wHome, 95.0)
                 }
             }
             abs(diff) >= 0.9 -> {
                 val bHome = diff > 0
-                ins += Insight("😤", sofar + L("{0} لایق برد بود", team(bHome)), L("xG {0} در برابر {1}: با این موقعیت‌ها شانس برد {2} {3} بود، ولی نتیجه مساوی شد.", x2(if (bHome) hXg else aXg), x2(if (bHome) aXg else hXg), team(bHome), pct(if (bHome) pH else pA)), bHome, 98.0)
+                ins += Finding("😤", sofar + L("{0} لایق برد بود", team(bHome)), L("xG {0} در برابر {1}: با این موقعیت‌ها شانس برد {2} {3} بود، ولی نتیجه مساوی شد.", x2(if (bHome) hXg else aXg), x2(if (bHome) aXg else hXg), team(bHome), pct(if (bHome) pH else pA)), bHome, 98.0)
             }
-            else -> ins += Insight("⚖️", sofar + L("تساوی منصفانه"), L("موقعیت‌های دو تیم نزدیک بود (xG {0} در برابر {1}) و مساوی نتیجه‌ی منطقی بازی است.", x2(hXg), x2(aXg)), null, 90.0)
+            else -> ins += Finding("⚖️", sofar + L("تساوی منصفانه"), L("موقعیت‌های دو تیم نزدیک بود (xG {0} در برابر {1}) و مساوی نتیجه‌ی منطقی بازی است.", x2(hXg), x2(aXg)), null, 90.0)
         }
     }
 
@@ -146,12 +146,12 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
         val txg = if (home) hXg else aXg
         val big = (if (home) hShots else aShots).filter { xg(it) >= 0.3 && it.s("eventType") != "Goal" }
         val d = own - txg
-        if (d >= 1.2) ins += Insight("🎯", L("تمام‌کنندگی عالی {0}", team(home)), L("{0} از موقعیت‌هایی به ارزش {1} گل، {2} گل زد؛ یعنی بیشتر از انتظار.", team(home), x2(txg), fa(own)), home, 70 + d * 10)
-        if (d <= -1.2) ins += Insight("😩", L("بی‌دقتی {0} جلوی دروازه", team(home)), L("موقعیت‌هایی به ارزش {0} گل ساخت و فقط {1} گل زد{2}.", x2(txg), fa(own),
+        if (d >= 1.2) ins += Finding("🎯", L("تمام‌کنندگی عالی {0}", team(home)), L("{0} از موقعیت‌هایی به ارزش {1} گل، {2} گل زد؛ یعنی بیشتر از انتظار.", team(home), x2(txg), fa(own)), home, 70 + d * 10)
+        if (d <= -1.2) ins += Finding("😩", L("بی‌دقتی {0} جلوی دروازه", team(home)), L("موقعیت‌هایی به ارزش {0} گل ساخت و فقط {1} گل زد{2}.", x2(txg), fa(own),
             if (big.isNotEmpty()) L("؛ {0} موقعیت عالی از دست رفت", fa(big.size)) else ""), home, 70 - d * 10)
-        else if (big.size >= 2) ins += Insight("🙈", L("موقعیت‌های سوخته‌ی {0}", team(home)), L("{0} موقعیت عالی (هر کدام با بیش از ۳۰٪ شانس گل) گل نشد؛ مجموعاً {1} xG.", fa(big.size), x2(big.sumOf(xg))), home, 50.0 + big.size * 4)
+        else if (big.size >= 2) ins += Finding("🙈", L("موقعیت‌های سوخته‌ی {0}", team(home)), L("{0} موقعیت عالی (هر کدام با بیش از ۳۰٪ شانس گل) گل نشد؛ مجموعاً {1} xG.", fa(big.size), x2(big.sumOf(xg))), home, 50.0 + big.size * 4)
         // a lot of possession and nothing to show
-        if (own == 0 && txg >= 1.5) ins += Insight("🧱", L("{0} راهی به گل پیدا نکرد", team(home)), L("با وجود {0} xG از {1} شوت، گلی نزد.", x2(txg), fa((if (home) hShots else aShots).size)), home, 60 + txg * 5)
+        if (own == 0 && txg >= 1.5) ins += Finding("🧱", L("{0} راهی به گل پیدا نکرد", team(home)), L("با وجود {0} xG از {1} شوت، گلی نزد.", x2(txg), fa((if (home) hShots else aShots).size)), home, 60 + txg * 5)
     }
 
     // 3. the keepers: goals prevented beyond what the shots on target were worth
@@ -163,8 +163,8 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
         val home = p.i("teamId") == m.homeId
         val name = personName(p.s("name") ?: "")
         val saves = playerStat(p, "saves")?.toInt() ?: 0
-        if (gp >= 0.8) ins += Insight("🧤", L("{0} دیوار شد", name), L("{0} سیو و {1} گل جلوگیری‌شده: بیشتر از آنچه از یک دروازه‌بان انتظار می‌رود، {2} را نجات داد.", fa(saves), x2(gp), team(home)), home, 65 + gp * 12)
-        if (gp <= -0.8) ins += Insight("😬", L("شب سخت {0}", name), L("از شوت‌هایی که روی دروازه‌اش آمد، حدود {0} گل بیشتر از انتظار خورد.", x2(-gp)), home, 55 - gp * 8)
+        if (gp >= 0.8) ins += Finding("🧤", L("{0} دیوار شد", name), L("{0} سیو و {1} گل جلوگیری‌شده: بیشتر از آنچه از یک دروازه‌بان انتظار می‌رود، {2} را نجات داد.", fa(saves), x2(gp), team(home)), home, 65 + gp * 12)
+        if (gp <= -0.8) ins += Finding("😬", L("شب سخت {0}", name), L("از شوت‌هایی که روی دروازه‌اش آمد، حدود {0} گل بیشتر از انتظار خورد.", x2(-gp)), home, 55 - gp * 8)
     }
 
     // xG a side made between two minutes
@@ -184,7 +184,7 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
                 val swing = if (before != null && after != null) (if (home) before - after else after - before) else null
                 turns += Turn(t, "🟥", L("اخراج {0}؛ {1} ده نفره شد", who, team(home)), home)
                 val oppXgAfter = xgIn(!home, t, end)
-                ins += Insight("🟥", L("اخراج دقیقه‌ی {0}", fa(t)), if (swing != null && swing > 15) L("بعد از اخراج {0}، بازی به سود {1} برگشت و {1} در باقی بازی {2} xG ساخت.", who, team(!home), x2(oppXgAfter))
+                ins += Finding("🟥", L("اخراج دقیقه‌ی {0}", fa(t)), if (swing != null && swing > 15) L("بعد از اخراج {0}، بازی به سود {1} برگشت و {1} در باقی بازی {2} xG ساخت.", who, team(!home), x2(oppXgAfter))
                     else L("{0} با اخراج {1} ده نفره شد؛ {2} در باقی بازی {3} xG ساخت.", team(home), who, team(!home), x2(oppXgAfter)), home, 75.0)
             }
             "Substitution" -> {
@@ -196,10 +196,10 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
                 // did the man who came on score or set one up?
                 val decisive = goals.any { g -> g.b("isHome") == home && minuteOf(g) >= t && (inId != null && (g.i("playerId") == inId || g.i("assistPlayerId") == inId)) }
                 if (decisive) {
-                    ins += Insight("🔄", L("تعویض طلایی"), L("{0} در دقیقه‌ی {1} وارد شد و در گل {2} نقش داشت.", inName, fa(t), team(home)), home, 72.0)
+                    ins += Finding("🔄", L("تعویض طلایی"), L("{0} در دقیقه‌ی {1} وارد شد و در گل {2} نقش داشت.", inName, fa(t), team(home)), home, 72.0)
                     turns += Turn(t, "🔄", L("ورود {0} برای {1}", inName, team(home)), home)
                 } else if (after >= 0.5 && after >= 2 * max(before, 0.1)) {
-                    ins += Insight("🔄", L("تعویضی که بازی را عوض کرد"), L("بعد از ورود {0} (دقیقه‌ی {1})، xG {2} در {3} دقیقه از {4} به {5} رسید.", inName, fa(t), team(home), fa(span), x2(before), x2(after)), home, 58 + after * 10)
+                    ins += Finding("🔄", L("تعویضی که بازی را عوض کرد"), L("بعد از ورود {0} (دقیقه‌ی {1})، xG {2} در {3} دقیقه از {4} به {5} رسید.", inName, fa(t), team(home), fa(span), x2(before), x2(after)), home, 58 + after * 10)
                     turns += Turn(t, "🔄", L("ورود {0}؛ {1} خطرناک‌تر شد", inName, team(home)), home)
                 }
             }
@@ -221,11 +221,11 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
         turns += Turn(t, "⚽", L("گل {0}: {1} {2} ({3})", who, team(home), what, fa("$h-$a")), home)
         // a late goal that settled the final result: the last goal, a draw it made or a one-goal win it gave
         if (!live && k == ordered.lastIndex && t >= 80 && (mine == theirs || mine == theirs + 1))
-            ins += Insight("⏱️", L("درام دقایق پایانی"), L("گل دقیقه‌ی {0} {1}، {2}.", fa(t), who, if (mine == theirs) L("بازی را مساوی کرد") else L("برنده را مشخص کرد")), home, 68.0)
+            ins += Finding("⏱️", L("درام دقایق پایانی"), L("گل دقیقه‌ی {0} {1}، {2}.", fa(t), who, if (mine == theirs) L("بازی را مساوی کرد") else L("برنده را مشخص کرد")), home, 68.0)
     }
     if (!live) {
-        if (hTrailed && hG >= aG) ins += Insight("💪", L("بازگشت {0}", hn), L("{0} عقب افتاده بود ولی {1}.", hn, if (hG > aG) L("بازی را برد") else L("نتیجه را مساوی کرد")), true, 74.0)
-        if (aTrailed && aG >= hG) ins += Insight("💪", L("بازگشت {0}", an), L("{0} عقب افتاده بود ولی {1}.", an, if (aG > hG) L("بازی را برد") else L("نتیجه را مساوی کرد")), false, 74.0)
+        if (hTrailed && hG >= aG) ins += Finding("💪", L("بازگشت {0}", hn), L("{0} عقب افتاده بود ولی {1}.", hn, if (hG > aG) L("بازی را برد") else L("نتیجه را مساوی کرد")), true, 74.0)
+        if (aTrailed && aG >= hG) ins += Finding("💪", L("بازگشت {0}", an), L("{0} عقب افتاده بود ولی {1}.", an, if (aG > hG) L("بازی را برد") else L("نتیجه را مساوی کرد")), false, 74.0)
     }
 
     // 6. where the danger came from: set pieces, long range
@@ -234,10 +234,10 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
         val tot = list.sumOf(xg)
         if (tot < 0.6 || list.size < 5) continue
         val sp = list.filter { it.s("situation") in SET_PIECES }.sumOf(xg)
-        if (sp / tot >= 0.45) ins += Insight("🚩", L("خطر ضربات ایستگاهی {0}", team(home)), L("{0} از xG {1} از کرنر و ضربه‌ی آزاد بود ({2} از {3}).", pct(sp / tot), team(home), x2(sp), x2(tot)), home, 45 + sp / tot * 20)
+        if (sp / tot >= 0.45) ins += Finding("🚩", L("خطر ضربات ایستگاهی {0}", team(home)), L("{0} از xG {1} از کرنر و ضربه‌ی آزاد بود ({2} از {3}).", pct(sp / tot), team(home), x2(sp), x2(tot)), home, 45 + sp / tot * 20)
         val far = list.count { !insideBox(it) }
         if (list.size >= 8 && far * 1.0 / list.size >= 0.55 && tot / list.size < 0.08)
-            ins += Insight("🎯", L("شوت‌های دور و کم‌خطر {0}", team(home)), L("{0} شوت از {1} شوت از بیرون محوطه بود؛ میانگین xG هر شوت فقط {2}.", fa(far), fa(list.size), x2(tot / list.size)), home, 42.0)
+            ins += Finding("🎯", L("شوت‌های دور و کم‌خطر {0}", team(home)), L("{0} شوت از {1} شوت از بیرون محوطه بود؛ میانگین xG هر شوت فقط {2}.", fa(far), fa(list.size), x2(tot / list.size)), home, 42.0)
     }
 
     // 7. possession that didn't pay, and a defence that held
@@ -246,25 +246,25 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
     if (!live && poss != null && hG != aG) {
         val wHome = hG > aG
         val wp = if (wHome) poss.first else poss.second
-        if (wp in 1..40) ins += Insight("🔁", L("برد با توپ کمتر"), L("{0} فقط با {1}٪ مالکیت برد؛ کیفیت از کمیت مهم‌تر بود.", team(wHome), fa(wp)), wHome, 55.0)
+        if (wp in 1..40) ins += Finding("🔁", L("برد با توپ کمتر"), L("{0} فقط با {1}٪ مالکیت برد؛ کیفیت از کمیت مهم‌تر بود.", team(wHome), fa(wp)), wHome, 55.0)
     }
     for (home in listOf(true, false)) {
         val conceded = if (home) aG else hG
         val oppXg = if (home) aXg else hXg
-        if (!live && conceded == 0 && oppXg >= 1.2) ins += Insight("🛡️", L("دفاع جانانه‌ی {0}", team(home)), L("حریف موقعیت‌هایی به ارزش {0} گل ساخت ولی {1} گلی نخورد.", x2(oppXg), team(home)), home, 60 + oppXg * 5)
+        if (!live && conceded == 0 && oppXg >= 1.2) ins += Finding("🛡️", L("دفاع جانانه‌ی {0}", team(home)), L("حریف موقعیت‌هایی به ارزش {0} گل ساخت ولی {1} گلی نخورد.", x2(oppXg), team(home)), home, 60 + oppXg * 5)
     }
 
     // 8. the player of the match, and a finisher beyond his chances
     ratings.values.filter { it.minutes >= 30 }.maxByOrNull { it.value }?.let { best ->
         val why = best.groups.take(2).joinToString(L(" و ")) { ratingGroupName(it.first) }
-        ins += Insight("⭐", L("ستاره‌ی بازی: {0}", personName(best.name)), L("نمره‌ی {0}، بیشترین سهمش از {1}.", fa(dec(best.value, 1)), why), best.home, 52 + (best.value - 7) * 8)
+        ins += Finding("⭐", L("ستاره‌ی بازی: {0}", personName(best.name)), L("نمره‌ی {0}، بیشترین سهمش از {1}.", fa(dec(best.value, 1)), why), best.home, 52 + (best.value - 7) * 8)
     }
     if (stats != null) for (k in stats.keys()) {
         val p = stats.optJSONObject(k) ?: continue
         val id = p.i("id") ?: k.toIntOrNull() ?: continue
         val g = goals.count { it.i("playerId") == id && !it.b("ownGoal") }
         val pxg = playerStat(p, "expected_goals") ?: continue
-        if (g >= 2 && g - pxg >= 1.0) ins += Insight("🔥", L("{0} بی‌رحم بود", personName(p.s("name") ?: "")), L("{0} گل از موقعیت‌هایی به ارزش فقط {1} xG.", fa(g), x2(pxg)), p.i("teamId") == m.homeId, 62.0 + g * 3)
+        if (g >= 2 && g - pxg >= 1.0) ins += Finding("🔥", L("{0} بی‌رحم بود", personName(p.s("name") ?: "")), L("{0} گل از موقعیت‌هایی به ارزش فقط {1} xG.", fa(g), x2(pxg)), p.i("teamId") == m.homeId, 62.0 + g * 3)
     }
 
     // 9. live: who is on top right now
@@ -275,7 +275,7 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
         val hx = xgIn(true, cur - 10, cur + 1); val ax = xgIn(false, cur - 10, cur + 1)
         if (recent != null && abs(recent) > 25) {
             val home = recent > 0
-            ins += Insight("📡", L("الان {0} مسلط است", team(home)), L("در ۱۰ دقیقه‌ی اخیر بیشتر در نیمه‌ی حریف بوده{0}.", if ((if (home) hx else ax) >= 0.4) L(" و {0} xG ساخته؛ گل نزدیک است", x2(if (home) hx else ax)) else ""), home, 110.0)
+            ins += Finding("📡", L("الان {0} مسلط است", team(home)), L("در ۱۰ دقیقه‌ی اخیر بیشتر در نیمه‌ی حریف بوده{0}.", if ((if (home) hx else ax) >= 0.4) L(" و {0} xG ساخته؛ گل نزدیک است", x2(if (home) hx else ax)) else ""), home, 110.0)
         }
     }
 
@@ -359,7 +359,7 @@ private fun FairResult(m: MatchData, an: Analysis) {
 }
 
 @Composable
-private fun InsightCard(x: Insight, m: MatchData) {
+private fun InsightCard(x: Finding, m: MatchData) {
     val color = when (x.home) { true -> m.homeColor; false -> m.awayColor; null -> C.mute }
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(22.dp)).height(IntrinsicSize.Min)) {
         Box(Modifier.width(5.dp).fillMaxHeight().background(color))
