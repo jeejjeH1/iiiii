@@ -1195,3 +1195,24 @@
 1194|GoalLive has a new face: a G with the ball at its heart and the "live" dot
 1195|Our own live ratings
 1196|During a match too, only GoalLive ratings are shown, with an overall rating for each team
+1197|Expected assists (xA)
+1198|Touches in opposition box
+1199|Fouls won
+1200|Accurate long balls
+1201|Accurate crosses
+1202|Blocked shots
+1203|Last-man tackles
+1204|Dribbled past
+1205|Mistakes
+1206|Dispossessed
+1207|High claims
+1208|Punches
+1209|Sweeper actions
+1210|Physical
+1211|Distance covered (km)
+1212|📈 More stats
+1213|Each team's player stats added up
+1214|📍 Average positions
+1215|Where each player stood on average
+1216|Both
+1217|{0} attack left to right

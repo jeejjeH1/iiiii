@@ -124,6 +124,9 @@ class Screens {
             tap("زنده", exact = true); settle(3000); shot("02b-match-pitch")
             tap("گزارش متنی", exact = true); settle(4000); shot("02c-match-commentary")
             tap("آمار", exact = true); settle(3000); shot("03-match-stats")
+            // further down: the extra team stats and the average positions
+            repeat(4) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(2500); shot("03c-stats-down$k") }
+            runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(8) { swipeDown(durationMillis = 200) } } }; settle(800)
             tap("شوت‌ها", exact = true); settle(3000); shot("03b-match-shots")
             tap("بازیکنان", exact = true); settle(3000); shot("04b-match-players")
             tap("ترکیب", exact = true); settle(3000); shot("04-match-lineup")

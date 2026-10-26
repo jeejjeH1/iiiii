@@ -686,3 +686,67 @@ private suspend fun heatPoints(matchId: Int): Map<Int, List<Pair<Float, Float>>>
         id to circle.findAll(raw).map { it.groupValues[1].toFloat() to it.groupValues[2].toFloat() }.toList()
     }.toMap()
 }
+
+/* ---------- 5. average positions ---------- */
+
+/**
+ * "میانگین جایگاه": where each starter stood on average, worked out from his heatmap points (as SofaScore shows it).
+ * Both teams on one pitch, the home side attacking left to right and the away side turned round to face it; a toggle
+ * shows one team on its own, with names. A tap on a player opens his page.
+ */
+@Composable
+fun AveragePositions(m: MatchData) {
+    val loaded by produceState<Map<Int, List<Pair<Float, Float>>>?>(heatCache[m.matchId], m.matchId) {
+        if (value == null) value = runCatching { heatPoints(m.matchId) }.getOrNull()?.also { heatCache[m.matchId] = it }
+    }
+    val all = loaded ?: return
+    val dots = remember(all, m.d) { averageDots(m, all) }
+    if (dots.size < 6) return
+    var show by rememberSaveable(m.matchId) { mutableStateOf("both") }
+    val nav = LocalNav.current
+    Card {
+        CardTitle(L("📍 میانگین جایگاه بازیکنان"), sub = L("جای هر بازیکن به‌طور میانگین در طول بازی"))
+        Box(Modifier.padding(horizontal = 12.dp)) {
+            Seg(listOf("both" to L("هر دو"), "home" to teamName(m.homeId, m.homeName), "away" to teamName(m.awayId, m.awayName)), show) { show = it }
+        }
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            BoxWithConstraints(Modifier.padding(12.dp).fillMaxWidth().aspectRatio(105f / 68f).clip(RoundedCornerShape(16.dp))) {
+                Canvas(Modifier.fillMaxSize()) {
+                    for (k in 0 until 12) drawRect(if (k % 2 == 0) Color(0xFF1C5A36) else Color(0xFF19512F), Offset(size.width * k / 12, 0f), Size(size.width / 12 + 1, size.height))
+                    pitchMarkings(false)
+                }
+                val w = maxWidth; val h = maxHeight
+                dots.filter { show == "both" || it.home == (show == "home") }.forEach { d ->
+                    val col = if (d.home) m.homeColor else m.awayColor
+                    val r = 13.dp
+                    Column(Modifier.absoluteOffset(w * (d.x / 105f) - 30.dp, h * (d.y / 68f) - r).width(60.dp).clickable { nav.player(d.id) },
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(r * 2).clip(CircleShape).background(col).border(1.5.dp, if (d.home) Color.White else Color(0xFF0B0F14), CircleShape),
+                            contentAlignment = Alignment.Center) { T(fa(d.number), 12, FontWeight.Black, inkOn(col)) }
+                        if (show != "both") T(d.name, 12, FontWeight.Bold, Color.White, maxLines = 1, align = TextAlign.Center)
+                    }
+                }
+            }
+        }
+        T(L("{0} از چپ به راست حمله می‌کند", teamName(m.homeId, m.homeName)), 12, color = C.mute,
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp), align = TextAlign.Center)
+    }
+}
+
+private class AvgDot(val id: Int, val number: String, val name: String, val x: Float, val y: Float, val home: Boolean)
+
+/** Each starter's mean heatmap point; heatmaps all attack left to right, so the away side is turned round. */
+private fun averageDots(m: MatchData, all: Map<Int, List<Pair<Float, Float>>>): List<AvgDot> {
+    val stats = m.content.o("playerStats")
+    val lu = m.content.o("lineup")
+    return listOf(true, false).flatMap { home ->
+        lu.o(if (home) "homeTeam" else "awayTeam").a("starters").objs().mapNotNull { p ->
+            val id = p.i("id") ?: return@mapNotNull null
+            val opta = stats?.optJSONObject(id.toString())?.s("optaId")?.toIntOrNull() ?: return@mapNotNull null
+            val pts = all[opta]?.takeIf { it.size >= 3 } ?: return@mapNotNull null
+            val ax = pts.map { it.first }.average().toFloat(); val ay = pts.map { it.second }.average().toFloat()
+            AvgDot(id, p.s("shirtNumber") ?: "", personName(p.s("lastName") ?: (p.s("name") ?: "").substringAfterLast(' ')),
+                if (home) ax else 105f - ax, if (home) ay else 68f - ay, home)
+        }
+    }
+}

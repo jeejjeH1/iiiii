@@ -721,6 +721,81 @@ private fun StatsTab(m: MatchData) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) { g.a("stats").objs().forEach { st -> StatRow(st, m.homeColor, m.awayColor) } }
         }
     }
+    // the rest of the picture, built from every player's own numbers (whole match only: players' stats are not split by half)
+    if (period == "All") {
+        val have = periods.o("All").a("stats").objs().flatMap { it.a("stats").objs() }.mapNotNull { it.s("key") }.toSet()
+        MoreTeamStats(m, have)
+    }
+    if (m.started) AveragePositions(m)
+}
+
+/** One team total that FotMob's team stats leave out; [better] is 1 when more is good for the team, -1 when less is. */
+private class Extra(val key: String, val title: String, val better: Int = 1, val digits: Int = 0, val km: Boolean = false)
+
+private val EXTRA_GROUPS: List<Pair<String, List<Extra>>> get() = listOf(
+    L("ساختن موقعیت") to listOf(Extra("chances_created", L("پاس کلیدی")), Extra("expected_assists", L("پاس گل مورد انتظار (xA)"), digits = 2),
+        Extra("touches_opp_box", L("لمس توپ در محوطه حریف")), Extra("was_fouled", L("خطای گرفته"))),
+    L("پاس و بازی‌سازی") to listOf(Extra("passes_into_final_third", L("پاس به یک‌سوم حمله")), Extra("line_breaking_passes", L("پاس خط‌شکن")),
+        Extra("long_balls_accurate", L("توپ بلند دقیق")), Extra("accurate_crosses", L("سانتر دقیق"))),
+    L("دفاع") to listOf(Extra("recoveries", L("بازپس‌گیری توپ")), Extra("interceptions", L("قطع توپ")), Extra("clearances", L("دفع توپ")),
+        Extra("shot_blocks", L("شوت بلاک‌شده")), Extra("last_man_tackle", L("تکل آخرین مدافع")), Extra("dribbled_past", L("دریبل خورده"), better = -1)),
+    L("اشتباه‌ها") to listOf(Extra("dispossessed", L("توپ از دست داده"), better = -1), Extra("errors_led_to_goal", L("اشتباه منجر به گل"), better = -1),
+        Extra("conceded_penalties", L("پنالتی داده"), better = -1)),
+    L("دروازه‌بانی") to listOf(Extra("goals_prevented", L("گل جلوگیری‌شده"), digits = 2), Extra("keeper_high_claim", L("مهار توپ هوایی")),
+        Extra("punches", L("مشت زدن توپ")), Extra("keeper_sweeper", L("خروج از محوطه"))),
+    L("بدنی") to listOf(Extra("physical_metrics_distance_covered", L("مسافت دویده (کیلومتر)"), digits = 1, km = true),
+        Extra("physical_metrics_number_of_sprints", L("دوی سرعت"))),
+)
+
+/**
+ * "آمار تکمیلی": the team numbers a fan finds on SofaScore but not in FotMob's team stats (key passes, recoveries, balls lost,
+ * goals prevented, distance run…), added up from every player's stats in this match. Rows FotMob already shows are left out.
+ */
+@Composable
+private fun MoreTeamStats(m: MatchData, have: Set<String>) {
+    val stats = m.content.o("playerStats") ?: return
+    val lu = m.content.o("lineup") ?: return
+    val totals = remember(m.d) {
+        val side = HashMap<Int, Boolean>()
+        for ((k, home) in listOf("homeTeam" to true, "awayTeam" to false)) lu.o(k).let { t -> (t.a("starters").objs() + t.a("subs").objs()).forEach { p -> p.i("id")?.let { side[it] = home } } }
+        // key -> [home, away]; a key nobody has stays out
+        val out = HashMap<String, DoubleArray>()
+        for (k in stats.keys()) {
+            val home = side[k.toIntOrNull() ?: continue] ?: continue
+            for (g in stats.optJSONObject(k).a("stats").objs()) {
+                val all = g.o("stats") ?: continue
+                for (t in all.keys()) {
+                    val one = all.optJSONObject(t) ?: continue
+                    val key = one.s("key") ?: continue
+                    val v = one.o("stat").d("value") ?: continue
+                    out.getOrPut(key) { DoubleArray(2) }[if (home) 0 else 1] += v
+                }
+            }
+        }
+        out
+    }
+    val groups = EXTRA_GROUPS.map { (title, list) ->
+        title to list.filter { it.key !in have && totals[it.key]?.let { v -> v[0] != 0.0 || v[1] != 0.0 } == true }
+    }.filter { it.second.isNotEmpty() }
+    if (groups.isEmpty()) return
+    Card {
+        CardTitle(L("📈 آمار تکمیلی"), sub = L("جمع آمار بازیکنان هر تیم"))
+        groups.forEachIndexed { k, (title, list) ->
+            if (k > 0) Divider()
+            T(title, 13, FontWeight.ExtraBold, LocalAccent.current, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 2.dp))
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+                list.forEach { x ->
+                    val v = totals.getValue(x.key).let { if (x.km) doubleArrayOf(it[0] / 1000, it[1] / 1000) else it }
+                    fun show(d: Double) = if (x.digits == 0) "${d.roundToInt()}" else dec(d, x.digits).let { if (x.key == "goals_prevented" && d > 0) "+$it" else it }
+                    val hi = when { v[0] == v[1] -> null; (v[0] > v[1]) == (x.better > 0) -> "home"; else -> "away" }
+                    val row = JSONObject().put("title", x.title).put("stats", org.json.JSONArray(listOf(show(v[0]), show(v[1]))))
+                        .put("rawStats", org.json.JSONArray(listOf(JSONObject().put("value", v[0]), JSONObject().put("value", v[1]))))
+                    if (hi != null) row.put("highlighted", hi)
+                    StatRow(row, m.homeColor, m.awayColor)
+                }
+            }
+        }
+    }
 }
 
 @Composable
