@@ -50,7 +50,7 @@ private fun palette(tone: Int, accent: Int?): Palette {
 }
 
 /** What a design paints with. */
-private class Look(
+private class PosterLook(
     val ink: Int, val sub: Int,
     val plateTop: Int, val plateBottom: Int, val plateInk: Int, val plateEdge: Int,
     val badge: Int, val badgeInk: Int, val badgeEdge: Int,
@@ -64,23 +64,23 @@ private fun ca(c: Int, a: Float) = (c and 0x00FFFFFF) or ((a * 255).toInt().coer
 private const val WHITE = 0xFFFFFFFF.toInt()
 private const val GOLD = 0xFFF5C542.toInt()
 
-private fun look(theme: String, pl: Palette): Look {
+private fun posterLook(theme: String, pl: Palette): PosterLook {
     val d = pl.deep; val m = pl.main; val a = pl.accent
-    val dark = Look(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
+    val dark = PosterLook(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
         a, 0xFF0B0F14.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, ca(a, 0.5f))
     return when (theme) {
-        "neon" -> Look(WHITE, 0xB8FFFFFF.toInt(), 0xD90A0616.toInt(), 0xD90A0616.toInt(), WHITE, a, 0xFF05030C.toInt(), a, a, a, m, 0xFF05030C.toInt(),
+        "neon" -> PosterLook(WHITE, 0xB8FFFFFF.toInt(), 0xD90A0616.toInt(), 0xD90A0616.toInt(), WHITE, a, 0xFF05030C.toInt(), a, a, a, m, 0xFF05030C.toInt(),
             a, 90, ca(a, 0.6f), a, 0xFF0B0F14.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, ca(a, 0.7f))
-        "gold" -> Look(WHITE, 0xB8FFFFFF.toInt(), 0xFFFFF3C4.toInt(), 0xFFB8862B.toInt(), 0xFF1E1405.toInt(), 0xFF7A5410.toInt(), 0xFF120D04.toInt(),
+        "gold" -> PosterLook(WHITE, 0xB8FFFFFF.toInt(), 0xFFFFF3C4.toInt(), 0xFFB8862B.toInt(), 0xFF1E1405.toInt(), 0xFF7A5410.toInt(), 0xFF120D04.toInt(),
             0xFFE9C46A.toInt(), 0xFFE9C46A.toInt(), 0xFFE9C46A.toInt(), 0xFF4A3510.toInt(), 0xFF120D04.toInt(), 0xFFE9C46A.toInt(), 36, 0x80FFFFFF.toInt(),
             0xFFE9C46A.toInt(), 0xFF0B0F14.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, 0x80E9C46A.toInt())
-        "light" -> Look(d, ca(0xFF14181E.toInt(), 0.6f), m, d, WHITE, a, WHITE, d, d, m, WHITE, 0xFFDFE4EC.toInt(), d, 15, ca(0xFF0B1430.toInt(), 0.18f),
+        "light" -> PosterLook(d, ca(0xFF14181E.toInt(), 0.6f), m, d, WHITE, a, WHITE, d, d, m, WHITE, 0xFFDFE4EC.toInt(), d, 15, ca(0xFF0B1430.toInt(), 0.18f),
             d, WHITE, ca(0xFF0B1430.toInt(), 0.06f), d, WHITE, ca(0xFF0B1430.toInt(), 0.1f), 0x1F000000, formInk = ca(d, 0.85f))
-        "pitch" -> Look(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, WHITE, m, d, WHITE, 0, 0xBFFFFFFF.toInt(),
+        "pitch" -> PosterLook(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, WHITE, m, d, WHITE, 0, 0xBFFFFFFF.toInt(),
             WHITE, 0xFF0B2614.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, 0x66000000)
-        "minimal" -> Look(WHITE, 0xA6FFFFFF.toInt(), 0xF51E1F23.toInt(), 0xF51E1F23.toInt(), WHITE, a, 0xFF0E0F11.toInt(), a, 0x40FFFFFF, 0xD9FFFFFF.toInt(),
+        "minimal" -> PosterLook(WHITE, 0xA6FFFFFF.toInt(), 0xF51E1F23.toInt(), 0xF51E1F23.toInt(), WHITE, a, 0xFF0E0F11.toInt(), a, 0x40FFFFFF, 0xD9FFFFFF.toInt(),
             0xFF2A2C31.toInt(), 0xFF141518.toInt(), WHITE, 0, 0x1FFFFFFF, WHITE, 0xFF0E0F11.toInt(), 0x14FFFFFF, WHITE, 0x0FFFFFFF, 0x1FFFFFFF, 0, minimal = true)
-        else -> if (pl.pale) Look(d, ca(d, 0.65f), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
+        else -> if (pl.pale) PosterLook(d, ca(d, 0.65f), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
             a, 0xFF0B0F14.toInt(), ca(d, 0.08f), d, ca(d, 0.06f), ca(d, 0.14f), ca(a, 0.5f)) else dark
     }
 }
@@ -127,7 +127,7 @@ private fun outer(c: Canvas, theme: String, pl: Palette, W: Int, H: Int, mark: B
 }
 
 /** The panel the players stand on, with its lines; [both] marks the halfway line for two teams. */
-private fun panel(c: Canvas, theme: String, pl: Palette, lk: Look, r: RectF, both: Boolean, lower: Palette? = null) {
+private fun panel(c: Canvas, theme: String, pl: Palette, lk: PosterLook, r: RectF, both: Boolean, lower: Palette? = null) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     val clip = Path().apply { addRoundRect(r, 44f, 44f, Path.Direction.CW) }
     // the glow and the ring
@@ -198,7 +198,7 @@ private fun line(c: Canvas, s: String, cx: Float, cy: Float, size: Float, color:
 private fun width(s: String, size: Float, tf: Typeface) = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf }.measureText(s)
 
 /** A football: a white disc with the pentagon and its seams. */
-private fun ball(c: Canvas, cx: Float, cy: Float, r: Float) {
+private fun posterBall(c: Canvas, cx: Float, cy: Float, r: Float) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     p.color = WHITE; p.setShadowLayer(r * 0.4f, 0f, r * 0.2f, 0x66000000); c.drawCircle(cx, cy, r, p); p.clearShadowLayer()
     p.color = 0xFF111111.toInt()
@@ -230,7 +230,7 @@ private fun rateChip(c: Canvas, r: Double, right: Float, top: Float, size: Float
 }
 
 /** A round photo of [d] at ([cx], top [top]) on the design's disc, ringed; the best player's ring is gold and glows. */
-private fun photo(c: Canvas, face: Bitmap?, cx: Float, top: Float, d: Float, lk: Look, best: Boolean, ring: Float = 4f) {
+private fun photo(c: Canvas, face: Bitmap?, cx: Float, top: Float, d: Float, lk: PosterLook, best: Boolean, ring: Float = 4f) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     val cy = top + d / 2; val r = d / 2
     if (best) { p.shader = RadialGradient(cx, cy, r * 1.6f, intArrayOf(0xAAF5C542.toInt(), 0x00F5C542), null, Shader.TileMode.CLAMP); c.drawCircle(cx, cy, r * 1.6f, p); p.shader = null }
@@ -246,7 +246,7 @@ private fun photo(c: Canvas, face: Bitmap?, cx: Float, top: Float, d: Float, lk:
 }
 
 /** One player: the photo, a name plate with the shirt-number diamond, and his match in small marks round the photo. */
-private fun man(c: Canvas, m: PitchMan, cx: Float, top: Float, d: Float, lk: Look, best: Boolean, face: Bitmap?, crest: Bitmap?, tf: Typeface) {
+private fun man(c: Canvas, m: PitchMan, cx: Float, top: Float, d: Float, lk: PosterLook, best: Boolean, face: Bitmap?, crest: Bitmap?, tf: Typeface) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     val pw = d + 34; val ph = Math.round(d * 0.3f).toFloat(); val fs = Math.round(ph * 0.5f).toFloat(); val nb = Math.round(ph * 1.12f).toFloat()
     val left = cx - pw / 2; val dl = cx - d / 2
@@ -258,7 +258,7 @@ private fun man(c: Canvas, m: PitchMan, cx: Float, top: Float, d: Float, lk: Loo
     val bs = Math.round(d * 0.17f).toFloat()
     var ey = top - bs * 0.1f
     val ex = dl - bs * 0.15f + bs / 2
-    repeat(min(3, m.goals)) { ball(c, ex, ey + bs / 2, bs / 2); ey += bs + 3 }
+    repeat(min(3, m.goals)) { posterBall(c, ex, ey + bs / 2, bs / 2); ey += bs + 3 }
     repeat(min(2, m.assists)) {
         p.color = 0xFF14B866.toInt(); p.setShadowLayer(8f, 0f, 3f, 0x66000000); c.drawCircle(ex, ey + bs / 2, bs / 2, p); p.clearShadowLayer()
         line(c, if (Lang.en) "A" else "پ", ex, ey + bs / 2, bs * 0.55f, WHITE, tf, bs); ey += bs + 3
@@ -316,7 +316,7 @@ private fun man(c: Canvas, m: PitchMan, cx: Float, top: Float, d: Float, lk: Loo
 }
 
 /** The eleven in a box: [PitchMan]'s x / y (as the in-app pitch has them) spread over it, forwards at the top, or at the bottom when [flip]. */
-private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, d: Float, lk: Look, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
+private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, d: Float, lk: PosterLook, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
                      tf: Typeface, clk: Clock, start: Float, flip: Boolean = false) {
     val ph = Math.round(d * 0.3f); val block = d + ph * 0.6f
     val best = men.firstOrNull { it.star }
@@ -333,7 +333,7 @@ private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, d: Float, lk: L
 }
 
 /** A capsule: the logo on a white disc and [s]. */
-private fun capsule(c: Canvas, s: String, cx: Float, top: Float, size: Float, bg: Int, ink: Int, tf: Typeface, logo: Bitmap?, tail: String = "", tailTf: Typeface? = null): Float {
+private fun posterCapsule(c: Canvas, s: String, cx: Float, top: Float, size: Float, bg: Int, ink: Int, tf: Typeface, logo: Bitmap?, tail: String = "", tailTf: Typeface? = null): Float {
     val lg = size * 1.3f; val tw = width(s, size, tf); val tail2 = if (tail.isEmpty()) 0f else width(tail, size * 0.78f, tailTf ?: tf) + 12
     val w = lg + 12 + tw + tail2 + size * 1.6f; val h = lg + 16
     val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = bg }
@@ -364,7 +364,7 @@ private fun formationText(c: Canvas, f: String, x: Float, top: Float, size: Floa
 }
 
 /** The result: both crests, names and the score between them. */
-private fun scoreChip(c: Canvas, s: PosterScore, cx: Float, top: Float, size: Float, lk: Look, tf: Typeface, crests: Map<Int, Bitmap?>) {
+private fun scoreChip(c: Canvas, s: PosterScore, cx: Float, top: Float, size: Float, lk: PosterLook, tf: Typeface, crests: Map<Int, Bitmap?>) {
     val small = size * 0.75f
     val hn = teamName(s.homeId, s.home); val an = teamName(s.awayId, s.away)
     val score = fa("${s.hg} - ${s.ag}")
@@ -387,7 +387,7 @@ private fun scoreChip(c: Canvas, s: PosterScore, cx: Float, top: Float, size: Fl
 }
 
 /** The strip under the pitch: the substitutes who came on and the coach, or each league's best. */
-private fun benchStrip(c: Canvas, items: List<BenchMan>, label: String, r: RectF, lk: Look, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
+private fun benchStrip(c: Canvas, items: List<BenchMan>, label: String, r: RectF, lk: PosterLook, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
                        tf: Typeface, bold: Typeface, clk: Clock, start: Float) {
     if (items.isEmpty()) return
     c.enter(clk.at(start - 0.1f), r.top - 50, r.top) {
@@ -407,7 +407,7 @@ private fun benchStrip(c: Canvas, items: List<BenchMan>, label: String, r: RectF
             photo(c, faces[b.id], cx, r.top + 14, d, lk, false, 3f)
             b.rating?.let { rateChip(c, it, cx + d / 2 + 12, r.top + 8, 18f, tf) }
             var ey = r.top + 8; val ex = cx - d / 2 - 6 + 12
-            repeat(min(2, b.goals)) { ball(c, ex, ey + 12, 12f); ey += 27 }
+            repeat(min(2, b.goals)) { posterBall(c, ex, ey + 12, 12f); ey += 27 }
             repeat(min(2, b.assists)) { p.color = 0xFF14B866.toInt(); c.drawCircle(ex, ey + 12, 12f, p); line(c, if (Lang.en) "A" else "پ", ex, ey + 12, 13f, WHITE, tf, 24f); ey += 27 }
             b.crest?.let { id -> crests[id]?.let { cb ->
                 val bx = cx - d / 2 + 11; val by = r.top + 14 + d - 17
@@ -432,9 +432,9 @@ private fun benchStrip(c: Canvas, items: List<BenchMan>, label: String, r: RectF
 }
 
 /** The app's mark at the bottom: the logo, the name and its line. */
-private fun posterBrand(c: Canvas, clk: Clock, cx: Float, top: Float, lk: Look, tf: Typeface, bold: Typeface, logo: Bitmap?, small: Boolean = false) {
+private fun posterBrand(c: Canvas, clk: Clock, cx: Float, top: Float, lk: PosterLook, tf: Typeface, bold: Typeface, logo: Bitmap?, small: Boolean = false) {
     c.brand(clk, cx, top + 28) {
-        capsule(c, L("گل‌لایو"), cx, top, if (small) 24f else 28f, lk.chip, lk.chipInk, tf, logo, L("فوتبال به فارسی"), bold)
+        posterCapsule(c, L("گل‌لایو"), cx, top, if (small) 24f else 28f, lk.chip, lk.chipInk, tf, logo, L("فوتبال به فارسی"), bold)
     }
 }
 
@@ -451,7 +451,7 @@ internal fun posterScene(l: Story.Lineup, o: CardOptions, a: Art): Scene {
 private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf: Typeface): Scene {
     val post = o.format != CardFormat.STORY
     val W = 1080; val H = if (post) 1350 else 1920
-    val pl = palette(l.tone, l.accent); val lk = look(theme, pl)
+    val pl = palette(l.tone, l.accent); val lk = posterLook(theme, pl)
     val badge = l.crest?.let { a.crests[it] } ?: l.league?.let { a.leagues[it] }
     val chip = l.score != null
     val bench = l.bench
@@ -474,7 +474,7 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
         // the header
         c.enter(clk.at(0.1f), 0f, py) {
             var y = if (post) 26f else 40f
-            y += capsule(c, l.kicker.ifEmpty { L("ترکیب اصلی") }, W / 2f, y, if (post) 22f else 26f, lk.kick, lk.kickInk, tf, a.logo) + (if (post) 10f else 18f)
+            y += posterCapsule(c, l.kicker.ifEmpty { L("ترکیب اصلی") }, W / 2f, y, if (post) 22f else 26f, lk.kick, lk.kickInk, tf, a.logo) + (if (post) 10f else 18f)
             val ts = if (post) 62f else 84f; val cs = if (post) 70f else 96f
             val tw = min(W - 220f - (if (badge != null) cs else 0f), width(l.title, ts, tf))
             val row = tw + (if (badge != null) cs + 20 else 0f)
@@ -529,7 +529,7 @@ private fun bothPoster(l: Story.Lineup, r: Story.Lineup, theme: String, o: CardO
     val W = 1080; val H = 1920
     val home = if (l.home) l else r; val away = if (l.home) r else l
     val ph = palette(home.tone, null); val pa = palette(away.tone, null)
-    val lk = look(theme, if (theme == "team") pa.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else pa)
+    val lk = posterLook(theme, if (theme == "team") pa.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else pa)
     val cap = o.caption.isNotBlank()
     val pr = RectF(40f, 290f, 1040f, if (cap) 1752f else 1830f)
     val bg = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
@@ -550,7 +550,7 @@ private fun bothPoster(l: Story.Lineup, r: Story.Lineup, theme: String, o: CardO
     return Scene(W, H, bg, ph.main, pa.main) { c, clk ->
         c.enter(clk.at(0.1f), 0f, pr.top) {
             var y = 34f
-            y += capsule(c, l.kicker.ifEmpty { L("ترکیب دو تیم") }, W / 2f, y, 26f, lk.kick, lk.kickInk, tf, a.logo) + 16
+            y += posterCapsule(c, l.kicker.ifEmpty { L("ترکیب دو تیم") }, W / 2f, y, 26f, lk.kick, lk.kickInk, tf, a.logo) + 16
             val s = l.score
             val mid = y + 50
             val dir = if (Lang.en) -1f else 1f // home on the reading start
