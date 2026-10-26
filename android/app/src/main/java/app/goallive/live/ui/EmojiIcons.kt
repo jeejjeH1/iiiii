@@ -126,10 +126,10 @@ object EmojiIcons {
     }
 
     /** The icon for one emoji (with or without its variation selector), or null when there is none. */
-    fun of(e: String): ImageVector? = map0[e.replace("", "")]
+    fun of(e: String): ImageVector? = map0[e.replace("\uFE0F", "")]
 
     /** The few icons that keep a colour of their own: the cards and the gold star. */
-    fun tint(e: String): Color? = when (e.replace("", "")) {
+    fun tint(e: String): Color? = when (e.replace("\uFE0F", "")) {
         "🟥" -> Color(0xFFE5434B); "🟨" -> Color(0xFFF5C542); "★" -> Color(0xFFF5C542); else -> null
     }
 }
@@ -165,7 +165,7 @@ internal fun withIcons(s: String, color: Color): Pair<AnnotatedString, Map<Strin
         }
         i += n
         // a variation selector or a joiner after it belongs to the emoji
-        while (i < s.length && (s[i] == '' || s[i] == '‍')) i++
+        while (i < s.length && (s[i] == '\uFE0F' || s[i] == '\u200D')) i++
     }
     return b.toAnnotatedString() to inline
 }
