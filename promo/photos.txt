@@ -11,6 +11,7 @@ logo/leaguelogo/dark/87.png
 logo/teamlogo/6504.png
 logo/teamlogo/8463.png
 logo/teamlogo/8524.png
+logo/teamlogo/8588.png
 logo/teamlogo/8633.png
 logo/teamlogo/8634.png
 logo/teamlogo/9788.png
@@ -40,6 +41,7 @@ playerimages/1676901.png
 playerimages/1735453.png
 playerimages/1793874.png
 playerimages/1815149.png
+playerimages/254308.png
 playerimages/288406.png
 playerimages/361757.png
 playerimages/488139.png
