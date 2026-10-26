@@ -1200,6 +1200,8 @@ private fun ShotSlices(m: MatchData) {
     Card(pad = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
         T(L("شوت‌ها در هر ۱۵ دقیقه"), 15, FontWeight.ExtraBold)
         T(L("ستون‌ها xG هر تیم‌اند، عددها تعداد شوت"), 12, color = C.mute, modifier = Modifier.padding(bottom = 8.dp))
+        // time runs left to right, like the xG race above it
+        CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
         Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
             for (k in 0 until 6) Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -1211,6 +1213,7 @@ private fun ShotSlices(m: MatchData) {
                 }
                 T(names[k], 11, color = C.mute, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
             }
+        }
         }
         if (extra) T(L("شوت‌های وقت‌های اضافه در این نمودار نیامده"), 11, color = C.faint, modifier = Modifier.padding(top = 6.dp))
     }
