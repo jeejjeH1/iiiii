@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -78,7 +79,7 @@ class Proj(val w: Float, val h: Float, val v0: Float, val v1: Float, val tilt: B
         return Offset(0.5f + (p.x - w / 2) / (wide * sc), v)
     }
     /** A player's radius at depth [v]: bigger when less of the pitch is in view. */
-    fun r(v: Float) = wide * 0.032f * (1f / (v1 - v0)).pow(0.35f) * s(v)
+    fun r(v: Float) = wide * 0.042f * (1f / (v1 - v0)).pow(0.35f) * s(v)
     /** Pixels per metre across, at depth [v]. */
     fun perMetre(v: Float) = wide * s(v) / 68f
 }
@@ -142,7 +143,7 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
         val wPx = with(density) { wDp.toPx() }; val hPx = with(density) { hDp.toPx() }
         val proj = Proj(wPx, hPx, v0, v1, StudioPrefs.tilt)
         val projNow by rememberUpdatedState(proj)
-        Canvas(Modifier.size(wDp, hDp).pointerInput(Unit) {
+        Canvas(Modifier.size(wDp, hDp).clipToBounds().pointerInput(Unit) {
             awaitEachGesture {
                 val first = awaitFirstDown(requireUnconsumed = false)
                 val view0 = View2(ed.zoom, ed.pan, Offset(size.width / 2f, size.height / 2f))
