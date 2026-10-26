@@ -15,6 +15,7 @@ jobs:
         with: { node-version: 20 }
       - run: npm i --no-save msedge-tts@2.1.0
       - run: node promo/voice.mjs
+        continue-on-error: true
       - name: Bazaar logo (the store's own icons)
         run: |
           cd promo/out
