@@ -245,9 +245,14 @@ fun Card(modifier: Modifier = Modifier, pad: PaddingValues = PaddingValues(0.dp)
 fun CardTitle(text: String, modifier: Modifier = Modifier, sub: String? = null, end: @Composable RowScope.() -> Unit = {}) {
     Row(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        T(text, 14, FontWeight.ExtraBold)
-        if (sub != null) T(sub, 12, FontWeight.Medium, C.mute)
-        Spacer(Modifier.weight(1f))
+        // a subtitle goes under the title: side by side, a long pair ran into each other
+        if (sub != null) Column(Modifier.weight(1f)) {
+            T(text, 14, FontWeight.ExtraBold, maxLines = 1)
+            T(sub, 12, FontWeight.Medium, C.mute, maxLines = 2)
+        } else {
+            T(text, 14, FontWeight.ExtraBold)
+            Spacer(Modifier.weight(1f))
+        }
         end()
     }
 }

@@ -69,12 +69,13 @@ class Screens {
             }
     }
 
-    private fun tap(text: String, exact: Boolean = false) {
+    private fun tap(text: String, exact: Boolean = false, first: Boolean = false) {
         val n = rule.onAllNodesWithText(text, substring = !exact)
         // call the click action directly: tabs scrolled out of view can't be touched
-        // the last match is the control further down the page (team names also appear in the hero)
+        // the last match is the control further down the page (team names also appear in the hero); [first] when the same
+        // words also head a card further down (the stats' «شوت‌ها» group)
         val count = n.fetchSemanticsNodes().size
-        if (count > 0) runCatching { n[count - 1].performSemanticsAction(SemanticsActions.OnClick) }
+        if (count > 0) runCatching { n[if (first) 0 else count - 1].performSemanticsAction(SemanticsActions.OnClick) }
     }
 
     private fun askAssistant(q: String) {
@@ -127,7 +128,9 @@ class Screens {
             // further down: the extra team stats and the average positions
             repeat(4) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(2500); shot("03c-stats-down$k") }
             runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(8) { swipeDown(durationMillis = 200) } } }; settle(800)
-            tap("شوت‌ها", exact = true); settle(3000); shot("03b-match-shots")
+            tap("شوت‌ها", exact = true, first = true); settle(3000); shot("03b-match-shots")
+            repeat(2) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(1500); shot("03d-shots-down$k") }
+            runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(6) { swipeDown(durationMillis = 200) } } }; settle(800)
             tap("بازیکنان", exact = true); settle(3000); shot("04b-match-players")
             // the players' stats as a table, one FotMob group at a time
             tap("حمله", exact = true); settle(2000); shot("04f-players-attack")

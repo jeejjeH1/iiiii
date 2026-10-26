@@ -1903,7 +1903,7 @@ private fun StatTable(list: List<JSONObject>, group: String, cols: List<String>,
     val sortKey: (JSONObject) -> Double = if (sortCol == "★") { p -> ratings[p.i("id") ?: 0]?.value ?: -1.0 } else { p -> statIn(p, group, sortCol).d("value") ?: -1.0 }
     val rows = list.sortedByDescending(sortKey)
     val head = 46.dp; val rowH = 46.dp; val colW = 78.dp
-    val stripe = { i: Int -> if (i % 2 == 1) C.card2.copy(alpha = 0.5f) else Color.Transparent }
+    val stripe = { i: Int -> if (i % 2 == 1) C.ink.copy(alpha = 0.045f) else Color.Transparent }
     Card {
         Row {
             Column(Modifier.width(140.dp)) {

@@ -566,18 +566,22 @@ private fun statsScene(s: Story.Stats, o: CardOptions, a: Art): Scene {
             val hn = raw.getOrNull(0).d("value") ?: hv.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0
             val an = raw.getOrNull(1).d("value") ?: av.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0
             c.enter(clk.at(1.0f + i * 0.12f, 0.5f), y, y + rh, 50f) {
-                text(c, tr(st.s("title")), SW / 2f, y, 30f, look.sub, a.bold, 560)
+                text(c, tr(st.s("title")), SW / 2f, y - 4f, 30f, look.sub, a.bold, 560)
                 text(c, fa(hv.substringBefore(' ')), xs(110f), y - 6f, 46f, if (hn > an) look.ink else look.sub, a.black, 200)
                 text(c, fa(av.substringBefore(' ')), xs(SW - 110f), y - 6f, 46f, if (an > hn) look.ink else look.sub, a.black, 200)
-                // two bars from the middle outwards, the leader's brighter
+                // one bar split by share: home from the reading start in its colour, away the rest in its own, the leader brighter
                 val tot = (hn + an).takeIf { it > 0 } ?: 1.0
-                val g = easeOut(clk.at(1.1f + i * 0.12f, 0.7f)); val half = 330f; val by = y + 50f
-                p.color = 0x22FFFFFF; c.drawRoundRect(RectF(SW / 2f - half, by, SW / 2f + half, by + 12f), 6f, 6f, p)
-                val wh = (half * hn / tot * 2 * g).toFloat().coerceAtMost(half); val wa = (half * an / tot * 2 * g).toFloat().coerceAtMost(half)
-                p.color = if (hn >= an) brighten(hc) else (hc and 0x00FFFFFF) or 0x99000000.toInt()
-                if (en) c.drawRoundRect(RectF(SW / 2f - wh, by, SW / 2f, by + 12f), 6f, 6f, p) else c.drawRoundRect(RectF(SW / 2f, by, SW / 2f + wh, by + 12f), 6f, 6f, p)
-                p.color = if (an >= hn) brighten(ac) else (ac and 0x00FFFFFF) or 0x99000000.toInt()
-                if (en) c.drawRoundRect(RectF(SW / 2f, by, SW / 2f + wa, by + 12f), 6f, 6f, p) else c.drawRoundRect(RectF(SW / 2f - wa, by, SW / 2f, by + 12f), 6f, 6f, p)
+                val g = easeOut(clk.at(1.1f + i * 0.12f, 0.7f)); val half = 330f; val by = y + 58f; val bh = 12f
+                val l = SW / 2f - half; val r = SW / 2f + half
+                p.color = 0x22FFFFFF; c.drawRoundRect(RectF(l, by, r, by + bh), bh / 2, bh / 2, p)
+                if (hn + an > 0) {
+                    val split = (2 * half * (hn / tot)).toFloat()
+                    val hw = split * g; val aw = (2 * half - split) * g
+                    p.color = if (hn >= an) brighten(hc) else (brighten(hc) and 0x00FFFFFF) or 0x8C000000.toInt()
+                    if (en) c.drawRoundRect(RectF(l, by, l + hw, by + bh), bh / 2, bh / 2, p) else c.drawRoundRect(RectF(r - hw, by, r, by + bh), bh / 2, bh / 2, p)
+                    p.color = if (an >= hn) brighten(ac) else (brighten(ac) and 0x00FFFFFF) or 0x8C000000.toInt()
+                    if (en) c.drawRoundRect(RectF(r - aw, by, r, by + bh), bh / 2, bh / 2, p) else c.drawRoundRect(RectF(l, by, l + aw, by + bh), bh / 2, bh / 2, p)
+                }
             }
         }
         extras(c, o, a, look, clk, captionY)
