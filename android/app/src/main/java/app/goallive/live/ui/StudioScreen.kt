@@ -206,10 +206,9 @@ private fun PitchArea(board: StudioBoard, ed: StudioEditor, ready: Boolean, modi
 @Composable
 private fun TeamChip(t: STeam, modifier: Modifier, dim: Boolean = false, onClick: () -> Unit) {
     Row(modifier.height(40.dp).clip(RoundedCornerShape(14.dp)).background(C.card2).border(1.dp, C.line2, RoundedCornerShape(14.dp)).clickable(onClick = onClick)
-        .padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        .padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         if (t.teamId > 0) Crest(t.teamId, 22.dp) else Box(Modifier.size(18.dp).clip(CircleShape).background(Color(t.color)).border(1.dp, Color.White.copy(alpha = 0.6f), CircleShape))
-        T(t.name, 13, FontWeight.ExtraBold, if (dim) C.faint else C.ink, maxLines = 1, modifier = Modifier.weight(1f))
-        Icon(Ic.down, null, Modifier.size(14.dp), tint = C.mute)
+        T(t.name, 12, FontWeight.ExtraBold, if (dim) C.faint else C.ink, maxLines = 1, modifier = Modifier.weight(1f))
     }
 }
 
