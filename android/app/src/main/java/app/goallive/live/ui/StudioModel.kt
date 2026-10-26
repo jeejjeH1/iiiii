@@ -72,6 +72,33 @@ class SMark(val kind: String, val pts: List<Offset>, val color: Int, val width: 
     }
 }
 
+/**
+ * One step of a move: where everyone stands and where the ball is when it ends; [dur] seconds to get there from the step before,
+ * the ball in the air on the way when [air]; [note] shown under the pitch; [paths] the routes drawn by finger (player key → points).
+ */
+class SFrame(val pos: Map<Int, Offset>, val ball: Offset, val air: Boolean = false, val dur: Float = 1.2f, val note: String = "",
+             val paths: Map<Int, List<Offset>> = emptyMap()) {
+    fun copy(pos: Map<Int, Offset> = this.pos, ball: Offset = this.ball, air: Boolean = this.air, dur: Float = this.dur, note: String = this.note,
+             paths: Map<Int, List<Offset>> = this.paths) = SFrame(pos, ball, air, dur, note, paths)
+    fun json(): JSONObject = JSONObject()
+        .put("pos", JSONObject().apply { pos.forEach { (k, o) -> put("$k", JSONArray().put(o.x.toDouble()).put(o.y.toDouble())) } })
+        .put("ball", JSONArray().put(ball.x.toDouble()).put(ball.y.toDouble())).put("air", air).put("dur", dur.toDouble()).put("note", note)
+        .put("paths", JSONObject().apply { paths.forEach { (k, ps) -> put("$k", JSONArray().apply { ps.forEach { put(it.x.toDouble()); put(it.y.toDouble()) } }) } })
+    companion object {
+        private fun pt(a: JSONArray?) = Offset(a?.optDouble(0, 0.5)?.toFloat() ?: 0.5f, a?.optDouble(1, 0.5)?.toFloat() ?: 0.5f)
+        fun of(j: JSONObject): SFrame {
+            val pos = HashMap<Int, Offset>()
+            j.optJSONObject("pos")?.let { o -> o.keys().forEach { k -> pos[k.toIntOrNull() ?: 0] = pt(o.optJSONArray(k)) } }
+            val paths = HashMap<Int, List<Offset>>()
+            j.optJSONObject("paths")?.let { o -> o.keys().forEach { k ->
+                val a = o.optJSONArray(k) ?: return@forEach
+                paths[k.toIntOrNull() ?: 0] = (0 until a.length() / 2).map { Offset(a.optDouble(2 * it).toFloat(), a.optDouble(2 * it + 1).toFloat()) }
+            } }
+            return SFrame(pos, pt(j.optJSONArray("ball")), j.optBoolean("air"), j.optDouble("dur", 1.2).toFloat(), j.optString("note"), paths)
+        }
+    }
+}
+
 /** What can be drawn, in the toolbar's order. */
 val MARK_KINDS = listOf("pass", "run", "dribble", "curve", "lob", "both", "zone", "rect", "circle", "dist", "hline", "text")
 
@@ -166,6 +193,9 @@ class StudioBoard {
     var away by mutableStateOf(STeam(L("حریف"), 0xFF1D4ED8.toInt(), 0xFFFFFFFF.toInt()))
     var showAway by mutableStateOf(true)
     var title by mutableStateOf("")
+    /** The steps of the move, and the one on the board now. */
+    val frames = mutableStateListOf<SFrame>()
+    var cur by mutableIntStateOf(0)
     /** Squads of the real teams on the board, for swapping a player in. */
     val squads = HashMap<Int, List<Triple<Int, String, String>>>()
 
@@ -178,6 +208,7 @@ class StudioBoard {
     val canRedo get() = version >= 0 && redoStack.isNotEmpty()
 
     fun json(): JSONObject = JSONObject()
+        .put("frames", JSONArray().apply { frames.forEach { put(it.json()) } }).put("cur", cur)
         .put("players", JSONArray().apply { players.forEach { put(it.json()) } })
         .put("marks", JSONArray().apply { marks.forEach { put(it.json()) } })
         .put("ball", JSONArray().put(ball.x.toDouble()).put(ball.y.toDouble()))
@@ -191,6 +222,9 @@ class StudioBoard {
         STeam.of(j.optJSONObject("home"))?.let { home = it }
         STeam.of(j.optJSONObject("away"))?.let { away = it }
         showAway = j.optBoolean("showAway", true); title = j.optString("title")
+        frames.clear(); j.optJSONArray("frames").objs().forEach { frames += SFrame.of(it) }
+        cur = j.optInt("cur").coerceIn(0, (frames.size - 1).coerceAtLeast(0))
+        if (frames.isEmpty()) frames += frameNow(null) else applyFrame(frames[cur])
         squads.clear()
         j.optJSONObject("squads")?.let { sq -> sq.keys().forEach { k ->
             val arr = sq.optJSONArray(k) ?: return@forEach
@@ -199,10 +233,11 @@ class StudioBoard {
     }
 
     /** Starts the history from what is on the board now. */
-    fun reset() { undoStack.clear(); redoStack.clear(); last = json().toString(); version++ }
+    fun reset() { syncOut(); undoStack.clear(); redoStack.clear(); last = json().toString(); version++ }
 
     /** After each finished change: a step to undo, and the board kept for next time. */
     fun commit() {
+        syncOut()
         val now = json().toString()
         if (now == last) return
         undoStack.addLast(last); if (undoStack.size > 80) undoStack.removeFirst()
@@ -220,7 +255,47 @@ class StudioBoard {
         home = STeam(L("تیم من"), 0xFFD7263D.toInt(), 0xFFFFFFFF.toInt()); away = STeam(L("حریف"), 0xFF1D4ED8.toInt(), 0xFFFFFFFF.toInt())
         players += plainEleven(0, home.formation); players += plainEleven(1, away.formation)
         ball = Offset(0.5f, 0.5f); showAway = true
+        frames.clear(); cur = 0; frames += frameNow(null)
     }
+
+    /* ---------- the steps ---------- */
+
+    /** The board as it stands, as a step (keeping [old]'s timing, note and routes). */
+    fun frameNow(old: SFrame?) = SFrame(players.associate { it.key to Offset(it.u, it.v) }, ball, old?.air ?: false, old?.dur ?: 1.2f, old?.note ?: "",
+        old?.paths?.filterKeys { k -> players.any { it.key == k } } ?: emptyMap())
+
+    /** Keeps what is on the board in the current step. */
+    fun syncOut() { if (frames.isEmpty()) { frames += frameNow(null); cur = 0 } else frames[cur.coerceIn(0, frames.size - 1)] = frameNow(frames.getOrNull(cur)) }
+
+    fun applyFrame(f: SFrame) {
+        players.forEach { p -> f.pos[p.key]?.let { p.u = it.x; p.v = it.y } }
+        ball = f.ball
+    }
+
+    /** Shows step [k] on the board. */
+    fun show(k: Int) {
+        if (frames.isEmpty()) return
+        syncOut(); cur = k.coerceIn(0, frames.size - 1); applyFrame(frames[cur])
+    }
+
+    /** A new step after this one, starting where this one ends. */
+    fun addFrame() { syncOut(); frames.add(cur + 1, frames[cur].copy(paths = emptyMap(), note = "", air = false)); cur += 1; commit() }
+
+    fun duplicateFrame(k: Int) { syncOut(); frames.add(k + 1, frames[k]); cur = k + 1; applyFrame(frames[cur]); commit() }
+
+    fun deleteFrame(k: Int) {
+        if (frames.size <= 1) return
+        syncOut(); frames.removeAt(k); cur = cur.coerceAtMost(frames.size - 1).let { if (it > k) it - 1 else it }.coerceIn(0, frames.size - 1)
+        applyFrame(frames[cur]); commit()
+    }
+
+    fun moveFrame(k: Int, by: Int) {
+        val to = k + by
+        if (to !in frames.indices) return
+        syncOut(); val f = frames.removeAt(k); frames.add(to, f); cur = to; applyFrame(frames[cur]); commit()
+    }
+
+    fun setFrame(k: Int, f: SFrame) { frames[k] = f; if (k == cur) applyFrame(f); commit() }
 
     /** Puts [t]'s eleven on [side], replacing what was there. */
     fun setSide(side: Int, t: LoadedTeam) {
@@ -239,6 +314,55 @@ class StudioBoard {
         ordered.forEachIndexed { k, p -> spots.getOrNull(k)?.let { p.u = it.x; p.v = it.y } }
         if (side == 0) home = STeam(home.name, home.color, home.ink, home.teamId, formation) else away = STeam(away.name, away.color, away.ink, away.teamId, formation)
     }
+
+    /* ---------- the move between steps ---------- */
+
+    /** Where everyone and the ball are at time [t] (in steps: 1.5 is half way from the second step to the third), and the ball's height. */
+    fun at(t: Float): BoardMoment {
+        val n = frames.size
+        if (n < 2) return BoardMoment(frames.firstOrNull()?.pos ?: emptyMap(), frames.firstOrNull()?.ball ?: ball, 0f, 0f)
+        val tc = t.coerceIn(0f, (n - 1).toFloat())
+        val k = kotlin.math.floor(tc).toInt().coerceIn(0, n - 2)
+        val f = tc - k
+        val e = easeInOut(f)
+        val f0 = frames[(k - 1).coerceAtLeast(0)]; val f1 = frames[k]; val f2 = frames[k + 1]; val f3 = frames[(k + 2).coerceAtMost(n - 1)]
+        val pos = HashMap<Int, Offset>()
+        for (p in players) {
+            val p1 = f1.pos[p.key] ?: continue
+            val p2 = f2.pos[p.key] ?: p1
+            val route = f2.paths[p.key]
+            pos[p.key] = if (route != null && route.size >= 2) along(route, e)
+                else catmull(f0.pos[p.key] ?: p1, p1, p2, f3.pos[p.key] ?: p2, e)
+        }
+        // the ball: rolled along the ground (quick off the foot, slowing), or flighted with an arc above its shadow
+        val b1 = f1.ball; val b2 = f2.ball
+        val eb = 1 - (1 - f) * (1 - f)
+        val travel = (b2 - b1).getDistance()
+        return if (f2.air) BoardMoment(pos, b1 + (b2 - b1) * f, kotlin.math.sin(Math.PI * f).toFloat() * (0.04f + travel * 0.35f), f * travel)
+        else BoardMoment(pos, if (travel < 0.002f) b2 else b1 + (b2 - b1) * eb, 0f, eb * travel)
+    }
+}
+
+/** Everyone's place at one moment of a move; the ball's [height] above the grass (pitch shares) and how far it has rolled. */
+class BoardMoment(val pos: Map<Int, Offset>, val ball: Offset, val height: Float, val roll: Float)
+
+fun easeInOut(t: Float) = if (t < 0.5f) 4 * t * t * t else 1 - (-2 * t + 2).let { it * it * it } / 2
+
+/** A smooth curve through four steps, at [t] between the middle two (so runs bend naturally instead of zig-zagging). */
+fun catmull(p0: Offset, p1: Offset, p2: Offset, p3: Offset, t: Float): Offset {
+    val t2 = t * t; val t3 = t2 * t
+    return (p1 * 2f + (p2 - p0) * t + (p0 * 2f - p1 * 5f + p2 * 4f - p3) * t2 + (p1 * 3f - p0 - p2 * 3f + p3) * t3) * 0.5f
+}
+
+/** The point [t] of the way along a drawn route, by length. */
+fun along(route: List<Offset>, t: Float): Offset {
+    val lens = (0 until route.size - 1).map { (route[it + 1] - route[it]).getDistance() }
+    val total = lens.sum()
+    if (total <= 0f) return route.last()
+    var d = t.coerceIn(0f, 1f) * total
+    for (i in lens.indices) { if (d <= lens[i] || i == lens.size - 1) return route[i] + (route[i + 1] - route[i]) * (if (lens[i] > 0) (d / lens[i]).coerceIn(0f, 1f) else 1f); d -= lens[i] }
+    return route.last()
+
 }
 
 /** A saved tactic in the phone's list. */
@@ -268,9 +392,17 @@ object StudioPrefs {
     var names by mutableStateOf(Store.prefs().getBoolean("studio.names", true))
     var snap by mutableStateOf(Store.prefs().getBoolean("studio.snap", false))
     var grass by mutableStateOf(Store.prefs().getString("studio.grass", "green") ?: "green")
+    /** Playing a move: speed, over and over, trails behind, the camera after the ball, the step before shown faintly. */
+    var speed by mutableFloatStateOf(Store.prefs().getFloat("studio.speed", 1f))
+    var loop by mutableStateOf(Store.prefs().getBoolean("studio.loop", false))
+    var trails by mutableStateOf(Store.prefs().getBoolean("studio.trails", true))
+    var follow by mutableStateOf(Store.prefs().getBoolean("studio.follow", false))
+    var onion by mutableStateOf(Store.prefs().getBoolean("studio.onion", true))
     val hidden = mutableStateListOf<String>()
     fun keep() = Store.prefs().edit().putBoolean("studio.tilt", tilt).putString("studio.range", range).putString("studio.style", style)
-        .putBoolean("studio.names", names).putBoolean("studio.snap", snap).putString("studio.grass", grass).apply()
+        .putBoolean("studio.names", names).putBoolean("studio.snap", snap).putString("studio.grass", grass)
+        .putFloat("studio.speed", speed).putBoolean("studio.loop", loop).putBoolean("studio.trails", trails).putBoolean("studio.follow", follow)
+        .putBoolean("studio.onion", onion).apply()
 }
 
 @Suppress("unused") private fun keepImports(j: JSONObject) = j.b("x") || j.d("x") != null

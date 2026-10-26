@@ -115,6 +115,11 @@ class StudioEditor {
     var textAt by mutableStateOf<Offset?>(null)
     var zoom by mutableFloatStateOf(1f)
     var pan by mutableStateOf(Offset.Zero)
+    /** The move playing: [playT] is the time in steps while it plays or is paused, null when editing. */
+    var playing by mutableStateOf(false)
+    var playT by mutableStateOf<Float?>(null)
+    /** The step whose menu is open. */
+    var frameMenu by mutableIntStateOf(-1)
 }
 
 /* ---------- the canvas ---------- */
@@ -143,6 +148,26 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
         val wPx = with(density) { wDp.toPx() }; val hPx = with(density) { hDp.toPx() }
         val proj = Proj(wPx, hPx, v0, v1, StudioPrefs.tilt)
         val projNow by rememberUpdatedState(proj)
+        // the camera: while the move plays it closes in a little and follows the ball, then eases back out
+        LaunchedEffect(ed.playing, StudioPrefs.follow) {
+            if (!ed.playing || !StudioPrefs.follow) {
+                repeat(24) { androidx.compose.runtime.withFrameNanos { }; ed.zoom += (1f - ed.zoom) * 0.2f; ed.pan *= 0.8f }
+                ed.zoom = 1f; ed.pan = Offset.Zero
+                return@LaunchedEffect
+            }
+            while (true) {
+                androidx.compose.runtime.withFrameNanos { }
+                val t = ed.playT ?: continue
+                val pr = projNow
+                val b = pr.at(board.at(t).ball)
+                val z = ed.zoom + (1.45f - ed.zoom) * 0.06f
+                val c = Offset(pr.w / 2, pr.h / 2)
+                val want = (c - b) * z
+                val maxPan = Offset(pr.w * (z - 1) / 2, pr.h * (z - 1) / 2)
+                val target = Offset(want.x.coerceIn(-maxPan.x, maxPan.x), want.y.coerceIn(-maxPan.y, maxPan.y))
+                ed.zoom = z; ed.pan += (target - ed.pan) * 0.08f
+            }
+        }
         Canvas(Modifier.size(wDp, hDp).clipToBounds().pointerInput(Unit) {
             awaitEachGesture {
                 val first = awaitFirstDown(requireUnconsumed = false)
@@ -151,7 +176,10 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
                 var moved = 0f
                 var last = first.position
                 val g = Gesture(board, ed, projNow)
-                g.start(view0.toCanvas(first.position))
+                // a touch during the move stops it and brings back the step being edited
+                val previewing = ed.playT != null
+                if (previewing) { ed.playing = false; ed.playT = null; board.applyFrame(board.frames[board.cur]) }
+                else g.start(view0.toCanvas(first.position))
                 do {
                     val ev = awaitPointerEvent()
                     val down = ev.changes.filter { it.pressed }
@@ -161,13 +189,13 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
                         val maxPan = Offset(size.width * (ed.zoom - 1) / 2, size.height * (ed.zoom - 1) / 2)
                         val p = ed.pan + ev.calculatePan()
                         ed.pan = Offset(p.x.coerceIn(-maxPan.x, maxPan.x), p.y.coerceIn(-maxPan.y, maxPan.y))
-                    } else if (!multi) down.firstOrNull()?.let { c ->
+                    } else if (!multi && !previewing) down.firstOrNull()?.let { c ->
                         moved += (c.position - last).getDistance(); last = c.position
                         g.move(View2(ed.zoom, ed.pan, Offset(size.width / 2f, size.height / 2f)).toCanvas(c.position))
                     }
                     ev.changes.forEach { it.consume() }
                 } while (ev.changes.any { it.pressed })
-                if (!multi) g.end(moved < 18f)
+                if (!multi && !previewing) g.end(moved < 18f)
             }
         }) {
             val view = View2(ed.zoom, ed.pan, Offset(size.width / 2, size.height / 2))
@@ -176,17 +204,55 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
                 // the drawings, layer by layer, under the players
                 board.marks.forEachIndexed { i, m -> if (m.layer !in StudioPrefs.hidden) drawMark(proj, m, i == ed.selMark, tf) }
                 ed.draft?.let { drawMark(proj, it, false, tf) }
-                drawPlayers(board, ed, proj, faces, tf)
-                drawBall(proj, board.ball)
+                val t = ed.playT
+                val now = t?.let { board.at(it) }
+                fun where(p: SPlayer) = now?.pos?.get(p.key) ?: Offset(p.u, p.v)
+                if (t != null && now != null) {
+                    // trails: where each player and the ball have just been, fading
+                    if (StudioPrefs.trails) for (p in board.players) {
+                        if (p.side == 1 && !board.showAway) continue
+                        val team = if (p.side == 0) board.home else board.away
+                        val pts = (0..12).map { k -> board.at(t - k * 0.06f).pos[p.key] ?: where(p) }.map { proj.at(it) }
+                        if ((pts.first() - pts.last()).getDistance() < 6f) continue
+                        for (k in 0 until pts.size - 1) drawLine(Color(team.color).copy(alpha = 0.55f * (1 - k / 12f)), pts[k], pts[k + 1], proj.r(p.v) * 0.5f * (1 - k / 14f), cap = StrokeCap.Round)
+                    }
+                    val bpts = (0..8).map { k -> board.at(t - k * 0.035f) }.map { proj.at(it.ball) - Offset(0f, it.height * proj.perMetre(it.ball.y) * 68f) }
+                    if ((bpts.first() - bpts.last()).getDistance() > 14f)
+                        for (k in 0 until bpts.size - 1) drawLine(Color.White.copy(alpha = 0.7f * (1 - k / 8f)), bpts[k], bpts[k + 1], proj.r(now.ball.y) * 0.45f * (1 - k / 9f), cap = StrokeCap.Round)
+                } else if (StudioPrefs.onion && board.cur > 0) {
+                    // the step before, faintly, and how each player gets from there
+                    val prev = board.frames[board.cur - 1]
+                    val routes = board.frames[board.cur].paths
+                    for (p in board.players) {
+                        if (p.side == 1 && !board.showAway) continue
+                        val from = prev.pos[p.key] ?: continue
+                        val to = Offset(p.u, p.v)
+                        val team = if (p.side == 0) board.home else board.away
+                        val route = routes[p.key]
+                        if ((from - to).getDistance() > 0.01f || route != null) {
+                            val pts = (route ?: listOf(from, to)).map { proj.at(it) }
+                            val path = Path().apply { pts.forEachIndexed { i, q -> if (i == 0) moveTo(q.x, q.y) else lineTo(q.x, q.y) } }
+                            drawPath(path, Color.White.copy(alpha = 0.55f), style = Stroke(2.2f, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 9f))))
+                            drawCircle(Color(team.color).copy(alpha = 0.35f), proj.r(from.y) * 0.8f, proj.at(from))
+                            drawCircle(Color.White.copy(alpha = 0.4f), proj.r(from.y) * 0.8f, proj.at(from), style = Stroke(1.5f))
+                        }
+                    }
+                    if ((prev.ball - board.ball).getDistance() > 0.01f) {
+                        drawLine(Color.White.copy(alpha = 0.6f), proj.at(prev.ball), proj.at(board.ball), 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+                        drawCircle(Color.White.copy(alpha = 0.35f), proj.r(prev.ball.y) * 0.4f, proj.at(prev.ball))
+                    }
+                }
+                drawPlayers(board, ed, proj, faces, tf, now?.pos)
+                drawBall(proj, now?.ball ?: board.ball, now?.height ?: 0f, now?.roll ?: 0f)
                 // the spotlight: everything dimmed but the players it is on
                 val lit = board.players.filter { it.spot && (it.side == 0 || board.showAway) }
                 if (lit.isNotEmpty()) {
                     drawContext.canvas.saveLayer(Rect(Offset.Zero, size), androidx.compose.ui.graphics.Paint())
                     drawRect(Color.Black.copy(alpha = 0.5f))
-                    lit.forEach { p -> val c = proj.at(p.u, p.v); drawCircle(Color.Black, proj.r(p.v) * 2.6f, c, blendMode = BlendMode.Clear) }
+                    lit.forEach { p -> val w = where(p); drawCircle(Color.Black, proj.r(w.y) * 2.6f, proj.at(w), blendMode = BlendMode.Clear) }
                     drawContext.canvas.restore()
                     lit.forEach { p ->
-                        val c = proj.at(p.u, p.v); val r = proj.r(p.v) * 2.6f
+                        val w = where(p); val c = proj.at(w); val r = proj.r(w.y) * 2.6f
                         drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent), c, r), r, c)
                         drawCircle(Color.White.copy(alpha = 0.8f), r, c, style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))))
                     }
@@ -246,6 +312,10 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
                 }
             }
             "spot", "text", "hline" -> what = "tap"
+            "route" -> hitPlayer(c)?.let { pl ->
+                player = pl; what = "route"
+                ed.draft = SMark("run", listOf(Offset(pl.u, pl.v), p), 0xFFFFFFFF.toInt(), 3f, 0.9f)
+            }
             else -> {
                 what = "draw"
                 ed.selMark = -1
@@ -263,6 +333,7 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
             "mark" -> board.marks.getOrNull(markAt)?.let { m -> board.marks[markAt] = m.copy(pts = m.pts.map { it + d }) }
             "handle" -> board.marks.getOrNull(ed.selMark)?.let { m -> board.marks[ed.selMark] = m.copy(pts = m.pts.mapIndexed { i, q -> if (i == handleIndex(m, handle)) q + d else q }) }
             "lasso" -> ed.lasso = startP to p
+            "route" -> ed.draft?.let { m -> if ((p - m.pts.last()).getDistance() > 0.006f) ed.draft = m.copy(pts = m.pts + p) }
             "draw" -> ed.draft?.let { m ->
                 ed.draft = when (m.kind) {
                     "curve", "lob" -> { val a = m.pts[0]; m.copy(pts = listOf(a, bendOf(a, p, if (m.kind == "lob") 0.12f else 0.22f), p)) }
@@ -280,6 +351,8 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
             "player" -> {
                 if (tap) { ed.editPlayer = player } else {
                     if (StudioPrefs.snap) board.players.filter { it.key in ed.selected }.forEach { it.u = snapU(it.u); it.v = snapV(it.v) }
+                    // moved by hand: a route drawn for this step no longer leads there
+                    board.frames.getOrNull(board.cur)?.let { f -> if (ed.selected.any { it in f.paths }) board.frames[board.cur] = f.copy(paths = f.paths - ed.selected.toSet()) }
                     board.commit()
                 }
             }
@@ -299,6 +372,20 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
                     "spot" -> hitPlayer(c)?.let { it.spot = !it.spot; board.commit() }
                     "text" -> ed.textAt = startP
                     "hline" -> { board.marks += SMark("hline", listOf(startP), ed.pen, ed.width, ed.alpha, layer = ed.layer); board.commit() }
+                }
+            }
+            "route" -> ed.draft?.let { m ->
+                ed.draft = null
+                val pl = player
+                if (pl != null && m.pts.size >= 3 && (m.pts.last() - m.pts.first()).getDistance() > 0.015f) {
+                    // a route ends a step: drawn on the first one, it starts a new step after it
+                    if (board.cur == 0) board.addFrame()
+                    val from = board.frames[board.cur - 1].pos[pl.key] ?: m.pts.first()
+                    val route = smooth(listOf(from) + m.pts.drop(1))
+                    pl.u = route.last().x; pl.v = route.last().y
+                    val f = board.frameNow(board.frames[board.cur])
+                    board.frames[board.cur] = f.copy(paths = f.paths + (pl.key to route))
+                    board.commit()
                 }
             }
             "draw" -> ed.draft?.let { m ->
@@ -556,11 +643,13 @@ private fun DrawScope.label(s: String, at: Offset, size: Float, color: Color, tf
 private fun Color.argb(): Int = android.graphics.Color.argb((alpha * 255).toInt(), (red * 255).toInt(), (green * 255).toInt(), (blue * 255).toInt())
 
 /** The players, far ones first, in the chosen style: photo discs, shirts or plain numbered discs. */
-private fun DrawScope.drawPlayers(board: StudioBoard, ed: StudioEditor, proj: Proj, faces: Map<Int, ImageBitmap>, tf: Typeface) {
-    val shown = board.players.filter { it.side == 0 || board.showAway }.sortedBy { it.v }
+private fun DrawScope.drawPlayers(board: StudioBoard, ed: StudioEditor, proj: Proj, faces: Map<Int, ImageBitmap>, tf: Typeface, pos: Map<Int, Offset>? = null) {
+    fun at(p: SPlayer) = pos?.get(p.key) ?: Offset(p.u, p.v)
+    val shown = board.players.filter { it.side == 0 || board.showAway }.sortedBy { at(it).y }
     for (p in shown) {
         val team = if (p.side == 0) board.home else board.away
-        val c = proj.at(p.u, p.v); val r = proj.r(p.v)
+        val w0 = at(p)
+        val c = proj.at(w0); val r = proj.r(w0.y)
         val kit = Color(team.color); val ink = Color(team.ink)
         val sel = p.key in ed.selected
         // a shadow on the grass
@@ -627,12 +716,18 @@ private fun DrawScope.centerText(s: String, c: Offset, size: Float, color: Color
     drawContext.canvas.nativeCanvas.drawText(s, c.x, c.y - (fm.ascent + fm.descent) / 2, p)
 }
 
-private fun DrawScope.drawBall(proj: Proj, b: Offset) {
-    val c = proj.at(b); val r = proj.r(b.y) * 0.5f
-    drawOval(Color.Black.copy(alpha = 0.35f), Offset(c.x - r, c.y + r * 0.6f), Size(r * 2, r * 0.8f))
+private fun DrawScope.drawBall(proj: Proj, b: Offset, height: Float = 0f, roll: Float = 0f) {
+    val g = proj.at(b)
+    val lift = height * proj.perMetre(b.y) * 68f
+    // in the air: the ball rises and grows a little, its shadow stays on the grass and fades
+    val r = proj.r(b.y) * 0.5f * (1f + height * 3f)
+    val c = g - Offset(0f, lift)
+    drawOval(Color.Black.copy(alpha = 0.35f / (1f + height * 12f)), Offset(g.x - r, g.y + r * 0.6f - (if (height > 0) r * 0.5f else 0f)), Size(r * 2, r * 0.8f))
     drawCircle(Color.White, r, c)
+    // it spins as it travels
+    val spin = roll * 3600.0
     val pent = Path()
-    for (i in 0 until 5) { val a = Math.toRadians(-90.0 + i * 72); val x = c.x + r * 0.42f * cos(a).toFloat(); val y = c.y + r * 0.42f * sin(a).toFloat(); if (i == 0) pent.moveTo(x, y) else pent.lineTo(x, y) }
+    for (i in 0 until 5) { val a = Math.toRadians(-90.0 + i * 72 + spin); val x = c.x + r * 0.42f * cos(a).toFloat(); val y = c.y + r * 0.42f * sin(a).toFloat(); if (i == 0) pent.moveTo(x, y) else pent.lineTo(x, y) }
     pent.close(); drawPath(pent, Color(0xFF111111))
     drawCircle(Color(0xFF111111), r, c, style = Stroke(max(1f, r * 0.12f)))
 }

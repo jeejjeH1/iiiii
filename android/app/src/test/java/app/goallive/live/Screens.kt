@@ -235,6 +235,11 @@ class Screens {
             b.marks += app.goallive.live.ui.SMark("hline", listOf(o(0.5f, 0.22f)), pens[5], 2f, 1f)
             b.marks += app.goallive.live.ui.SMark("text", listOf(o(0.5f, 0.06f)), pens[1], 3f, 1f, "فضای پشت مدافعان")
             b.players.firstOrNull { it.side == 0 && it.v < 0.6f }?.spot = true
+            // a three-step move: the side pushes up, the ball goes wide, then a cross in the air
+            b.reset()
+            b.addFrame(); b.players.filter { it.side == 0 }.forEach { it.v -= 0.06f }; b.ball = o(0.82f, 0.4f); b.commit()
+            b.addFrame(); b.players.filter { it.side == 0 && it.v < 0.6f }.forEach { it.v -= 0.08f }; b.ball = o(0.5f, 0.14f); b.commit()
+            b.setFrame(2, b.frames[2].copy(air = true, note = "سانتر از جناح راست"))
             app.goallive.live.data.Store.prefs().edit().putString("studio.current", b.json().toString()).commit()
         }.onFailure { System.err.println("SHOT studio board failed: $it") }
         NavHook.nav?.tab("studio"); settle(9000); shot("90-studio")

@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
@@ -49,10 +51,10 @@ val StudioIcon: ImageVector by lazy {
 private fun toolName(t: String) = when (t) {
     "move" -> L("جابه‌جایی"); "pass" -> L("پاس"); "run" -> L("حرکت"); "dribble" -> L("دریبل"); "curve" -> L("منحنی"); "lob" -> L("پاس بلند")
     "both" -> L("دوطرفه"); "zone" -> L("ناحیه"); "rect" -> L("مستطیل"); "circle" -> L("دایره"); "dist" -> L("فاصله"); "hline" -> L("خط دفاع")
-    "spot" -> L("ذره‌بین"); else -> L("متن")
+    "spot" -> L("ذره‌بین"); "route" -> L("مسیر"); else -> L("متن")
 }
 
-private val TOOLS = listOf("move", "pass", "run", "dribble", "curve", "lob", "both", "zone", "rect", "circle", "dist", "hline", "spot", "text")
+private val TOOLS = listOf("move", "route", "pass", "run", "dribble", "curve", "lob", "both", "zone", "rect", "circle", "dist", "hline", "spot", "text")
 
 /**
  * "استودیو تاکتیک": two sides on a pitch (real clubs with their last line-up and squad, or made up), moved by hand,
@@ -70,6 +72,26 @@ fun StudioScreen() {
         val saved = Store.prefs().getString("studio.current", null)
         if (saved == null || runCatching { board.load(JSONObject(saved)) }.isFailure || board.players.isEmpty()) board.fresh()
         board.reset(); ready = true
+    }
+    // playing the move: time runs through the steps, each at its own length, at the chosen speed
+    LaunchedEffect(ed.playing) {
+        if (!ed.playing) return@LaunchedEffect
+        board.syncOut()
+        val n = board.frames.size
+        if (n < 2) { ed.playing = false; return@LaunchedEffect }
+        if ((ed.playT ?: 0f) >= n - 1.001f) ed.playT = 0f
+        if (ed.playT == null) ed.playT = 0f
+        var last = withFrameNanos { it }
+        while (ed.playing) {
+            withFrameNanos { now ->
+                val dt = ((now - last) / 1e9f).coerceAtMost(0.05f); last = now
+                val t = ed.playT ?: 0f
+                val k = kotlin.math.floor(t).toInt().coerceIn(0, n - 2)
+                var nt = t + dt * StudioPrefs.speed / board.frames[k + 1].dur.coerceAtLeast(0.2f)
+                if (nt >= n - 1) { if (StudioPrefs.loop) nt = 0f else { nt = (n - 1).toFloat(); ed.playing = false } }
+                ed.playT = nt
+            }
+        }
     }
     Column(Modifier.fillMaxSize().padding(bottom = BottomSpace - 14.dp)) {
         // title and the board's actions
@@ -99,11 +121,18 @@ fun StudioScreen() {
         // the pitch
         Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
             if (ready) StudioPitch(board, ed)
+            // the step's note, like a caption
+            val noteAt = ed.playT?.let { t -> board.frames.getOrNull(kotlin.math.ceil(t).toInt().coerceAtMost(board.frames.size - 1)) } ?: board.frames.getOrNull(board.cur)
+            noteAt?.note?.takeIf { it.isNotBlank() }?.let { n ->
+                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp, start = 24.dp, end = 24.dp).clip(RoundedCornerShape(14.dp))
+                    .background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 14.dp, vertical = 8.dp)) { T(n, 13, FontWeight.Bold, Color.White, maxLines = 2) }
+            }
             if (ed.zoom > 1.01f) Box(Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f))
                 .clickable { ed.zoom = 1f; ed.pan = Offset.Zero }.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 T(L("بزرگ‌نمایی {0}×", fa(String.format(java.util.Locale.US, "%.1f", ed.zoom))), 12, FontWeight.Bold, Color.White)
             }
         }
+        Timeline(board, ed)
         ContextBar(board, ed)
         // the tools
         LazyRow(Modifier.fillMaxWidth().padding(top = 6.dp), contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -124,6 +153,7 @@ fun StudioScreen() {
     if (library) LibrarySheet(board) { library = false }
     if (viewSheet) ViewSheet { viewSheet = false }
     ed.editPlayer?.let { p -> PlayerSheet(board, ed, p) { ed.editPlayer = null } }
+    if (ed.frameMenu in board.frames.indices) FrameSheet(board, ed, ed.frameMenu) { ed.frameMenu = -1 }
     ed.textAt?.let { at ->
         TextAsk(L("نوشته روی زمین"), "") { s ->
             if (s != null && s.isNotBlank()) { board.marks += SMark("text", listOf(at), ed.pen, ed.width, ed.alpha, s.trim(), ed.layer); board.commit() }
@@ -191,6 +221,12 @@ private fun ToolGlyph(t: String, ink: Color) {
                     head(x, y, a)
                 }
             }
+            "route" -> {
+                drawCircle(ink, w * 0.12f, Offset(w * 0.2f, w * 0.78f))
+                val p = Path().apply { moveTo(w * 0.3f, w * 0.7f); quadraticBezierTo(w * 0.75f, w * 0.75f, w * 0.55f, w * 0.42f); quadraticBezierTo(w * 0.4f, w * 0.15f, w * 0.86f, w * 0.16f) }
+                drawPath(p, ink, style = Stroke(s.width, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(w * 0.1f, w * 0.08f))))
+                head(w * 0.86f, w * 0.16f, 0f)
+            }
             "pass" -> { drawLine(ink, Offset(w * 0.12f, w * 0.8f), Offset(w * 0.86f, w * 0.18f), s.width, StrokeCap.Round); head(w * 0.86f, w * 0.18f, -40f) }
             "both" -> { drawLine(ink, Offset(w * 0.14f, w * 0.78f), Offset(w * 0.86f, w * 0.22f), s.width, StrokeCap.Round); head(w * 0.86f, w * 0.22f, -38f); head(w * 0.14f, w * 0.78f, 142f) }
             "run" -> { drawLine(ink, Offset(w * 0.12f, w * 0.8f), Offset(w * 0.86f, w * 0.18f), s.width, StrokeCap.Round, PathEffect.dashPathEffect(floatArrayOf(w * 0.12f, w * 0.1f))); head(w * 0.86f, w * 0.18f, -40f) }
@@ -250,6 +286,7 @@ private fun ContextBar(board: StudioBoard, ed: StudioEditor) {
             }
             else -> T(when (ed.tool) {
                 "spot" -> L("روی بازیکن بزن تا نور روی او بیفتد؛ دوباره بزن تا خاموش شود")
+                "route" -> L("از روی یک بازیکن، مسیر دویدنش را با انگشت بکش؛ در مرحله‌ی اول، مرحله‌ی تازه‌ای ساخته می‌شود")
                 else -> L("بازیکن، توپ یا هر رسمی را بکش؛ روی بازیکن بزن برای ویرایش؛ دور چند بازیکن کادر بکش برای انتخاب گروهی؛ با دو انگشت بزرگ‌نمایی کن")
             }, 11, color = C.mute, modifier = Modifier.padding(horizontal = 16.dp), maxLines = 2)
         }
@@ -464,6 +501,15 @@ private fun ViewSheet(onClose: () -> Unit) {
             Toggle(L("نام بازیکن‌ها"), StudioPrefs.names) { StudioPrefs.names = it }
             Toggle(L("چسبیدن به خطوط"), StudioPrefs.snap) { StudioPrefs.snap = it }
         }
+        StudioLabel(L("پخش حرکت"))
+        StudioChips(listOf(0.5f to L("آهسته"), 1f to L("معمولی"), 1.8f to L("تند")), StudioPrefs.speed) { StudioPrefs.speed = it }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Toggle(L("تکرار"), StudioPrefs.loop) { StudioPrefs.loop = it }
+            Toggle(L("رد حرکت"), StudioPrefs.trails) { StudioPrefs.trails = it }
+            Toggle(L("دوربین دنبال توپ"), StudioPrefs.follow) { StudioPrefs.follow = it }
+            Toggle(L("مرحله‌ی قبل کم‌رنگ"), StudioPrefs.onion) { StudioPrefs.onion = it }
+        }
         StudioLabel(L("لایه‌های پیدا"))
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LAYERS.forEach { l -> Toggle(layerName(l), l !in StudioPrefs.hidden) { on -> if (on) StudioPrefs.hidden.remove(l) else if (l !in StudioPrefs.hidden) StudioPrefs.hidden += l } }
@@ -481,4 +527,103 @@ private fun TextAsk(title: String, initial: String, onDone: (String?) -> Unit) {
         text = { Field(v, title, Modifier.fillMaxWidth()) { v = it.take(40) } },
         confirmButton = { androidx.compose.material3.TextButton({ onDone(v) }) { T(L("ثبت"), 14, FontWeight.Bold, LocalAccent.current) } },
         dismissButton = { androidx.compose.material3.TextButton({ onDone(null) }) { T(L("انصراف"), 14, color = C.mute) } })
+}
+
+
+/* ---------- the move's steps ---------- */
+
+/** Play / pause, then each step as a small picture of the pitch, and a + for a new step. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun Timeline(board: StudioBoard, ed: StudioEditor) {
+    val accent = LocalAccent.current
+    val n = board.frames.size
+    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        val can = n >= 2
+        Box(Modifier.size(50.dp).then(if (can) Modifier.glow(accent.copy(alpha = 0.35f), 8.dp, CircleShape) else Modifier).clip(CircleShape)
+            .background(if (can) accent else C.card2).clickable(enabled = can) {
+                if (ed.playing) ed.playing = false else { board.syncOut(); ed.playing = true }
+            }, contentAlignment = Alignment.Center) {
+            val ink = if (can) LocalAccentInk.current else C.faint
+            Canvas(Modifier.size(20.dp)) {
+                val w = size.width
+                if (ed.playing) { drawRect(ink, Offset(w * 0.18f, w * 0.12f), androidx.compose.ui.geometry.Size(w * 0.22f, w * 0.76f)); drawRect(ink, Offset(w * 0.6f, w * 0.12f), androidx.compose.ui.geometry.Size(w * 0.22f, w * 0.76f)) }
+                else drawPath(Path().apply { moveTo(w * 0.22f, w * 0.1f); lineTo(w * 0.9f, w * 0.5f); lineTo(w * 0.22f, w * 0.9f); close() }, ink)
+            }
+        }
+        LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            items(n) { k ->
+                val playingHere = ed.playT?.let { kotlin.math.round(it).toInt() == k } ?: false
+                val on = if (ed.playT != null) playingHere else k == board.cur
+                FrameThumb(board, k, on, Modifier.combinedClickable(
+                    onClick = {
+                        if (ed.playT != null) { ed.playing = false; ed.playT = null }
+                        if (k == board.cur) ed.frameMenu = k else board.show(k)
+                    },
+                    onLongClick = { ed.playing = false; ed.playT = null; board.show(k); ed.frameMenu = k },
+                ))
+            }
+            item {
+                Box(Modifier.size(40.dp, 54.dp).clip(RoundedCornerShape(10.dp)).border(1.5.dp, C.line2, RoundedCornerShape(10.dp))
+                    .clickable { ed.playing = false; ed.playT = null; board.addFrame() }, contentAlignment = Alignment.Center) {
+                    T("+", 22, FontWeight.Black, C.mute)
+                }
+            }
+        }
+    }
+    if (n < 2) T(L("برای ساختن حرکت، با + مرحله‌ی تازه بساز و بازیکن‌ها و توپ را جابه‌جا کن؛ بعد پخش را بزن"), 11, color = C.mute,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp), maxLines = 2)
+}
+
+/** A step drawn small: the pitch, each player as a dot in his colour, the ball, and the step's number. */
+@Composable
+private fun FrameThumb(board: StudioBoard, k: Int, on: Boolean, modifier: Modifier) {
+    val accent = LocalAccent.current
+    val f = board.frames.getOrNull(k) ?: return
+    Box(modifier.size(40.dp, 54.dp).clip(RoundedCornerShape(10.dp)).border(if (on) 2.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(10.dp))) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = size.width; val h = size.height
+            drawRect(Color(0xFF1E7A42))
+            drawLine(Color.White.copy(alpha = 0.4f), Offset(0f, h / 2), Offset(w, h / 2), 1f)
+            drawCircle(Color.White.copy(alpha = 0.4f), w * 0.15f, Offset(w / 2, h / 2), style = Stroke(1f))
+            for (p in board.players) {
+                if (p.side == 1 && !board.showAway) continue
+                val at = f.pos[p.key] ?: continue
+                drawCircle(Color((if (p.side == 0) board.home else board.away).color), w * 0.05f, Offset(at.x * w, at.y * h))
+            }
+            drawCircle(Color.White, w * 0.045f, Offset(f.ball.x * w, f.ball.y * h))
+            drawCircle(Color.Black, w * 0.045f, Offset(f.ball.x * w, f.ball.y * h), style = Stroke(1f))
+        }
+        Box(Modifier.align(Alignment.TopStart).padding(3.dp).clip(RoundedCornerShape(6.dp)).background(if (on) accent else Color.Black.copy(alpha = 0.55f)).padding(horizontal = 4.dp)) {
+            T(fa(k + 1), 10, FontWeight.Black, if (on) LocalAccentInk.current else Color.White)
+        }
+        if (f.air) Box(Modifier.align(Alignment.BottomEnd).padding(3.dp).size(6.dp).clip(CircleShape).background(Color(0xFF35B6FF)))
+    }
+}
+
+/** A step's settings: how long it takes, the ball in the air, a note, and copy / move / delete. */
+@Composable
+private fun FrameSheet(board: StudioBoard, ed: StudioEditor, k: Int, onClose: () -> Unit) {
+    val f = board.frames[k]
+    var note by remember(k) { mutableStateOf(f.note) }
+    fun close() { if (note != board.frames.getOrNull(k)?.note) board.frames.getOrNull(k)?.let { board.setFrame(k, it.copy(note = note.trim())) }; onClose() }
+    Sheet(::close) {
+        T(L("مرحله‌ی {0}", fa(k + 1)), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        if (k > 0) {
+            StudioLabel(L("زمان رسیدن به این مرحله"))
+            StudioChips(listOf(0.6f to L("{0} ثانیه", fa("0.6")), 1.2f to L("{0} ثانیه", fa("1.2")), 2f to L("{0} ثانیه", fa(2)), 3f to L("{0} ثانیه", fa(3))), f.dur) {
+                board.setFrame(k, board.frames[k].copy(dur = it))
+            }
+            StudioLabel(L("توپ"))
+            StudioChips(listOf(false to L("روی زمین"), true to L("هوایی")), f.air) { board.setFrame(k, board.frames[k].copy(air = it)) }
+        }
+        StudioLabel(L("زیرنویس این مرحله"))
+        Field(note, L("مثلاً: هافبک بین خطوط می‌چرخد"), Modifier.padding(horizontal = 16.dp).fillMaxWidth()) { note = it.take(80) }
+        Row(Modifier.padding(16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill(L("کپی این مرحله"), PillKind.Plain, onClick = { board.duplicateFrame(k); onClose() })
+            if (k > 0) Pill(L("یکی عقب‌تر"), PillKind.Plain, onClick = { board.moveFrame(k, -1); onClose() })
+            if (k < board.frames.size - 1) Pill(L("یکی جلوتر"), PillKind.Plain, onClick = { board.moveFrame(k, 1); onClose() })
+            if (board.frames.size > 1) Pill(L("حذف مرحله"), PillKind.Plain, onClick = { board.deleteFrame(k); onClose() })
+        }
+    }
 }

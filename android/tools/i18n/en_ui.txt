@@ -1482,3 +1482,25 @@
 1481|Tactics
 1482|Attack
 1483|Notes
+1484|Route
+1485|Drag a player's run with your finger; on the first step a new step is made
+1486|Playback
+1487|Slow
+1488|Normal
+1489|Fast
+1490|Loop
+1491|Trails
+1492|Camera follows the ball
+1493|Ghost of the step before
+1494|To build a move, add a step with +, move the players and the ball, then press play
+1495|Step {0}
+1496|Time to reach this step
+1497|{0} s
+1498|Ball
+1499|In the air
+1500|This step's caption
+1501|e.g. The midfielder turns between the lines
+1502|Copy step
+1503|Earlier
+1504|Later
+1505|Delete step
