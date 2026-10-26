@@ -672,10 +672,10 @@ private fun heatSentence(pts: List<Pair<Float, Float>>): String {
     return L("{0} و {1} بازی کرد (جهت حمله از چپ به راست است).", where, side)
 }
 
-private val heatCache = java.util.concurrent.ConcurrentHashMap<Int, Map<Int, List<Pair<Float, Float>>>>()
+internal val heatCache = java.util.concurrent.ConcurrentHashMap<Int, Map<Int, List<Pair<Float, Float>>>>()
 
 /** Every player's heatmap points in a match, by Opta player id: FotMob draws them as circles on a 105×68 pitch. */
-private suspend fun heatPoints(matchId: Int): Map<Int, List<Pair<Float, Float>>> {
+internal suspend fun heatPoints(matchId: Int): Map<Int, List<Pair<Float, Float>>> {
     val url = java.net.URLEncoder.encode("https://pub.fotmob.com/prod/db/api/heatmap/match/$matchId", "UTF-8")
     val d = Api.fotmob("data/heatmap/match/$matchId/heatmaps?heatmapUrl=$url")
     val players = d.o("players") ?: return emptyMap()
@@ -733,10 +733,10 @@ fun AveragePositions(m: MatchData) {
     }
 }
 
-private class AvgDot(val id: Int, val number: String, val name: String, val x: Float, val y: Float, val home: Boolean)
+internal class AvgDot(val id: Int, val number: String, val name: String, val x: Float, val y: Float, val home: Boolean)
 
 /** Each starter's mean heatmap point; heatmaps all attack left to right, so the away side is turned round. */
-private fun averageDots(m: MatchData, all: Map<Int, List<Pair<Float, Float>>>): List<AvgDot> {
+internal fun averageDots(m: MatchData, all: Map<Int, List<Pair<Float, Float>>>): List<AvgDot> {
     val stats = m.content.o("playerStats")
     val lu = m.content.o("lineup")
     return listOf(true, false).flatMap { home ->

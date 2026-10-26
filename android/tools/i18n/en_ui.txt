@@ -1263,3 +1263,84 @@
 1262|Preview
 1263|No goals or red cards yet
 1264|Open match
+1265|So far
+1266|A deserved lead
+1267|{0} made the better chances (xG {1} to {2}). On those chances alone, their chance of winning was {3}.
+1268|A lead with luck on its side
+1269|{0} had the better chances (xG {1} to {2}), but {3} were more clinical. On the chances, {3}'s chance of being ahead was only {4}.
+1270|A lead in a close game
+1271|The chances were close (xG {0} to {1}) and {2} made the difference. Their chance of winning was {3}.
+1272|{0} deserved to win
+1273|xG {0} to {1}: with these chances {2}'s chance of winning was {3}, yet it ended level.
+1274|A fair draw
+1275|Both sides' chances were close (xG {0} to {1}); a draw is the logical result.
+1276|Great finishing by {0}
+1277|From chances worth {1} goals, {0} scored {2}: more than expected.
+1278|{0} wasteful in front of goal
+1279|Made chances worth {0} goals and scored only {1}{2}.
+1280|; {0} big chances missed
+1281|{0}'s missed big chances
+1282|{0} big chances (each over 30% likely to score) went begging; {1} xG in all.
+1283|{0} found no way through
+1284|No goal despite {0} xG from {1} shots.
+1285|{0} was a wall
+1286|{0} saves and {1} goals prevented: more than a keeper is expected to stop; kept {2} in it.
+1287|A hard night for {0}
+1288|Conceded about {0} goals more than the shots on his goal were worth.
+1289|{0} sent off; {1} down to ten
+1290|Red card in minute {0}
+1291|After {0}'s red card the game turned towards {1}; {1} made {2} xG in the rest of the match.
+1292|{0} went down to ten with {1}'s red card; {2} made {3} xG in the rest of the match.
+1293|A golden substitution
+1294|{0} came on in minute {1} and had a hand in a {2} goal.
+1295|{0} on for {1}
+1296|A substitution that changed the game
+1297|After {0} came on (minute {1}), {2}'s xG over {3} minutes went from {4} to {5}.
+1298|{0} on; {1} more dangerous
+1299|went ahead
+1300|pulled one back
+1301|extended the lead
+1302|Goal {0}: {1} {2} ({3})
+1303|Late drama
+1304|{1}'s goal in minute {0} {2}.
+1305|levelled the game
+1306|decided the winner
+1307|{0}'s comeback
+1308|{0} were behind but {1}.
+1309|won the game
+1310|drew level
+1311|{0}'s set-piece threat
+1312|{0} of {1}'s xG came from corners and free kicks ({2} of {3}).
+1313|{0}'s long, harmless shots
+1314|{0} of {1} shots were from outside the box; only {2} xG per shot.
+1315|Won with less of the ball
+1316|{0} won with just {1}% possession; quality over quantity.
+1317|{0}'s heroic defending
+1318|The opponents made chances worth {0} goals but {1} kept a clean sheet.
+1319| and 
+1320|Star of the match: {0}
+1321|Rated {0}, mostly from {1}.
+1322|{0} was ruthless
+1323|{0} goals from chances worth just {1} xG.
+1324|{0} on top right now
+1325|Mostly in the opponents' half in the last 10 minutes{0}.
+1326| with {0} xG; a goal is coming
+1327|GoalLive analyst
+1328|Live analysis; refreshed with every update
+1329|The match read from its own numbers, in plain words
+1330|Everything is worked out from this match's chances (xG), shots, momentum and player stats.
+1331|The fair result so far
+1332|The fair result
+1333|If this match were played again and again with the same chances
+1334|Actual result {0}
+1335|Most likely scores
+1336|Turning points
+1337|The real shape of the teams
+1338|From the players' average positions; approximate
+1339|High defensive line ({0} m from goal)
+1340|Deep defensive line ({0} m from goal)
+1341|Mid defensive line ({0} m from goal)
+1342|Announced {0}
+1343|GoalLive analysis
+1344|Score
+1345|🧠 Analysis

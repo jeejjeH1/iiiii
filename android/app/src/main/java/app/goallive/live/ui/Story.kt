@@ -213,6 +213,12 @@ sealed class Story {
         override fun message() = L("آمار بازی") + ": " + teamName(m.homeId, m.homeName) + " ${m.home.i("score") ?: 0}-${m.away.i("score") ?: 0} " + teamName(m.awayId, m.awayName)
     }
 
+    /** The analyst's reading of a match: the fair result and the findings that decided it. */
+    class Analysis(val m: MatchData) : Story() {
+        override val file = "goallive-analysis-${m.matchId}"
+        override fun message() = L("تحلیل گل‌لایو") + ": " + teamName(m.homeId, m.homeName) + " ${m.home.i("score") ?: 0}-${m.away.i("score") ?: 0} " + teamName(m.awayId, m.awayName)
+    }
+
     /** A finished match told in about a minute (video only). */
     class Reel(val m: MatchData) : Story() {
         override val file = "goallive-reel-${m.matchId}"
@@ -251,6 +257,7 @@ internal suspend fun Story.load(ctx: Context): Art {
         is Story.Match -> { val best = bestOf(m); Art(logo, black, bold, card = cardAssets(ctx, m, best), best = best) }
         is Story.Reel -> { val best = bestOf(m); Art(logo, black, bold, faces(reelFaces(m), 260), card = cardAssets(ctx, m, best), best = best) }
         is Story.Stats -> Art(logo, black, bold, card = cardAssets(ctx, m, null))
+        is Story.Analysis -> { val best = bestOf(m); Art(logo, black, bold, card = cardAssets(ctx, m, best), best = best) }
         is Story.Player -> Art(logo, black, bold, faces(listOf(id), 480),
             crests(listOf(p.o("primaryTeam").i("teamId") ?: 0) + p.a("recentMatches").objs().take(6).map { it.i("opponentTeamId") ?: 0 }),
             (p.o("mainLeague").i("leagueId") ?: 0).takeIf { it > 0 }?.let { mapOf(it to image(ctx, badgeUrl(it), 200)) } ?: emptyMap())
@@ -274,6 +281,7 @@ internal fun Story.scene(o: CardOptions, a: Art): Scene = when (this) {
     is Story.Ballon -> ballonScene(this, o, a)
     is Story.Duel -> duelScene(this, o, a)
     is Story.Stats -> statsScene(this, o, a)
+    is Story.Analysis -> analysisScene(this, o, a)
 }
 
 /* ---------- shared drawing for the new stories ---------- */
@@ -582,6 +590,72 @@ private fun statsScene(s: Story.Stats, o: CardOptions, a: Art): Scene {
                     p.color = if (an >= hn) brighten(ac) else (brighten(ac) and 0x00FFFFFF) or 0x8C000000.toInt()
                     if (en) c.drawRoundRect(RectF(r - aw, by, r, by + bh), bh / 2, bh / 2, p) else c.drawRoundRect(RectF(l, by, l + aw, by + bh), bh / 2, bh / 2, p)
                 }
+            }
+        }
+        extras(c, o, a, look, clk, captionY)
+        footer(c, a, look, clk)
+    }
+}
+
+/* ---------- the analyst ---------- */
+
+private fun analysisScene(s: Story.Analysis, o: CardOptions, a: Art): Scene {
+    val m = s.m; val card = a.card!!
+    val hc = card.hc; val ac = card.ac
+    val (bg, look) = storyBg(o.theme, darker(hc, 0.25f), darker(ac, 0.45f))
+    val ratings = runCatching { rateMatch(m) }.getOrDefault(emptyMap())
+    val an = analyse(m, ratings)
+    val captionY = SH - 270f
+    return Scene(SW, SH, bg, hc, ac) { c, clk ->
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        c.enter(clk.at(0.05f), 50f, 150f) {
+            text(c, "🧠 " + L("تحلیلگر گل‌لایو"), SW / 2f, 56f, 44f, look.ink, a.black, SW - 120)
+            text(c, leagueName(m.leagueId, m.general.s("leagueName") ?: ""), SW / 2f, 118f, 28f, look.sub, a.bold, SW - 160)
+        }
+        c.pop(clk.at(0.2f, 0.6f), xs(210f), 270f) { crestDisc(c, card.home, xs(210f), 270f, 70f) }
+        c.pop(clk.at(0.3f, 0.6f), xs(SW - 210f), 270f) { crestDisc(c, card.away, xs(SW - 210f), 270f, 70f) }
+        c.enter(clk.at(0.35f), 200f, 380f) {
+            text(c, teamName(m.homeId, m.homeName), xs(210f), 352f, 30f, look.ink, a.black, 330)
+            text(c, teamName(m.awayId, m.awayName), xs(SW - 210f), 352f, 30f, look.ink, a.black, 330)
+            text(c, L("نتیجه"), SW / 2f, 210f, 26f, look.sub, a.bold, 200)
+            text(c, fa(m.home.i("score") ?: 0), xs(SW / 2f - 60f), 240f, 70f, look.ink, a.black, 120)
+            text(c, "-", SW / 2f, 248f, 54f, look.sub, a.black, 60)
+            text(c, fa(m.away.i("score") ?: 0), xs(SW / 2f + 60f), 240f, 70f, look.ink, a.black, 120)
+        }
+        // the fair result
+        val top = 430f
+        c.enter(clk.at(0.6f), top, top + 380f) {
+            glass(c, 56f, top, SW - 56f, top + 380f, look)
+            text(c, L("نتیجه‌ی منصفانه"), SW / 2f, top + 28f, 34f, look.accent, a.black, 600)
+            val k = easeOut(clk.at(0.8f, 0.8f))
+            text(c, fa(an.fair.first), xs(SW / 2f - 90f), top + 80f, 120f, look.ink, a.black, 200)
+            text(c, "-", SW / 2f, top + 100f, 80f, look.sub, a.black, 80)
+            text(c, fa(an.fair.second), xs(SW / 2f + 90f), top + 80f, 120f, look.ink, a.black, 200)
+            text(c, "xG " + fa(dec(an.hXg * k, 2)), xs(200f), top + 130f, 40f, brighten(hc), a.black, 300)
+            text(c, "xG " + fa(dec(an.aXg * k, 2)), xs(SW - 200f), top + 130f, 40f, brighten(ac), a.black, 300)
+            // home win, draw, away win: one bar from the reading start
+            val l = 110f; val r = SW - 110f; val by = top + 260f; val bh = 26f; val w = r - l
+            val parts = listOf(an.pHome to brighten(hc), an.pDraw to 0xFF8A94A0.toInt(), an.pAway to brighten(ac))
+            var x0 = 0f
+            parts.forEach { (pp, col) ->
+                val pw = (w * pp * k).toFloat()
+                p.color = col
+                if (pw > 6f) if (en) c.drawRoundRect(RectF(l + x0, by, l + x0 + pw - 4f, by + bh), 10f, 10f, p) else c.drawRoundRect(RectF(r - x0 - pw + 4f, by, r - x0, by + bh), 10f, 10f, p)
+                x0 += pw
+            }
+            text(c, L("برد {0}", "") + fa((an.pHome * 100 * k).roundToInt()) + "٪", xs(200f), by + 44f, 30f, look.ink, a.bold, 320)
+            text(c, L("مساوی") + " " + fa((an.pDraw * 100 * k).roundToInt()) + "٪", SW / 2f, by + 44f, 30f, look.sub, a.bold, 300)
+            text(c, L("برد {0}", "") + fa((an.pAway * 100 * k).roundToInt()) + "٪", xs(SW - 200f), by + 44f, 30f, look.ink, a.bold, 320)
+        }
+        // the three strongest findings
+        an.insights.take(3).forEachIndexed { i, x ->
+            val y = 850f + i * 260f
+            c.enter(clk.at(1.4f + i * 0.35f, 0.6f), y, y + 240f, 60f) {
+                glass(c, 56f, y, SW - 56f, y + 240f, look)
+                val col = when (x.home) { true -> brighten(hc); false -> brighten(ac); null -> look.sub }
+                p.color = col; c.drawRoundRect(RectF(xs(56f) - 6f, y + 30f, xs(56f) + 6f, y + 210f), 6f, 6f, p)
+                text(c, x.icon + "  " + x.title, SW / 2f, y + 26f, 40f, look.ink, a.black, SW - 200)
+                text(c, x.text, SW / 2f, y + 90f, 30f, look.sub, a.bold, SW - 200, 3)
             }
         }
         extras(c, o, a, look, clk, captionY)

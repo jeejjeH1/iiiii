@@ -183,6 +183,8 @@ private fun MatchBody(m: MatchData) {
     }
     val tabs = buildList {
         add("summary" to L("خلاصه"))
+        // the written analysis, once there are chances to read
+        if (m.started && m.shots.count { !it.b("isPenaltyShootoutEvent") } >= 4) add("analysis" to L("🧠 تحلیل"))
         // the live pitch only while the ball is rolling; afterwards just the written commentary, when there is one
         if (m.live) add("live" to L("زنده")) else if (m.finished && m.hasTicker) add("text" to L("گزارش متنی"))
         if (statViews.isNotEmpty()) add("stats" to L("آمار"))
@@ -202,6 +204,7 @@ private fun MatchBody(m: MatchData) {
             Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 when (tab) {
                     "summary" -> Summary(m)
+                    "analysis" -> AnalystTab(m)
                     "live" -> {
                         if (m.hasTicker) Seg(listOf("pitch" to L("زمین زنده"), "text" to L("گزارش متنی")), liveView, icons = mapOf("pitch" to Ic.stadium, "text" to Ic.list)) { liveView = it }
                         if (liveView == "pitch" || !m.hasTicker) LivePitch(m) else Commentary(m)
@@ -1146,7 +1149,7 @@ private fun DuoRow(label: String, h: Double, a: Double, hText: String, aText: St
 }
 
 /** A shot from inside the penalty area (FotMob's x runs 0…105 towards the goal attacked, y 0…68 across). */
-private fun insideBox(s: JSONObject) = (s.d("x") ?: 0.0) >= 105 - 16.5 && (s.d("y") ?: 34.0) in 13.84..54.16
+internal fun insideBox(s: JSONObject) = (s.d("x") ?: 0.0) >= 105 - 16.5 && (s.d("y") ?: 34.0) in 13.84..54.16
 
 /**
  * "ریز شوت‌ها": where the shots came from (inside or outside the box), how (open play, counter-attack, set pieces, penalties),
