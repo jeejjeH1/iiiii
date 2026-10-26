@@ -152,7 +152,7 @@ fun CoachTab(m: MatchData) {
     if (!locked) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         FORMATIONS.keys.forEach { f ->
             val on = f == plan.formation
-            Box(Modifier.clip(RoundedCornerShape(12.dp)).background(if (on) accent else C.card).border(1.dp, if (on) Color.Transparent else C.line, RoundedCornerShape(12.dp))
+            Box(Modifier.clip(RoundedCornerShape(14.dp)).background(if (on) accent else C.card).border(1.dp, if (on) Color.Transparent else C.line, RoundedCornerShape(14.dp))
                 .clickable { plan.formation = f; changed() }.padding(horizontal = 14.dp, vertical = 8.dp)) {
                 Ltr(f, style = lat(15.sp, FontWeight.ExtraBold), color = if (on) LocalAccentInk.current else C.ink)
             }
@@ -199,8 +199,8 @@ fun CoachTab(m: MatchData) {
         val (real, _) = teamScore(official.map { it.i("id") ?: 0 }, realSubs, rate)
         val win = mine > real + 0.05
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).drawBehind { cssLinear(160f, 0f to (if (win) accent else C.card2).copy(alpha = 0.35f), 1f to C.card) }
-                .border(1.dp, C.line2, RoundedCornerShape(24.dp)).padding(18.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).drawBehind { cssLinear(160f, 0f to (if (win) accent else C.card2).copy(alpha = 0.35f), 1f to C.card) }
+                .border(1.dp, C.line2, RoundedCornerShape(22.dp)).padding(18.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             T(if (m.finished) L("نمره نهایی مربیگری") else L("نمره تا این لحظه"), 13, FontWeight.Bold, C.mute)
@@ -248,7 +248,7 @@ fun CoachTab(m: MatchData) {
                         if (on) plan.xi.remove(p.id) else if (plan.xi.size < 11) plan.xi.add(p.id)
                         changed()
                     }) {
-                        Box(Modifier.size(24.dp).clip(RoundedCornerShape(7.dp)).background(if (on) accent else Color.Transparent).border(2.dp, if (on) accent else C.line2, RoundedCornerShape(7.dp)),
+                        Box(Modifier.size(24.dp).clip(RoundedCornerShape(6.dp)).background(if (on) accent else Color.Transparent).border(2.dp, if (on) accent else C.line2, RoundedCornerShape(6.dp)),
                             contentAlignment = Alignment.Center) { if (on) T("✓", 14, FontWeight.Black, LocalAccentInk.current) }
                         Face(p.id, 34.dp)
                         Column(Modifier.weight(1f)) { Ltr(p.name); T(if (p.number.isNotEmpty()) "#${p.number}" else "", 11, color = C.mute) }
@@ -274,7 +274,7 @@ private fun MyPitch(plan: Plan, byId: Map<Int, SquadPlayer>, color: Color) {
     val rows = listOf(1) + (FORMATIONS[plan.formation] ?: listOf(4, 3, 3))
     val ordered = plan.xi.mapNotNull { byId[it] }.sortedBy { it.line }
     BoxWithConstraints(
-        Modifier.fillMaxWidth().aspectRatio(68f / 80f).clip(RoundedCornerShape(20.dp)).drawBehind {
+        Modifier.fillMaxWidth().aspectRatio(68f / 80f).clip(RoundedCornerShape(18.dp)).drawBehind {
             val n = 10
             for (i in 0 until n) drawRect(if (i % 2 == 0) C.pitch else C.pitch2, Offset(0f, size.height * i / n), Size(size.width, size.height / n + 1))
             val c = Color.White.copy(alpha = 0.5f); val st = Stroke(1.5f)

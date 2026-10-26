@@ -285,8 +285,8 @@ fun LivePitch(m: MatchData) {
             }
 
             // the TV score bug
-            Row(Modifier.align(Alignment.TopStart).padding(10.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = 0.62f))
-                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 5.dp),
+            Row(Modifier.align(Alignment.TopStart).padding(10.dp).clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.62f))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(14.dp)).padding(horizontal = 8.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.size(4.dp, 18.dp).clip(RoundedCornerShape(2.dp)).background(homeKit))
                 Crest(m.homeId, 18.dp)

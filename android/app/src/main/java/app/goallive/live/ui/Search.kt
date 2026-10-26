@@ -34,6 +34,7 @@ import app.goallive.live.data.o
 import app.goallive.live.data.objs
 import app.goallive.live.data.parseTime
 import app.goallive.live.data.s
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import org.json.JSONObject
 
@@ -44,8 +45,12 @@ suspend fun search(term: String): Found {
     // FotMob only knows English names: Persian is turned into the English names it may mean first
     val persian = term.any { it in '\u0600'..'\u06FF' }
     val terms = if (persian) persianSearchTerms(term).ifEmpty { listOf(term) } else listOf(term)
-    val all = terms.flatMap { t -> runCatching { Api.fmArray("suggest", mapOf("term" to t), 60_000) }.getOrElse { if (terms.size == 1) throw it else null }.objs()
-        .flatMap { it.a("suggestions").objs() } }
+    // every reading asked at once; one failing doesn't spoil the others (only all failing is an error)
+    val answers = kotlinx.coroutines.coroutineScope {
+        terms.map { t -> async { runCatching { Api.fmArray("suggest", mapOf("term" to t), 60_000) } } }.map { it.await() }
+    }
+    if (answers.all { it.isFailure }) throw answers.first().exceptionOrNull()!!
+    val all = answers.flatMap { r -> r.getOrNull().objs().flatMap { it.a("suggestions").objs() } }
     fun of(t: String) = all.filter { it.s("type") == t }.distinctBy { it.s("id") }
     return Found(of("team"), of("player"), of("league"), of("match"))
 }
@@ -69,7 +74,7 @@ fun SearchScreen() {
         busy = false
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
-        item { SearchField(q, L("تیم، بازیکن یا لیگ…"), autoFocus = true) { q = it } }
+        item { SearchField(q, L("تیم، بازیکن یا لیگ؛ فارسی یا انگلیسی…"), autoFocus = true) { q = it } }
         val r = res
         when {
             q.trim().length < 2 -> item {

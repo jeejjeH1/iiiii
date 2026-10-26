@@ -137,9 +137,9 @@ fun CalendarScreen() {
                             val on = selected == k
                             val isToday = k == today
                             Column(
-                                Modifier.weight(1f).aspectRatio(0.82f).padding(2.dp).clip(RoundedCornerShape(12.dp))
+                                Modifier.weight(1f).aspectRatio(0.82f).padding(2.dp).clip(RoundedCornerShape(14.dp))
                                     .background(when { on -> accent; m != null -> C.card2; else -> Color.Transparent })
-                                    .border(1.dp, if (isToday && !on) accent else Color.Transparent, RoundedCornerShape(12.dp))
+                                    .border(1.dp, if (isToday && !on) accent else Color.Transparent, RoundedCornerShape(14.dp))
                                     .clickable(enabled = m != null) { selected = if (on) null else k },
                                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                             ) {

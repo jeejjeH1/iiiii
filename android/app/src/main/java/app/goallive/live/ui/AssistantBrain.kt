@@ -695,16 +695,44 @@ fun persianSearchTerms(q: String): List<String> {
     val hits = ArrayList<Pair<Int, String>>()
     fun take(fa: String, en: String) {
         val f = normFa(fa)
-        val score = when { f == n -> 0; f.startsWith(n) -> 1; f.contains(n) -> 2; n.contains(f) && f.length >= 3 -> 3; else -> return }
+        val score = when {
+            f == n -> 0; f.startsWith(n) -> 1; f.contains(n) -> 2; n.contains(f) && f.length >= 3 -> 3
+            // one letter off (a typo, or another common spelling: «رونالدوو», «امباپه» for «ام‌باپه») for names long enough to tell apart
+            n.length >= 4 && kotlin.math.abs(f.length - n.length) <= 1 && oneEditApart(f, n) -> 4
+            else -> return
+        }
         hits += score to en
     }
     PLAYERS.forEach { (fa, en) -> take(fa, en) }
     NICKS.forEach { (fa, en) -> take(fa, en) }
     TEAMS_FA.forEach { (en, fa) -> take(fa, en) }
     Clubs.ids.forEach { id -> Clubs.get(id)?.let { c -> TEAMS_FA.entries.firstOrNull { it.value == c.fa }?.key?.let { en -> take(c.fa, en) } } }
-    listOf(523 to "Persian Gulf Pro League", 47 to "Premier League", 87 to "LaLiga", 55 to "Serie A", 54 to "Bundesliga", 53 to "Ligue 1",
-        42 to "Champions League", 73 to "Europa League", 525 to "AFC Champions League").forEach { (id, en) -> take(leagueFa(id, en), en) }
+    SEARCH_LEAGUES.forEach { (id, en) -> take(leagueFa(id, en), en) }
+    // whole phrases FaNames knows («لیگ قهرمانان آسیا», «اتلتیکو مادرید»)
+    app.goallive.live.data.FaNames.faToEn[app.goallive.live.data.FaNames.searchKey(q)]?.let { hits += 0 to it }
     val terms = hits.sortedBy { it.first }.map { it.second }.distinct().take(3).toMutableList()
-    if (terms.isEmpty()) latinOf(q.trim()).trim().takeIf { it.length >= 3 }?.let { terms += it }
+    // word by word: known name parts back to their spelling, the rest written out (علی دایی → ali daei-ish), so unknown players are found too
+    val words = q.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val spelled = words.joinToString(" ") { w -> app.goallive.live.data.FaNames.faToEn[app.goallive.live.data.FaNames.searchKey(w)] ?: latinOf(w) }.trim()
+    if (spelled.length >= 3 && terms.size < 4 && spelled !in terms) terms += spelled
     return terms
+}
+
+/** Leagues a Persian name can be searched by. */
+private val SEARCH_LEAGUES = listOf(523 to "Persian Gulf Pro League", 47 to "Premier League", 87 to "LaLiga", 55 to "Serie A", 54 to "Bundesliga",
+    53 to "Ligue 1", 42 to "Champions League", 73 to "Europa League", 10216 to "Conference League", 525 to "AFC Champions League",
+    77 to "World Cup", 50 to "EURO", 289 to "Asian Cup", 132 to "FA Cup", 138 to "Copa del Rey", 209 to "DFB Pokal", 141 to "Coppa Italia",
+    57 to "Eredivisie", 61 to "Liga Portugal", 536 to "Saudi Pro League", 130 to "MLS")
+
+/** Whether [a] and [b] differ by one letter added, dropped or changed. */
+private fun oneEditApart(a: String, b: String): Boolean {
+    if (a == b) return true
+    if (kotlin.math.abs(a.length - b.length) > 1) return false
+    var i = 0; var j = 0; var edits = 0
+    while (i < a.length && j < b.length) {
+        if (a[i] == b[j]) { i++; j++; continue }
+        if (++edits > 1) return false
+        when { a.length > b.length -> i++; a.length < b.length -> j++; else -> { i++; j++ } }
+    }
+    return edits + (a.length - i) + (b.length - j) <= 1
 }

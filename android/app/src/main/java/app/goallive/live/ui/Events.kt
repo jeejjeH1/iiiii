@@ -130,7 +130,7 @@ private fun EventLine(e: JSONObject, m: MatchData) {
         }
     }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = if (goal) 5.dp else 2.dp)
-        .then(if (goal) Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(16.dp))
+        .then(if (goal) Modifier.padding(horizontal = 4.dp).clip(RoundedCornerShape(18.dp))
             .background(Brush.horizontalGradient(if (scorerOnLeft) listOf(color.copy(alpha = 0.24f), Color.Transparent, Color.Transparent) else listOf(Color.Transparent, Color.Transparent, color.copy(alpha = 0.24f))))
             .padding(vertical = 6.dp) else Modifier),
         verticalAlignment = Alignment.CenterVertically) {

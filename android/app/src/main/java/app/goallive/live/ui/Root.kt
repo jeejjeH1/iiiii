@@ -205,9 +205,9 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
     val pulse by rememberInfiniteTransition(label = "live").animateFloat(0.35f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "p")
     Row(Modifier.fillMaxWidth().height(54.dp).padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (canBack) IconBtn(Ic.back, L("بازگشت"), size = 22.dp) { nav.back() }
-        Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { nav.tab("home") }.padding(horizontal = 4.dp, vertical = 4.dp),
+        Row(Modifier.clip(RoundedCornerShape(14.dp)).clickable { nav.tab("home") }.padding(horizontal = 4.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-            Image(painterResource(R.drawable.logo), null, Modifier.size(if (canBack) 26.dp else 28.dp).clip(RoundedCornerShape(8.dp)))
+            Image(painterResource(R.drawable.logo), null, Modifier.size(if (canBack) 26.dp else 28.dp).clip(RoundedCornerShape(10.dp)))
             if (!canBack) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 T(L("گل‌لایو"), 18, FontWeight.Black)
                 Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(C.live))
@@ -225,7 +225,7 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
 @Composable
 private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
     val accent = LocalAccent.current
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(22.dp)
     Box(modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 10.dp), contentAlignment = Alignment.Center) {
         Row(
             Modifier.widthIn(max = 440.dp).fillMaxWidth().height(64.dp).clip(shape).background(C.cardSolid.copy(alpha = 0.97f))

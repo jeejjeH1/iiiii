@@ -335,7 +335,7 @@ private fun keyToWin(team: String, mine: TeamRadar?, theirs: TeamRadar?): String
 
 @Composable
 private fun FormationBox(id: Int, name: String, formation: String, color: Color, modifier: Modifier) {
-    Column(modifier.clip(RoundedCornerShape(16.dp)).background(color.copy(alpha = 0.14f)).border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+    Column(modifier.clip(RoundedCornerShape(18.dp)).background(color.copy(alpha = 0.14f)).border(1.dp, color.copy(alpha = 0.4f), RoundedCornerShape(18.dp))
         .padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Crest(id, 26.dp)
         T(name, 12, FontWeight.Bold, maxLines = 1, align = TextAlign.Center)
@@ -436,7 +436,7 @@ fun PlayerHeatmap(matchId: Int, playerId: Int, opta: Int, name: String, others: 
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(10.dp).clip(CircleShape).background(C.gold)); Spacer(Modifier.width(8.dp))
                 Face(other.id, 26.dp); Spacer(Modifier.width(8.dp)); T(personName(other.name), 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f), maxLines = 1)
-                T(L("بستن"), 12, FontWeight.Bold, C.mute, Modifier.clip(RoundedCornerShape(8.dp)).clickable { vs = null }.padding(6.dp))
+                T(L("بستن"), 12, FontWeight.Bold, C.mute, Modifier.clip(RoundedCornerShape(10.dp)).clickable { vs = null }.padding(6.dp))
             }
             Box(Modifier.padding(horizontal = 12.dp)) {
                 if (big) HeatPitch(op, Modifier.fillMaxWidth().aspectRatio(68f / 105f), vertical = true)
@@ -475,7 +475,7 @@ private fun HeatLegend() {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         T(L("کم"), 11, color = C.mute)
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Box(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(8.dp)).background(Brush.horizontalGradient(RAMP.map { it.second.copy(alpha = 1f) })))
+            Box(Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(10.dp)).background(Brush.horizontalGradient(RAMP.map { it.second.copy(alpha = 1f) })))
         }
         T(L("زیاد"), 11, color = C.mute)
     }
@@ -485,7 +485,7 @@ private fun HeatLegend() {
 @Composable
 private fun ZoneBars(p: List<Pair<Float, Float>>, accent: Color) {
     val z = zoneShares(p)
-    Column(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card2).padding(12.dp),
+    Column(Modifier.padding(horizontal = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card2).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)) {
         T(L("در کدام بخش زمین"), 12, FontWeight.Bold, C.mute)
         StackBar(z.take(3), listOf(L("نیمه خودی"), L("میانه زمین"), L("یک‌سوم حمله")), accent)
@@ -527,7 +527,7 @@ private fun StackBar(v: List<Int>, labels: List<String>, accent: Color) {
 private fun ZoneCompare(a: List<Pair<Float, Float>>, b: List<Pair<Float, Float>>, an: String, bn: String, accent: Color) {
     val sa = zoneShares(a); val sb = zoneShares(b)
     val labels = listOf(L("نیمه خودی"), L("میانه زمین"), L("یک‌سوم حمله"), L("جناح چپ"), L("مرکز زمین"), L("جناح راست"))
-    Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card2).padding(12.dp),
+    Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card2).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(8.dp).clip(CircleShape).background(accent)); Spacer(Modifier.width(5.dp))
@@ -572,7 +572,7 @@ private fun zoneShares(p: List<Pair<Float, Float>>): List<Int> {
 private fun HeatPitch(pts: List<Pair<Float, Float>>, modifier: Modifier, vertical: Boolean = false) {
     val image = remember(pts, vertical) { heatImage(pts, vertical) }
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Canvas(modifier.clip(RoundedCornerShape(16.dp))) {
+        Canvas(modifier.clip(RoundedCornerShape(18.dp))) {
             // a deep, quiet pitch so the colours stand out
             val n = 12
             for (k in 0 until n) {
@@ -710,7 +710,7 @@ fun AveragePositions(m: MatchData) {
             Seg(listOf("both" to L("هر دو"), "home" to teamName(m.homeId, m.homeName), "away" to teamName(m.awayId, m.awayName)), show) { show = it }
         }
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            BoxWithConstraints(Modifier.padding(12.dp).fillMaxWidth().aspectRatio(105f / 68f).clip(RoundedCornerShape(16.dp))) {
+            BoxWithConstraints(Modifier.padding(12.dp).fillMaxWidth().aspectRatio(105f / 68f).clip(RoundedCornerShape(18.dp))) {
                 Canvas(Modifier.fillMaxSize()) {
                     for (k in 0 until 12) drawRect(if (k % 2 == 0) Color(0xFF1C5A36) else Color(0xFF19512F), Offset(size.width * k / 12, 0f), Size(size.width / 12 + 1, size.height))
                     pitchMarkings(false)

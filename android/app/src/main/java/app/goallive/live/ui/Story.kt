@@ -207,6 +207,12 @@ sealed class Story {
         override fun message() = personName(a.s("name") ?: "") + " × " + personName(b.s("name") ?: "")
     }
 
+    /** A match's team stats: possession and the key numbers side by side. */
+    class Stats(val m: MatchData) : Story() {
+        override val file = "goallive-stats-${m.matchId}"
+        override fun message() = L("آمار بازی") + ": " + teamName(m.homeId, m.homeName) + " ${m.home.i("score") ?: 0}-${m.away.i("score") ?: 0} " + teamName(m.awayId, m.awayName)
+    }
+
     /** A finished match told in about a minute (video only). */
     class Reel(val m: MatchData) : Story() {
         override val file = "goallive-reel-${m.matchId}"
@@ -244,6 +250,7 @@ internal suspend fun Story.load(ctx: Context): Art {
     return when (this) {
         is Story.Match -> { val best = bestOf(m); Art(logo, black, bold, card = cardAssets(ctx, m, best), best = best) }
         is Story.Reel -> { val best = bestOf(m); Art(logo, black, bold, faces(reelFaces(m), 260), card = cardAssets(ctx, m, best), best = best) }
+        is Story.Stats -> Art(logo, black, bold, card = cardAssets(ctx, m, null))
         is Story.Player -> Art(logo, black, bold, faces(listOf(id), 480),
             crests(listOf(p.o("primaryTeam").i("teamId") ?: 0) + p.a("recentMatches").objs().take(6).map { it.i("opponentTeamId") ?: 0 }),
             (p.o("mainLeague").i("leagueId") ?: 0).takeIf { it > 0 }?.let { mapOf(it to image(ctx, badgeUrl(it), 200)) } ?: emptyMap())
@@ -266,6 +273,7 @@ internal fun Story.scene(o: CardOptions, a: Art): Scene = when (this) {
     is Story.Table -> tableScene(this, o, a)
     is Story.Ballon -> ballonScene(this, o, a)
     is Story.Duel -> duelScene(this, o, a)
+    is Story.Stats -> statsScene(this, o, a)
 }
 
 /* ---------- shared drawing for the new stories ---------- */
@@ -492,6 +500,84 @@ private fun tableScene(s: Story.Table, o: CardOptions, a: Art): Scene {
                 val diff = r.i("goalConDiff") ?: 0
                 text(c, fa(if (diff > 0) "+$diff" else "$diff"), xs(SW - colGd), y + 34f, 34f, look.sub, a.bold, 110)
                 text(c, fa(countUp(r.i("pts") ?: 0, clk.at(0.9f + k * 0.11f, 0.9f))), xs(SW - colPts), y + 26f, 46f, look.ink, a.black, 120)
+            }
+        }
+        extras(c, o, a, look, clk, captionY)
+        footer(c, a, look, clk)
+    }
+}
+
+/* ---------- a match's stats ---------- */
+
+/** The team stats rows worth a story: FotMob's own order, possession apart (it has its ring), two values each. */
+internal fun storyStatRows(m: MatchData, n: Int): List<JSONObject> =
+    m.content.path("stats.Periods.All").a("stats").objs().flatMap { it.a("stats").objs() }
+        .filter { it.s("type") != "title" && it.s("key") != "BallPossesion" && (it.a("stats")?.length() ?: 0) == 2 }
+        .distinctBy { it.s("key") ?: it.s("title") }.take(n)
+
+private fun statsScene(s: Story.Stats, o: CardOptions, a: Art): Scene {
+    val m = s.m; val card = a.card!!
+    val hc = card.hc; val ac = card.ac
+    val (bg, look) = storyBg(o.theme, darker(hc, 0.25f), darker(ac, 0.45f))
+    val rows = storyStatRows(m, 9)
+    val poss = m.content.path("stats.Periods.All").a("stats").objs().flatMap { it.a("stats").objs() }.firstOrNull { it.s("key") == "BallPossesion" }
+        ?.a("stats")?.let { (it.optString(0).filter(Char::isDigit).toIntOrNull() ?: 50) to (it.optString(1).filter(Char::isDigit).toIntOrNull() ?: 50) }
+    val captionY = SH - 270f
+    return Scene(SW, SH, bg, hc, ac) { c, clk ->
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        // the match: crests, score, names (home at the reading start)
+        c.enter(clk.at(0.05f), 60f, 120f) { text(c, leagueName(m.leagueId, m.general.s("leagueName") ?: "") + " · " + L("آمار بازی"), SW / 2f, 70f, 32f, look.sub, a.bold, SW - 140) }
+        c.pop(clk.at(0.2f, 0.6f), xs(230f), 250f) { crestDisc(c, card.home, xs(230f), 250f, 82f) }
+        c.pop(clk.at(0.3f, 0.6f), xs(SW - 230f), 250f) { crestDisc(c, card.away, xs(SW - 230f), 250f, 82f) }
+        // each side's goals on its own side, like the match card
+        if (m.started) c.enter(clk.at(0.4f), 180f, 320f) {
+            text(c, fa(m.home.i("score") ?: 0), xs(SW / 2f - 80f), 185f, 96f, look.ink, a.black, 160)
+            text(c, "-", SW / 2f, 195f, 70f, look.sub, a.black, 80)
+            text(c, fa(m.away.i("score") ?: 0), xs(SW / 2f + 80f), 185f, 96f, look.ink, a.black, 160)
+        }
+        c.enter(clk.at(0.5f), 350f, 420f) {
+            text(c, teamName(m.homeId, m.homeName), xs(230f), 352f, 34f, look.ink, a.black, 360)
+            text(c, teamName(m.awayId, m.awayName), xs(SW - 230f), 352f, 34f, look.ink, a.black, 360)
+        }
+        // possession as a ring
+        poss?.let { (h, aw) ->
+            val cx = SW / 2f; val cy = 600f; val r = 130f; val k = easeOut(clk.at(0.7f, 1.0f))
+            c.enter(clk.at(0.6f), cy - r, cy + r) {
+                p.style = Paint.Style.STROKE; p.strokeWidth = 44f; p.strokeCap = Paint.Cap.BUTT
+                val rect = RectF(cx - r, cy - r, cx + r, cy + r)
+                val hs = 360f * h / (h + aw).coerceAtLeast(1) * k
+                // home sweeps from the top towards the reading start, away the other way
+                p.color = 0x33FFFFFF; c.drawArc(rect, 0f, 360f, false, p)
+                p.color = brighten(hc); c.drawArc(rect, -90f, if (en) -hs else hs, false, p)
+                p.color = brighten(ac); c.drawArc(rect, -90f, if (en) (360f * k - hs) else -(360f * k - hs), false, p)
+                p.style = Paint.Style.FILL
+                text(c, L("مالکیت"), cx, cy - 26f, 30f, look.sub, a.bold, 220)
+                text(c, fa("${(h * k).roundToInt()}٪"), xs(SW / 2f - 250f), cy - 40f, 64f, look.ink, a.black, 220)
+                text(c, fa("${(aw * k).roundToInt()}٪"), xs(SW / 2f + 250f), cy - 40f, 64f, look.ink, a.black, 220)
+            }
+        }
+        // the key numbers, a row each
+        val top = 820f; val rh = 96f
+        rows.forEachIndexed { i, st ->
+            val y = top + i * rh
+            val v = st.a("stats")
+            val hv = v?.optString(0).orEmpty(); val av = v?.optString(1).orEmpty()
+            val raw = st.a("rawStats").objs()
+            val hn = raw.getOrNull(0).d("value") ?: hv.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0
+            val an = raw.getOrNull(1).d("value") ?: av.substringBefore(' ').replace("%", "").toDoubleOrNull() ?: 0.0
+            c.enter(clk.at(1.0f + i * 0.12f, 0.5f), y, y + rh, 50f) {
+                text(c, tr(st.s("title")), SW / 2f, y, 30f, look.sub, a.bold, 560)
+                text(c, fa(hv.substringBefore(' ')), xs(110f), y - 6f, 46f, if (hn > an) look.ink else look.sub, a.black, 200)
+                text(c, fa(av.substringBefore(' ')), xs(SW - 110f), y - 6f, 46f, if (an > hn) look.ink else look.sub, a.black, 200)
+                // two bars from the middle outwards, the leader's brighter
+                val tot = (hn + an).takeIf { it > 0 } ?: 1.0
+                val g = easeOut(clk.at(1.1f + i * 0.12f, 0.7f)); val half = 330f; val by = y + 50f
+                p.color = 0x22FFFFFF; c.drawRoundRect(RectF(SW / 2f - half, by, SW / 2f + half, by + 12f), 6f, 6f, p)
+                val wh = (half * hn / tot * 2 * g).toFloat().coerceAtMost(half); val wa = (half * an / tot * 2 * g).toFloat().coerceAtMost(half)
+                p.color = if (hn >= an) brighten(hc) else (hc and 0x00FFFFFF) or 0x99000000.toInt()
+                if (en) c.drawRoundRect(RectF(SW / 2f - wh, by, SW / 2f, by + 12f), 6f, 6f, p) else c.drawRoundRect(RectF(SW / 2f, by, SW / 2f + wh, by + 12f), 6f, 6f, p)
+                p.color = if (an >= hn) brighten(ac) else (ac and 0x00FFFFFF) or 0x99000000.toInt()
+                if (en) c.drawRoundRect(RectF(SW / 2f, by, SW / 2f + wa, by + 12f), 6f, 6f, p) else c.drawRoundRect(RectF(SW / 2f - wa, by, SW / 2f, by + 12f), 6f, 6f, p)
             }
         }
         extras(c, o, a, look, clk, captionY)
@@ -747,10 +833,10 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
             T(if (reel) L("🎬 بازی در یک دقیقه") else L("🎬 استودیو استوری"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
             if (reel) scene?.let { T(L("ویدیوی {0} ثانیه‌ای با گل‌ها، آمار و بهترین بازیکن", fa(it.seconds.roundToInt())), 13, color = C.mute, modifier = Modifier.padding(horizontal = 16.dp)) }
             // picture or video
-            if (!reel) Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card2).padding(4.dp)) {
+            if (!reel) Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card2).padding(4.dp)) {
                 for ((v, label) in listOf(false to L("🖼️ عکس"), true to L("🎞️ ویدیو"))) {
                     val on = video == v
-                    Box(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (on) accent else Color.Transparent)
+                    Box(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) accent else Color.Transparent)
                         .clickable { video = v; Store.prefs().edit().putBoolean("story.video", v).apply() }.padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
                         T(label, 14, FontWeight.ExtraBold, if (on) LocalAccentInk.current else C.ink)
                     }
@@ -793,8 +879,8 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                     items(CARD_THEMES.size) { k ->
                         val t = CARD_THEMES[k]
                         val on = t == o.theme
-                        Column(Modifier.clip(RoundedCornerShape(16.dp)).clickable { o = o.copy(theme = t) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(Modifier.size(58.dp, 82.dp).clip(RoundedCornerShape(12.dp)).background(themeSwatch(t, hc, ac)).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(12.dp)))
+                        Column(Modifier.clip(RoundedCornerShape(18.dp)).clickable { o = o.copy(theme = t) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(Modifier.size(58.dp, 82.dp).clip(RoundedCornerShape(14.dp)).background(themeSwatch(t, hc, ac)).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(14.dp)))
                             T(themeName(t), 11, if (on) FontWeight.ExtraBold else FontWeight.Normal, if (on) accent else C.mute, modifier = Modifier.padding(top = 4.dp))
                         }
                     }
@@ -848,7 +934,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
 @Composable
 private fun ShareTarget(label: String, icon: String, modifier: Modifier, enabled: Boolean, tint: Color?, onClick: () -> Unit) {
     val bg = tint ?: C.card2
-    Row(modifier.clip(RoundedCornerShape(16.dp)).background(if (enabled) bg else bg.copy(alpha = 0.4f)).let { if (tint == null) it.border(1.dp, C.line2, RoundedCornerShape(16.dp)) else it }
+    Row(modifier.clip(RoundedCornerShape(18.dp)).background(if (enabled) bg else bg.copy(alpha = 0.4f)).let { if (tint == null) it.border(1.dp, C.line2, RoundedCornerShape(18.dp)) else it }
         .clickable(enabled = enabled, onClick = onClick).padding(vertical = 14.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         T(icon, 16); Spacer(Modifier.width(6.dp))
         T(label, 15, FontWeight.ExtraBold, if (tint != null) Color.White else C.ink)
@@ -916,7 +1002,7 @@ private fun save(ctx: Context, f: File, mime: String) {
 /** On a finished match: opens the studio on the match told in about a minute. */
 @Composable
 fun ReelBanner(m: MatchData) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brush.linearGradient(listOf(Color(deep(m.homeColor)), Color(deep(m.awayColor)))))
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(deep(m.homeColor)), Color(deep(m.awayColor)))))
         .clickable { StoryStudio.story = Story.Reel(m) }.padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Box(Modifier.size(46.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) { T("🎬", 22) }
         Column(Modifier.weight(1f)) {

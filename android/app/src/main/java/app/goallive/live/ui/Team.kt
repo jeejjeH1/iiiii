@@ -117,7 +117,7 @@ private fun TeamBody(id: Int, d: JSONObject) {
                             T(if (mine) L("تیم من") else L("انتخاب به‌عنوان تیم من"), 12, FontWeight.ExtraBold, if (mine) Color(0xFF2A1A00) else Color.White)
                         }
                     }
-                    Box(Modifier.align(Alignment.Top).clip(RoundedCornerShape(13.dp)).background(Color.Black.copy(alpha = 0.22f))) {
+                    Box(Modifier.align(Alignment.Top).clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.22f))) {
                         StarButton(Store.isTeam(id), { Store.toggleTeam(id, name) }, 20.dp, ink, 40.dp)
                     }
                 }

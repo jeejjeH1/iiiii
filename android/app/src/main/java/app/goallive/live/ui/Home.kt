@@ -159,7 +159,7 @@ fun HomeScreen() {
                     listOf("all" to L("همه {0}", all.size), "live" to L("زنده"), "fav" to L("دنبال‌شده‌ها") + if (favN > 0) " $favN" else ""),
                     filter, Modifier.weight(1f), badge = mapOf("live" to liveN), icons = mapOf("fav" to Ic.star),
                 ) { filter = it }
-                Box(Modifier.size(46.dp).clip(RoundedCornerShape(13.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(13.dp))
+                Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(14.dp))
                     .clickable { byTime = !byTime }, contentAlignment = Alignment.Center) {
                     Icon(if (byTime) Ic.list else Ic.trophy, if (byTime) L("مرتب‌سازی بر اساس لیگ") else L("مرتب‌سازی بر اساس زمان"), Modifier.size(20.dp), tint = C.ink)
                 }
@@ -287,7 +287,7 @@ private fun Featured(picks: List<MatchItem>) {
         val w = min(maxWidth * 0.82f, 330.dp)
         LazyRow(contentPadding = PaddingValues(top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(picks) { m ->
-                val shape = RoundedCornerShape(24.dp)
+                val shape = RoundedCornerShape(22.dp)
                 val c1 = teamColor(m.home.id); val c2 = teamColor(m.away.id)
                 Box(Modifier.width(w).height(178.dp).clip(shape).drawBehind {
                     cssLinear(245f, 0f to c1, 0.49f to c1, 0.51f to c2, 1f to c2)
@@ -363,7 +363,7 @@ private fun DateStrip(selected: Int, onPick: (Int) -> Unit) {
         items(days) { d ->
             val ms = startOfDay(d)
             val on = d == selected
-            val shape = RoundedCornerShape(16.dp)
+            val shape = RoundedCornerShape(18.dp)
             Column(
                 Modifier.offset(y = if (on) (-2).dp else 0.dp).width(64.dp).height(56.dp)
                     .then(if (on) Modifier.glow(accent.copy(alpha = 0.35f), 8.dp, shape) else Modifier)
@@ -407,7 +407,7 @@ fun MyTeamCard(teamId: Int, name: String, today: List<LeagueBlock>? = null) {
     val c2 = club?.let { Color(it.accent ?: it.c2) } ?: Color.Black
     val ink = club?.let { if (lum(Color(it.ink)) < 0.3f) Color(it.ink) else Color.White } ?: Color.White
     Box(
-        Modifier.padding(top = 10.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp))
+        Modifier.padding(top = 10.dp, bottom = 4.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp))
             .drawBehind {
                 cssLinear(120f, 0f to c1, 0.7f to darken(c1, 0.3f), 1f to c2)
                 club?.let { drawPattern(it.pattern) }

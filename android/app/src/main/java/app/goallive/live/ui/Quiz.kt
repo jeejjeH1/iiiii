@@ -124,7 +124,7 @@ fun QuizScreen() {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
             item {
                 Column(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(accent),
+                    Box(Modifier.size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(accent),
                         contentAlignment = Alignment.Center) { T("?", 34, FontWeight.Black, LocalAccentInk.current) }
                     T(L("کوئیز فوتبالی امروز"), 22, FontWeight.Black, modifier = Modifier.padding(top = 8.dp))
                     T(persianDate(today, "EEEE d MMMM") + L(" · {0} سؤال · رکورد پیاپی: {1} روز", qs.size, p.getInt("quizStreak", 0)), 12, color = C.mute)
@@ -173,7 +173,7 @@ private fun QuestionCard(n: Int, q: Question, chosen: Int?, onPick: (Int) -> Uni
     LaunchedEffect(Unit) { pop.animateTo(1f, spring(Spring.DampingRatioMediumBouncy)) }
     Card(Modifier.padding(bottom = 12.dp).scale(pop.value)) {
         Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(C.card2), contentAlignment = Alignment.Center) { T("${n + 1}", 13, FontWeight.Black) }
+            Box(Modifier.size(28.dp).clip(RoundedCornerShape(10.dp)).background(C.card2), contentAlignment = Alignment.Center) { T("${n + 1}", 13, FontWeight.Black) }
             T(q.text, 15, FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             if (q.crest > 0) Crest(q.crest, 30.dp)
         }
@@ -210,9 +210,9 @@ private fun Result(score: Int, total: Int, onShare: () -> Unit) {
     val good = score * 2 >= total
     val accent = LocalAccent.current
     Column(
-        Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(26.dp)).drawBehind {
+        Modifier.fillMaxWidth().padding(bottom = 12.dp).clip(RoundedCornerShape(22.dp)).drawBehind {
             cssLinear(160f, 0f to (if (good) accent else C.loss).copy(alpha = 0.35f), 1f to C.card)
-        }.border(1.dp, C.line2, RoundedCornerShape(26.dp)).padding(20.dp),
+        }.border(1.dp, C.line2, RoundedCornerShape(22.dp)).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         T(if (score == total) "🏆" else if (good) "⚽" else "🥅", 44)

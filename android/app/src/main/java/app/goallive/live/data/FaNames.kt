@@ -111,6 +111,19 @@ object FaNames {
         return b.toString()
     }
 
+    /**
+     * The other way: Persian back to the Latin FotMob knows, for the known name parts, words, countries, phrases and teams
+     * (search turns what was typed into what FotMob can find). Keys are written without spaces or half-spaces.
+     */
+    val faToEn: Map<String, String> by lazy {
+        val out = HashMap<String, String>()
+        for (m in listOf(TEAM_EN, PHRASES, COUNTRY, WORDS, NAMES)) for ((en, fa) in m) out.putIfAbsent(searchKey(fa), en)
+        out
+    }
+
+    /** A Persian string as search compares it: one form of ی and ک, no spaces or half-spaces. */
+    fun searchKey(s: String) = s.replace('ي', 'ی').replace('ك', 'ک').replace("\u200C", "").replace(" ", "").lowercase()
+
     private val NOT_NAMES = setOf("xG", "xGOT", "xA", "xGA", "npxG", "FotMob", "YouTube", "GoalLive", "Opta", "LIVE FOOTBALL")
     private const val VOWELS = "aeiou"
     private val FOLD = mapOf('ø' to "o", 'æ' to "ae", 'ß' to "ss", 'ł' to "l", 'đ' to "dj", 'ı' to "i", 'ś' to "sh", 'ş' to "sh", 'š' to "sh",

@@ -100,7 +100,7 @@ fun Highlights(m: MatchData, compact: Boolean = false) {
                 if (!compact) T(L("ویدیوی خلاصه هنوز پیدا نشد؛ معمولاً یکی دو ساعت بعد از بازی منتشر می‌شود."), 14, color = C.mute,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp), align = androidx.compose.ui.text.style.TextAlign.Center)
                 ListRow(first = compact, onClick = { runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.aparat.com/search/${enc(q)}"))) } }) {
-                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Color(0xFFED145B)), contentAlignment = Alignment.Center) { T(L("آ"), 15, FontWeight.Black, Color.White) }
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFED145B)), contentAlignment = Alignment.Center) { T(L("آ"), 15, FontWeight.Black, Color.White) }
                     Column(Modifier.weight(1f)) {
                         T(L("جستجو در آپارات"), 14, FontWeight.Bold)
                         if (compact) T(L("ویدیوی خلاصه هنوز نیامده"), 12, color = C.mute)
@@ -131,7 +131,7 @@ private fun Tile(v: Video, m: MatchData, big: Boolean, width: Dp?, onPlay: () ->
             cssLinear(242f, 0f to m.homeColor.copy(alpha = 0.35f), 0.5f to Color.Transparent, 1f to m.awayColor.copy(alpha = 0.35f))
             drawRect(Brush.verticalGradient(0.35f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.85f)))
         })
-        if (v.duration > 0) Box(Modifier.align(Alignment.TopEnd).padding(10.dp).clip(RoundedCornerShape(7.dp)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 7.dp, vertical = 3.dp)) {
+        if (v.duration > 0) Box(Modifier.align(Alignment.TopEnd).padding(10.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 7.dp, vertical = 3.dp)) {
             Ltr("%d:%02d".format(v.duration / 60, v.duration % 60), style = lat(12.sp, FontWeight.ExtraBold), color = Color.White)
         }
         val play = if (big) 62.dp else 40.dp
@@ -212,7 +212,7 @@ private fun Player(v: Video, m: MatchData, onClose: () -> Unit) {
             val goals = m.events.filter { it.s("type") == "Goal" && !it.b("isPenaltyShootoutEvent") }
             if (goals.isNotEmpty()) Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 goals.forEach { g ->
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.card2).padding(horizontal = 12.dp, vertical = 8.dp),
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.card2).padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Ltr(minuteText(g) + "'", Modifier.width(34.dp), style = vz(13.sp, FontWeight.Black), color = LocalAccent.current)
                         Ltr(g.s("nameStr") ?: g.o("player").s("name") ?: "", Modifier.weight(1f))

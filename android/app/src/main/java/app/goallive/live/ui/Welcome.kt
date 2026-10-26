@@ -252,7 +252,7 @@ private fun Alerts() {
         listOf(L("⚽ گل! پرسپولیس ۱ - ۰ استقلال") to L("دقیقه ۳۴ · گلزن: …"), L("📋 ترکیب رئال مادرید اعلام شد") to L("یک ساعت قبل از بازی"), L("🏁 پایان بازی") to L("بارسلونا ۲ - ۱ اتلتیکو")).forEach { (h, s) ->
             Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(22.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(22.dp))
                 .padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Image(painterResource(R.drawable.logo), null, Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(3.dp))
+                Image(painterResource(R.drawable.logo), null, Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(Color.White).padding(3.dp))
                 Column(Modifier.weight(1f)) { T(h, 15, FontWeight.ExtraBold); T(s, 12, color = C.mute) }
             }
         }

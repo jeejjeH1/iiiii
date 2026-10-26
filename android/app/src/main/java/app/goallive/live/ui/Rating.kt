@@ -373,7 +373,7 @@ fun RatingWhy(r: PlayerRating, all: List<PlayerRating>, open: Boolean, onToggle:
                         .background(if (pos) C.win else C.live))
                 }
             }
-            if (shown == g) Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(C.card2)
+            if (shown == g) Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(C.card2)
                 .padding(horizontal = 12.dp, vertical = 6.dp)) {
                 r.items.filter { it.group == g }.sortedByDescending { abs(it.points) }.forEach { i ->
                     Row(Modifier.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {

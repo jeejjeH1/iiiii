@@ -38,6 +38,8 @@ class PitchMan(
     val number: String = "", val rating: Double? = null,
     val goals: Int = 0, val own: Int = 0, val assists: Int = 0, val yellow: Boolean = false, val red: Boolean = false,
     val outAt: String? = null, val captain: Boolean = false, val crest: Int? = null, val star: Boolean = false, val color: Color? = null,
+    /** Who came on for him (short name), shown under him. */
+    val subIn: String? = null,
 )
 
 private val GOLDEN = Color(0xFFF5C542)
@@ -56,13 +58,13 @@ fun FormationPitch(
 ) {
     val ring = lerp(color, Color.White, 0.15f)
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp))
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
             .background(Brush.verticalGradient(listOf(lerp(color, Color.Black, 0.55f), Color(0xFF0B1A12))))
-            .border(1.5.dp, Brush.verticalGradient(listOf(ring.copy(alpha = 0.8f), Color.White.copy(alpha = 0.08f))), RoundedCornerShape(26.dp)),
+            .border(1.5.dp, Brush.verticalGradient(listOf(ring.copy(alpha = 0.8f), Color.White.copy(alpha = 0.08f))), RoundedCornerShape(22.dp)),
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp), content = header)
-        Box(Modifier.padding(horizontal = 8.dp).fillMaxWidth().aspectRatio(0.7f).clip(RoundedCornerShape(20.dp))) {
+        Box(Modifier.padding(horizontal = 8.dp).fillMaxWidth().aspectRatio(0.7f).clip(RoundedCornerShape(18.dp))) {
             Canvas(Modifier.fillMaxSize()) { grass(color) }
             // pitch spots are screen positions: left stays left in both languages
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -167,18 +169,32 @@ private fun Token(p: PitchMan, color: Color, modifier: Modifier, onClick: () -> 
             if (p.star) Text("★", Modifier.align(Alignment.TopStart).absoluteOffset(4.dp, (-4).dp), color = GOLDEN, fontSize = 17.sp, fontWeight = FontWeight.Black)
         }
         // name plate
-        Box(Modifier.clip(RoundedCornerShape(8.dp)).background(Brush.verticalGradient(listOf(Color(0xE6121820), Color(0xE60A0E13))))
-            .border(1.dp, (if (p.star) GOLDEN else Color.White).copy(alpha = if (p.star) 0.8f else 0.14f), RoundedCornerShape(8.dp)).padding(horizontal = 7.dp, vertical = 1.dp)) {
+        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(Brush.verticalGradient(listOf(Color(0xE6121820), Color(0xE60A0E13))))
+            .border(1.dp, (if (p.star) GOLDEN else Color.White).copy(alpha = if (p.star) 0.8f else 0.14f), RoundedCornerShape(10.dp)).padding(horizontal = 7.dp, vertical = 1.dp)) {
             Ltr(p.name, style = vz(11.5.sp, FontWeight.ExtraBold), color = if (p.star) GOLDEN else Color.White, align = TextAlign.Center, raw = true)
         }
         Events(p)
     }
 }
 
-/** Goals, assists, cards and the minute he went off, as small round badges under the name. */
+/** Goals, assists, cards and the minute he went off, as small round badges under the name; then who replaced him. */
 @Composable
 private fun Events(p: PitchMan) {
     if (p.goals == 0 && p.own == 0 && !p.red && !p.yellow && p.assists == 0 && p.outAt == null) return
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        EventBadges(p)
+        p.subIn?.let { n ->
+            Row(Modifier.padding(top = 2.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xCC0B2A18)).padding(horizontal = 5.dp, vertical = 1.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text("⇧ ", fontSize = 9.sp, color = Color(0xFF39D98A), fontWeight = FontWeight.Black)
+                Ltr(n, style = vz(9.5.sp, FontWeight.Bold), color = Color.White, raw = true)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventBadges(p: PitchMan) {
     Row(Modifier.padding(top = 3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
         val dot = Modifier.size(16.dp).clip(CircleShape).background(Color.White).border(1.dp, Color.Black.copy(alpha = 0.15f), CircleShape)
         fun count(n: Int) = if (n > 1) fa(n) else ""

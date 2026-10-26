@@ -89,7 +89,7 @@ fun WhatsNew(nav: Nav) {
                     }
                 }
             }
-            Box(Modifier.padding(top = 12.dp).fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(accent).clickable { close() }, contentAlignment = Alignment.Center) {
+            Box(Modifier.padding(top = 12.dp).fillMaxWidth().height(52.dp).clip(RoundedCornerShape(18.dp)).background(accent).clickable { close() }, contentAlignment = Alignment.Center) {
                 T(L("عالیه!"), 16, FontWeight.Black, LocalAccentInk.current)
             }
         }

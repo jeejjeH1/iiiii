@@ -84,7 +84,7 @@ fun StoryRow() {
     Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         list.forEach { s ->
             Column(
-                Modifier.width(70.dp).clip(RoundedCornerShape(16.dp)).clickable { go(s.key, nav) { tv = true } }
+                Modifier.width(70.dp).clip(RoundedCornerShape(18.dp)).clickable { go(s.key, nav) { tv = true } }
                     .semantics(mergeDescendants = true) { role = Role.Button; contentDescription = L("{0}، {1}", s.title, s.sub) }.padding(vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -123,7 +123,7 @@ fun StationsSheet(onClose: () -> Unit) {
             Card {
                 STATIONS.forEachIndexed { i, st ->
                     ListRow(first = i == 0, onClick = { onClose(); openStation(ctx, st) }) {
-                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(if (st.key == "namava") C.live else C.card2), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(if (st.key == "namava") C.live else C.card2), contentAlignment = Alignment.Center) {
                             Icon(Ic.tv, null, Modifier.size(22.dp), tint = if (st.key == "namava") Color.White else C.ink)
                         }
                         Column(Modifier.weight(1f)) { T(st.name, 15, FontWeight.Bold); T(st.sub, 12, color = C.mute, maxLines = 1) }
@@ -153,7 +153,7 @@ fun MoreScreen() {
             if (group.isNotEmpty()) Card {
                 group.forEachIndexed { i, s ->
                     ListRow(first = i == 0, onClick = { go(s.key, nav) { tv = true } }) {
-                        Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Brush.linearGradient(listOf(s.color, darken(s.color, 0.55f)))),
+                        Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(listOf(s.color, darken(s.color, 0.55f)))),
                             contentAlignment = Alignment.Center) {
                             when {
                                 s.key == "my" -> Crest(Store.myTeam?.id ?: 0, 28.dp)
@@ -192,7 +192,7 @@ fun MoreScreen() {
 @Composable
 private fun MoreRow(icon: ImageVector, title: String, sub: String, first: Boolean = false, onClick: () -> Unit) {
     ListRow(first = first, onClick = onClick) {
-        Box(Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(C.card2), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(42.dp).clip(RoundedCornerShape(14.dp)).background(C.card2), contentAlignment = Alignment.Center) {
             Icon(icon, null, Modifier.size(22.dp), tint = C.ink)
         }
         Column(Modifier.weight(1f)) { T(title, 15, FontWeight.Bold); T(sub, 12, color = C.mute, maxLines = 1) }

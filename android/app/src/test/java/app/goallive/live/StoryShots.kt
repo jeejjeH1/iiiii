@@ -65,7 +65,7 @@ class StoryShots {
         val pick = season?.optJSONArray("ballonDor")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
         fun player(id: Int) = runBlocking { runCatching { Api.fm("playerData", mapOf("id" to id)) }.getOrNull() }
         val stories = mutableListOf<Pair<String, Story>>()
-        runBlocking { runCatching { MatchData(Api.fm("matchDetails", mapOf("matchId" to 5795484))) }.getOrNull() }?.let { stories += "match" to Story.Match(it) }
+        runBlocking { runCatching { MatchData(Api.fm("matchDetails", mapOf("matchId" to 5795484))) }.getOrNull() }?.let { stories += "match" to Story.Match(it); stories += "stats" to Story.Stats(it) }
         val p1 = pick.getOrNull(0)?.optInt("id")?.let(::player)
         val p2 = pick.getOrNull(1)?.optInt("id")?.let(::player)
         p1?.let { stories += "player" to Story.Player(it) }

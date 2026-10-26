@@ -1218,3 +1218,48 @@
 1217|{0} attack left to right
 1218|xG race
 1219|Each team's chance quality adding up over the match; circles are goals
+1220|Inside the box
+1221|Outside the box
+1222|Big chances (xG over 0.3)
+1223|From open play
+1224|From counter-attacks
+1225|From set pieces
+1226|With the foot
+1227|On target
+1228|Hit the woodwork
+1229|xG per shot
+1230|Shot breakdown
+1231|Shots per 15 minutes
+1232|Bars are each team's xG, numbers the shots
+1233|Shots in extra time are not in this chart
+1234|Most xG
+1235|Most key passes
+1236|Most xA
+1237|Most touches in the box
+1238|Most successful dribbles
+1239|Most accurate passes
+1240|Most passes into the final third
+1241|Most recoveries
+1242|Most interceptions
+1243|Most ground duels won
+1244|Most aerials won
+1245|Most clearances
+1246|Most saves
+1247|Most distance covered
+1248|Most sprints
+1249|🏅 Top in each stat
+1250|Team, player or league; Persian or English…
+1251|for 
+1252|Stats story
+1253|Possession
+1254|Duels won
+1255|Percentages
+1256|Team radar
+1257|Each team's share of each part of the game; the middle line is even
+1258|Accurate passes
+1259|Chance creation
+1260|Duels
+1261|xG
+1262|Preview
+1263|No goals or red cards yet
+1264|Open match

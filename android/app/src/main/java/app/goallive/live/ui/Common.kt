@@ -83,6 +83,9 @@ import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.compositionLocalOf
 import app.goallive.live.data.Api
+import app.goallive.live.data.b
+import app.goallive.live.data.o
+import app.goallive.live.data.s
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
@@ -223,6 +226,10 @@ fun TeamText(id: Int, name: String, modifier: Modifier = Modifier, size: Int = 1
 
 /* ---------- surfaces ---------- */
 
+/*
+ * One scale for corners, used everywhere: 6 (badges), 10 (chips, small pills), 14 (buttons, rows, inputs),
+ * 18 (inner panels, tiles), 22 (cards), 28 (sheets); tiny bars keep 2-5 and round things CircleShape.
+ */
 private val CardShape = RoundedCornerShape(22.dp)
 
 @Composable
@@ -257,7 +264,7 @@ fun SectionTitle(text: String, modifier: Modifier = Modifier) {
 }
 
 /** Soft colored halo around an element (the site's box-shadow glows), drawn as a blurred shape behind it. */
-fun Modifier.glow(color: Color, radius: Dp, shape: Shape = RoundedCornerShape(12.dp)): Modifier = drawBehind {
+fun Modifier.glow(color: Color, radius: Dp, shape: Shape = RoundedCornerShape(14.dp)): Modifier = drawBehind {
     val r = radius.toPx()
     if (r <= 0f) return@drawBehind
     val outline = shape.createOutline(size, layoutDirection, this)
@@ -318,13 +325,13 @@ fun Pill(text: String, kind: PillKind = PillKind.Plain, onClick: (() -> Unit)? =
 fun Seg(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, badge: Map<String, Int> = emptyMap(),
         icons: Map<String, ImageVector> = emptyMap(), onSelect: (String) -> Unit) {
     Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(16.dp)).padding(4.dp),
+        modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(18.dp)).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         for ((k, label) in options) {
             val on = k == selected
             Row(
-                Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(12.dp)).background(if (on) C.ink else Color.Transparent)
+                Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(14.dp)).background(if (on) C.ink else Color.Transparent)
                     .clickable { onSelect(k) }.padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
             ) {
@@ -351,7 +358,7 @@ fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifi
         for ((k, label) in options) {
             val on = k == selected
             Box(
-                Modifier.then(if (on) Modifier.glow(accent.copy(alpha = 0.4f), 8.dp) else Modifier).clip(RoundedCornerShape(12.dp))
+                Modifier.then(if (on) Modifier.glow(accent.copy(alpha = 0.4f), 8.dp) else Modifier).clip(RoundedCornerShape(14.dp))
                     .background(if (on) accent else Color.Transparent).clickable { onSelect(k) }.padding(horizontal = 14.dp, vertical = 8.dp),
             ) { T(label, 13, FontWeight.ExtraBold, if (on) LocalAccentInk.current else C.mute, maxLines = 1) }
         }
@@ -369,7 +376,7 @@ fun Rating(r: Double?, modifier: Modifier = Modifier, small: Boolean = false) {
         r >= 5.5 -> Color(0xFFF08A24)
         else -> Color(0xFFE5434B)
     }
-    Box(modifier.clip(RoundedCornerShape(7.dp)).background(c).padding(horizontal = if (small) 5.dp else 6.dp, vertical = 1.dp)) {
+    Box(modifier.clip(RoundedCornerShape(6.dp)).background(c).padding(horizontal = if (small) 5.dp else 6.dp, vertical = 1.dp)) {
         Text(dec(r, 1), color = Color.White, style = vz(if (small) 10.sp else 11.sp, FontWeight.Black))
     }
 }
@@ -383,7 +390,7 @@ fun StarButton(on: Boolean, onToggle: () -> Unit, size: Dp = 18.dp, tint: Color 
 
 @Composable
 fun IconBtn(icon: ImageVector, desc: String?, tint: Color = C.ink, bg: Color = Color.Transparent, size: Dp = 20.dp, onClick: () -> Unit) {
-    Box(Modifier.size(40.dp).clip(RoundedCornerShape(13.dp)).background(bg).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(40.dp).clip(RoundedCornerShape(14.dp)).background(bg).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(icon, desc, Modifier.size(size), tint = tint)
     }
 }
@@ -421,7 +428,7 @@ fun Skeleton(rows: Int = 6, modifier: Modifier = Modifier) {
                         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Box(Modifier.size(21.dp).clip(CircleShape).background(brush)); bar(if ((i + card) % 2 == 0) 64.dp else 48.dp, 11.dp, Modifier)
                         }
-                        Box(Modifier.size(64.dp, 34.dp).clip(RoundedCornerShape(11.dp)).background(brush))
+                        Box(Modifier.size(64.dp, 34.dp).clip(RoundedCornerShape(10.dp)).background(brush))
                         Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
                             bar(if ((i + card) % 2 == 0) 52.dp else 70.dp, 11.dp, Modifier); Box(Modifier.size(21.dp).clip(CircleShape).background(brush))
                         }
@@ -492,7 +499,16 @@ class Loader<T> {
  */
 @Composable
 fun <T> rememberLoader(vararg keys: Any?, peek: (() -> T?)? = null, poll: (T) -> Long? = { null }, block: suspend () -> T): Loader<T> {
-    val l = remember(*keys) { Loader<T>().apply { runCatching { peek?.invoke() }.getOrNull()?.let { state = Load.Ok(it) } } }
+    // the last answer for this spot on this screen: coming back to a page shows it at once (and its list can scroll back to
+    // where it was) while a fresh copy is fetched
+    val site = "${currentCompositeKeyHash}:" + keys.joinToString("|")
+    val l = remember(*keys) {
+        Loader<T>().apply {
+            @Suppress("UNCHECKED_CAST")
+            (runCatching { peek?.invoke() }.getOrNull() ?: LAST_VALUES[site] as? T)?.let { state = Load.Ok(it) }
+        }
+    }
+    LaunchedEffect(l.value) { l.value?.let { v -> if (LAST_VALUES.size > 80) LAST_VALUES.clear(); LAST_VALUES[site] = v } }
     val owner = LocalLifecycleOwner.current
     LaunchedEffect(l, l.tick) {
         owner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -512,6 +528,8 @@ fun <T> rememberLoader(vararg keys: Any?, peek: (() -> T?)? = null, poll: (T) ->
     }
     return l
 }
+
+private val LAST_VALUES = java.util.concurrent.ConcurrentHashMap<String, Any>()
 
 /** Pull down to fetch fresh data for [loaders] (skipping the in-memory copies). */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -556,10 +574,15 @@ fun ScoreText(h: Int?, a: Int?, size: Int = 16, color: Color = C.ink, weight: Fo
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: String? = null, star: Boolean = true, flash: Boolean = false, first: Boolean = false,
              crestFly: Boolean = false) {
     val accent = LocalAccent.current
+    // a long press shows the match in a small sheet without leaving the list
+    var peek by remember { mutableStateOf(false) }
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    if (peek) MatchPeek(m, { peek = false; onClick() }) { peek = false }
     if (!first) Divider()
     // one sentence for screen readers instead of a dozen small pieces
     val hn = teamName(m.home.id, m.home.name); val an = teamName(m.away.id, m.away.name)
@@ -570,7 +593,10 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
         else -> L("{0} و {1}، {2} ساعت {3}", hn, an, persianDate(m.time, "EEEE d MMMM"), timeOf(m.time))
     } + (sub?.let { L("، {0}", personName(it)) } ?: "")
     val datePlace = showDate && !m.live && dayKey(m.time) != dayKey(System.currentTimeMillis())
-    Box(Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.14f) else Color.Transparent).clickable(onClick = onClick)
+    Box(Modifier.fillMaxWidth().background(if (flash) accent.copy(alpha = 0.14f) else Color.Transparent)
+        .combinedClickable(onClick = onClick, onLongClickLabel = L("پیش‌نمایش"), onLongClick = {
+            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress); peek = true
+        })
         .semantics { contentDescription = desc }) {
         Row(
             Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 18.dp else 10.dp),
@@ -620,7 +646,7 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
 
 @Composable
 fun ScoreBox(m: MatchItem) {
-    val shape = RoundedCornerShape(11.dp)
+    val shape = RoundedCornerShape(10.dp)
     val bg = when { m.live -> C.live; m.finished -> Color.Transparent; else -> C.card2 }
     Box(
         Modifier.width(64.dp).height(34.dp).then(if (m.live) Modifier.glow(C.live.copy(alpha = 0.3f), 6.dp, shape) else Modifier)
@@ -674,4 +700,61 @@ fun PageHero(c1: Color, pattern: String?, ink: Color = Color.White, content: @Co
             .padding(horizontal = 18.dp, vertical = 22.dp),
         content = content,
     )
+}
+
+/**
+ * The long-press preview of a match: the teams and the score (or the kick-off), the goals and red cards with their minutes,
+ * and two buttons, open the match or share it. Loaded on the spot; the list stays where it was underneath.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MatchPeek(m: MatchItem, onOpen: () -> Unit, onClose: () -> Unit) {
+    val l = rememberLoader(m.id, "peek") { MatchData(Api.fm("matchDetails", mapOf("matchId" to m.id), 15_000)) }
+    val accent = LocalAccent.current
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, containerColor = C.cardSolid, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
+        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+            if (m.leagueName.isNotEmpty()) Ltr(m.leagueName, Modifier.fillMaxWidth(), style = vz(12.sp, FontWeight.Bold), color = C.mute, align = TextAlign.Center)
+            Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                for ((side, end) in listOf(m.home to false, m.away to true)) {
+                    if (end) Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(110.dp)) {
+                        if (m.started && !m.cancelled) ScoreText(m.home.score, m.away.score, 34) else T(timeOf(m.time), 30, FontWeight.Black)
+                        T(if (m.started || m.cancelled) statusText(m) else persianDate(m.time, "EEEE d MMMM"), 12, FontWeight.Bold, if (m.live) C.live else C.mute, maxLines = 1)
+                    }
+                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Crest(side.id, 48.dp, large = true); TeamText(side.id, side.name, size = 14, w = FontWeight.ExtraBold, maxLines = 2, align = TextAlign.Center)
+                    }
+                }
+            }
+            val md = l.value
+            val events = md?.events.orEmpty().filter { e ->
+                !e.b("isPenaltyShootoutEvent") && (e.s("type") == "Goal" || (e.s("type") == "Card" && e.s("card") in setOf("Red", "YellowRed")))
+            }
+            when {
+                md == null && m.started -> Skeleton(2)
+                events.isNotEmpty() -> Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card2).padding(vertical = 6.dp)) {
+                    events.forEach { e ->
+                        val home = e.b("isHome")
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Ltr(fa(minuteText(e)) + "'", Modifier.width(38.dp), style = vz(12.sp, FontWeight.Black), color = accent, raw = true)
+                            if (e.s("type") == "Goal") Icon(Ic.ball, null, Modifier.size(15.dp), tint = if (e.b("ownGoal")) C.live else C.ink)
+                            else Box(Modifier.size(10.dp, 13.dp).clip(RoundedCornerShape(2.dp)).background(C.live))
+                            Ltr(e.s("nameStr") ?: e.o("player").s("name") ?: "", Modifier.weight(1f), style = vz(13.sp, FontWeight.Bold))
+                            Crest(if (home) m.home.id else m.away.id, 18.dp)
+                        }
+                    }
+                }
+                m.started -> T(L("هنوز گل یا کارت قرمزی ثبت نشده"), 13, color = C.mute, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(18.dp)).background(accent).clickable(onClick = onOpen), contentAlignment = Alignment.Center) {
+                    T(L("باز کردن بازی"), 15, FontWeight.Black, LocalAccentInk.current)
+                }
+                if (md != null && m.started) Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(18.dp)).border(1.dp, C.line2, RoundedCornerShape(18.dp))
+                    .clickable { onClose(); StoryStudio.story = Story.Match(md) }, contentAlignment = Alignment.Center) {
+                    T(L("اشتراک‌گذاری"), 15, FontWeight.Black)
+                }
+            }
+        }
+    }
 }

@@ -93,6 +93,8 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.math.roundToInt
 import kotlin.math.exp
 import kotlin.math.max
@@ -368,7 +370,7 @@ private fun MinuteRing(minute: String) {
 @Composable
 private fun HeroTeam(id: Int, name: String, faName: String?, modifier: Modifier, shareKey: String) {
     val nav = LocalNav.current
-    Column(modifier.clip(RoundedCornerShape(16.dp)).clickable { nav.team(id) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally,
+    Column(modifier.clip(RoundedCornerShape(18.dp)).clickable { nav.team(id) }.padding(4.dp), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Crest(id, 68.dp, large = true, shareKey = shareKey)
         TeamText(id, name, size = 16, w = FontWeight.ExtraBold, color = Color.White, maxLines = 2, align = TextAlign.Center)
@@ -538,7 +540,7 @@ fun FormChips(arr: JSONArray?) {
         arr.objs().take(5).forEach { f ->
             val r = f.s("resultString") ?: when (f.i("result")) { 1 -> "W"; 0 -> "D"; -1 -> "L"; else -> "" }
             val c = when (r) { "W" -> C.win; "L" -> C.loss; else -> C.draw }
-            Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(c), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(24.dp).clip(RoundedCornerShape(10.dp)).background(c), contentAlignment = Alignment.Center) {
                 T(when (r) { "W" -> L("ب"); "L" -> L("ش"); else -> L("م") }, 11, FontWeight.Black, Color.White)
             }
         }
@@ -592,7 +594,7 @@ private fun WinProbability(m: MatchData) {
             }
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp)) {
-            Canvas(Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(12.dp))) {
+            Canvas(Modifier.fillMaxWidth().height(110.dp).clip(RoundedCornerShape(14.dp))) {
                 val n = max(series.size - 1, 1)
                 val x = { i: Int -> i.toFloat() / n * size.width }
                 fun area(top: (Triple<Double, Double, Double>) -> Double, bottom: (Triple<Double, Double, Double>) -> Double, c: Color, alpha: Float) {
@@ -712,21 +714,258 @@ private fun StatsTab(m: MatchData) {
     if (period !in keys) period = keys.first()
     val labels = mapOf("All" to L("کل بازی"), "FirstHalf" to L("نیمه اول"), "SecondHalf" to L("نیمه دوم"))
     if (keys.size > 1) Seg(keys.map { it to (labels[it] ?: it) }, period) { period = it }
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Legend(m) }
-    // every group in one card, a small heading between them
+    // the stats as a story picture or video
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) { Legend(m) }
+        Pill(L("استوری آمار"), PillKind.Accent, icon = Ic.share, onClick = { StoryStudio.story = Story.Stats(m) })
+    }
+    val possRow = periods.o(period).a("stats").objs().flatMap { it.a("stats").objs() }.firstOrNull { it.s("key") == "BallPossesion" }
+    val poss = possRow?.a("stats")?.let { (it.optString(0).filter(Char::isDigit).toIntOrNull() ?: 0) to (it.optString(1).filter(Char::isDigit).toIntOrNull() ?: 0) }
+        ?.takeIf { it.first + it.second > 0 }
+    poss?.let { PossessionRing(m, it.first, it.second) }
+    // every group in one card, a small heading between them (possession has its ring above)
     Card {
         periods.o(period).a("stats").objs().forEachIndexed { k, g ->
+            val rows = g.a("stats").objs().filter { !(poss != null && it.s("key") == "BallPossesion") }
+            if (rows.none { it.s("type") != "title" }) return@forEachIndexed
             if (k > 0) Divider()
             T(tr(g.s("title")), 13, FontWeight.ExtraBold, LocalAccent.current, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 2.dp))
-            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) { g.a("stats").objs().forEach { st -> StatRow(st, m.homeColor, m.awayColor) } }
+            Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) { rows.forEach { st -> StatRow(st, m.homeColor, m.awayColor) } }
         }
     }
+    if (period == "All") { TeamRadar(m, poss); RateRings(m) }
     // the rest of the picture, built from every player's own numbers (whole match only: players' stats are not split by half)
     if (period == "All") {
         val have = periods.o("All").a("stats").objs().flatMap { it.a("stats").objs() }.mapNotNull { it.s("key") }.toSet()
         MoreTeamStats(m, have)
+        StatLeaders(m)
     }
     if (m.started) AveragePositions(m)
+}
+
+/**
+ * Each team's sum of every player stat key: (values, totals) as [home, away]. The total is FotMob's attempts for a
+ * fraction (passes tried for accurate passes), so a rate can be worked out for the whole team.
+ */
+private fun teamTotals(m: MatchData): Map<String, Pair<DoubleArray, DoubleArray>> {
+    val stats = m.content.o("playerStats") ?: return emptyMap()
+    val lu = m.content.o("lineup") ?: return emptyMap()
+    val side = HashMap<Int, Boolean>()
+    for ((k, home) in listOf("homeTeam" to true, "awayTeam" to false)) lu.o(k).let { t -> (t.a("starters").objs() + t.a("subs").objs()).forEach { p -> p.i("id")?.let { side[it] = home } } }
+    val out = HashMap<String, Pair<DoubleArray, DoubleArray>>()
+    for (k in stats.keys()) {
+        val home = side[k.toIntOrNull() ?: continue] ?: continue
+        for (g in stats.optJSONObject(k).a("stats").objs()) {
+            val all = g.o("stats") ?: continue
+            for (t in all.keys()) {
+                val one = all.optJSONObject(t) ?: continue
+                val key = one.s("key") ?: continue
+                val st = one.o("stat") ?: continue
+                val v = st.d("value") ?: continue
+                val slot = out.getOrPut(key) { DoubleArray(2) to DoubleArray(2) }
+                slot.first[if (home) 0 else 1] += v
+                slot.second[if (home) 0 else 1] += st.d("total") ?: 0.0
+            }
+        }
+    }
+    return out
+}
+
+/** A ring filling up to [share] (0…1) in [color], drawn once the card shows; the text sits in the middle. */
+@Composable
+private fun Donut(share: Float, color: Color, size: androidx.compose.ui.unit.Dp, stroke: androidx.compose.ui.unit.Dp, center: @Composable () -> Unit) {
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(share) { grow.snapTo(0f); grow.animateTo(1f, androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    val track = C.card2
+    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val w = stroke.toPx(); val inset = w / 2
+            val rect = Size(this.size.width - w, this.size.height - w)
+            drawArc(track, 0f, 360f, false, Offset(inset, inset), rect, style = Stroke(w))
+            drawArc(color, -90f, 360f * share.coerceIn(0f, 1f) * grow.value, false, Offset(inset, inset), rect, style = Stroke(w, cap = androidx.compose.ui.graphics.StrokeCap.Round))
+        }
+        center()
+    }
+}
+
+/** "مالکیت توپ": one ring split in the two teams' colours, each share on its own side. */
+@Composable
+private fun PossessionRing(m: MatchData, h: Int, a: Int) {
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(h, a) { grow.snapTo(0f); grow.animateTo(1f, androidx.compose.animation.core.tween(1000, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    val hs = h.toFloat() / (h + a).coerceAtLeast(1)
+    val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+    Card(pad = PaddingValues(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Crest(m.homeId, 30.dp); T(fa("${(h * grow.value).roundToInt()}٪"), 30, FontWeight.Black, m.homeColor)
+            }
+            Box(Modifier.size(130.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val w = 18.dp.toPx(); val o = Offset(w / 2, w / 2); val sz = Size(size.width - w, size.height - w)
+                    val k = grow.value
+                    // home grows from the top towards its own side (the start side), away the other way
+                    val dir = if (rtl) 1f else -1f
+                    drawArc(m.homeColor, -90f, dir * 360f * hs * k, false, o, sz, style = Stroke(w))
+                    drawArc(m.awayColor, -90f, -dir * 360f * (1 - hs) * k, false, o, sz, style = Stroke(w))
+                }
+                T(L("مالکیت"), 13, FontWeight.Bold, C.mute)
+            }
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Crest(m.awayId, 30.dp); T(fa("${(a * grow.value).roundToInt()}٪"), 30, FontWeight.Black, m.awayColor)
+            }
+        }
+    }
+}
+
+/** "درصدها": the rates that tell a match best, as two small rings per line (pass accuracy, duels won, shots on target, dribbles). */
+@Composable
+private fun RateRings(m: MatchData) {
+    val tt = remember(m.d) { teamTotals(m) }
+    fun rate(key: String, side: Int) = tt[key]?.let { (v, t) -> if (t[side] > 0) (v[side] / t[side]).toFloat() else null }
+    fun duel(side: Int): Float? {
+        val v = (tt["ground_duels_won"]?.first?.get(side) ?: 0.0) + (tt["aerials_won"]?.first?.get(side) ?: 0.0)
+        val t = (tt["ground_duels_won"]?.second?.get(side) ?: 0.0) + (tt["aerials_won"]?.second?.get(side) ?: 0.0)
+        return if (t > 0) (v / t).toFloat() else null
+    }
+    val shots = m.shots.filter { !it.b("isPenaltyShootoutEvent") }
+    fun onTarget(home: Boolean): Float? { val l = shots.filter { (it.i("teamId") == m.homeId) == home }; return if (l.isEmpty()) null else l.count { it.b("isOnTarget") }.toFloat() / l.size }
+    val lines = listOf(
+        L("دقت پاس") to (rate("accurate_passes", 0) to rate("accurate_passes", 1)),
+        L("نبردهای برده") to (duel(0) to duel(1)),
+        L("شوت در چارچوب") to (onTarget(true) to onTarget(false)),
+        L("دریبل موفق") to (rate("dribbles_succeeded", 0) to rate("dribbles_succeeded", 1)),
+        L("سانتر دقیق") to (rate("accurate_crosses", 0) to rate("accurate_crosses", 1)),
+    ).filter { it.second.first != null && it.second.second != null }
+    if (lines.size < 2) return
+    Card(pad = PaddingValues(vertical = 12.dp)) {
+        T(L("درصدها"), 15, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 16.dp))
+        lines.forEach { (label, pr) ->
+            val (h, a) = pr
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Donut(h!!, m.homeColor, 58.dp, 7.dp) { T(fa("${(h * 100).roundToInt()}٪"), 13, FontWeight.Black) }
+                T(label, 13, FontWeight.Bold, C.ink, Modifier.weight(1f), align = TextAlign.Center)
+                Donut(a!!, m.awayColor, 58.dp, 7.dp) { T(fa("${(a * 100).roundToInt()}٪"), 13, FontWeight.Black) }
+            }
+        }
+    }
+}
+
+/**
+ * "رادار دو تیم": each axis is one side of the game (chances, shots, passing, creation, duels, defending, possession) and each
+ * team's share of it, so the two shapes show at a glance where each side was stronger; half way is an even game.
+ */
+@Composable
+private fun TeamRadar(m: MatchData, possession: Pair<Int, Int>?) {
+    val tt = remember(m.d) { teamTotals(m) }
+    fun v(key: String, side: Int) = tt[key]?.first?.get(side) ?: 0.0
+    val shots = m.shots.filter { !it.b("isPenaltyShootoutEvent") }
+    val axes = listOfNotNull(
+        (L("xG") to (v("expected_goals", 0) to v("expected_goals", 1))),
+        (L("شوت") to (shots.count { it.i("teamId") == m.homeId }.toDouble() to shots.count { it.i("teamId") != m.homeId }.toDouble())),
+        (L("پاس دقیق") to (v("accurate_passes", 0) to v("accurate_passes", 1))),
+        (L("موقعیت‌سازی") to (v("chances_created", 0) to v("chances_created", 1))),
+        (L("نبرد") to (v("ground_duels_won", 0) + v("aerials_won", 0) to v("ground_duels_won", 1) + v("aerials_won", 1))),
+        (L("دفاع") to (v("recoveries", 0) + v("interceptions", 0) + v("clearances", 0) to v("recoveries", 1) + v("interceptions", 1) + v("clearances", 1))),
+        possession?.let { L("مالکیت") to (it.first.toDouble() to it.second.toDouble()) },
+    ).filter { it.second.first + it.second.second > 0 }
+    if (axes.size < 5) return
+    val share = axes.map { (_, p) -> (p.first / (p.first + p.second)).toFloat() }
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(m.matchId) { grow.animateTo(1f, androidx.compose.animation.core.tween(900)) }
+    val line = C.line2; val hc = m.homeColor; val ac = m.awayColor
+    Card(pad = PaddingValues(12.dp)) {
+        T(L("رادار دو تیم"), 15, FontWeight.ExtraBold)
+        T(L("سهم هر تیم از هر بخش بازی؛ وسط یعنی برابر"), 12, color = C.mute)
+        CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+            BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(1.15f)) {
+                val w = maxWidth; val h = maxHeight
+                val n = axes.size
+                fun ang(i: Int) = Math.toRadians(-90.0 + 360.0 * i / n)
+                Canvas(Modifier.fillMaxSize()) {
+                    val c = Offset(size.width / 2, size.height / 2); val r = minOf(size.width, size.height) * 0.36f
+                    fun pt(i: Int, k: Float) = c + Offset((cos(ang(i)) * r * k).toFloat(), (sin(ang(i)) * r * k).toFloat())
+                    for (ring in listOf(0.25f, 0.5f, 0.75f, 1f)) {
+                        val path = Path().apply { for (i in 0 until n) { val p = pt(i, ring); if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }; close() }
+                        drawPath(path, line, style = Stroke(if (ring == 0.5f) 2.dp.toPx() else 1.dp.toPx()))
+                    }
+                    for (i in 0 until n) drawLine(line, c, pt(i, 1f), 1.dp.toPx())
+                    for ((col, sh) in listOf(hc to share, ac to share.map { 1 - it })) {
+                        val path = Path().apply { for (i in 0 until n) { val p = pt(i, sh[i] * grow.value); if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) }; close() }
+                        drawPath(path, col.copy(alpha = 0.28f)); drawPath(path, col, style = Stroke(2.5.dp.toPx(), join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                    }
+                }
+                axes.forEachIndexed { i, (label, _) ->
+                    val lx = 0.5f + (cos(ang(i)) * 0.36f * 1.3f * minOf(w.value, h.value) / w.value).toFloat()
+                    val ly = 0.5f + (sin(ang(i)) * 0.36f * 1.22f * minOf(w.value, h.value) / h.value).toFloat()
+                    Box(Modifier.absoluteOffset(w * lx - 50.dp, h * ly - 11.dp).width(100.dp), contentAlignment = Alignment.Center) {
+                        T(label, 12, FontWeight.Bold, C.mute, maxLines = 1)
+                    }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally)) {
+            for ((id, name, col) in listOf(Triple(m.homeId, m.homeName, hc), Triple(m.awayId, m.awayName, ac))) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.size(10.dp).clip(CircleShape).background(col)); T(teamName(id, name), 12, FontWeight.Bold, maxLines = 1)
+            }
+        }
+    }
+}
+
+/** A player's number for a FotMob stat key (the same key in whichever group it sits). */
+private fun keyStat(p: JSONObject, key: String): Double? {
+    for (g in p.a("stats").objs()) {
+        val all = g.o("stats") ?: continue
+        for (t in all.keys()) { val one = all.optJSONObject(t) ?: continue; if (one.s("key") == key) return one.o("stat").d("value") }
+    }
+    return null
+}
+
+/**
+ * "برترین‌ها در هر آمار": who led the match in each department (most key passes, touches in the box, dribbles, recoveries,
+ * tackles won, aerials, distance…), as SofaScore's top players list does. A tap opens the player.
+ */
+@Composable
+private fun StatLeaders(m: MatchData) {
+    val nav = LocalNav.current
+    val stats = m.content.o("playerStats") ?: return
+    val players = remember(m.d) { stats.keys().asSequence().mapNotNull { stats.optJSONObject(it) }.toList() }
+    val boards = listOf(
+        "expected_goals" to L("بیشترین xG"), "chances_created" to L("بیشترین پاس کلیدی"), "expected_assists" to L("بیشترین xA"),
+        "touches_opp_box" to L("بیشترین لمس در محوطه حریف"), "dribbles_succeeded" to L("بیشترین دریبل موفق"), "accurate_passes" to L("بیشترین پاس دقیق"),
+        "passes_into_final_third" to L("بیشترین پاس به یک‌سوم حمله"), "recoveries" to L("بیشترین بازپس‌گیری"), "interceptions" to L("بیشترین قطع توپ"),
+        "ground_duels_won" to L("بیشترین نبرد زمینی برده"), "aerials_won" to L("بیشترین نبرد هوایی برده"), "clearances" to L("بیشترین دفع توپ"),
+        "saves" to L("بیشترین سیو"), "physical_metrics_distance_covered" to L("بیشترین مسافت دویده"), "physical_metrics_number_of_sprints" to L("بیشترین دوی سرعت"),
+    ).mapNotNull { (key, title) ->
+        val best = players.mapNotNull { p -> keyStat(p, key)?.let { p to it } }.maxByOrNull { it.second } ?: return@mapNotNull null
+        if (best.second <= 0.0) null else Triple(title, best.first, if (key.startsWith("physical_metrics_distance")) L("{0} کیلومتر", dec(best.second / 1000, 1))
+            else if (key.startsWith("expected")) fa(dec(best.second, 2)) else fa(best.second.roundToInt()))
+    }
+    if (boards.size < 3) return
+    Card {
+        CardTitle(L("🏅 برترین‌ها در هر آمار"))
+        boards.chunked(2).forEach { pair ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                pair.forEach { (title, p, value) ->
+                    val id = p.i("id") ?: 0
+                    val home = p.i("teamId") == m.homeId
+                    Column(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(C.card2).border(1.dp, C.line, RoundedCornerShape(18.dp))
+                        .clickable { nav.player(id) }.padding(10.dp)) {
+                        T(title, 11, FontWeight.Bold, C.mute, maxLines = 1)
+                        Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Face(id, 34.dp, ring = if (home) m.homeColor else m.awayColor)
+                            Column(Modifier.weight(1f)) {
+                                Ltr(personName((p.s("name") ?: "").substringAfterLast(' ')), style = vz(13.sp, FontWeight.ExtraBold))
+                                T(value, 15, FontWeight.Black, LocalAccent.current, maxLines = 1)
+                            }
+                        }
+                    }
+                }
+                if (pair.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+    }
 }
 
 /** One team total that FotMob's team stats leave out; [better] is 1 when more is good for the team, -1 when less is. */
@@ -753,27 +992,7 @@ private val EXTRA_GROUPS: List<Pair<String, List<Extra>>> get() = listOf(
  */
 @Composable
 private fun MoreTeamStats(m: MatchData, have: Set<String>) {
-    val stats = m.content.o("playerStats") ?: return
-    val lu = m.content.o("lineup") ?: return
-    val totals = remember(m.d) {
-        val side = HashMap<Int, Boolean>()
-        for ((k, home) in listOf("homeTeam" to true, "awayTeam" to false)) lu.o(k).let { t -> (t.a("starters").objs() + t.a("subs").objs()).forEach { p -> p.i("id")?.let { side[it] = home } } }
-        // key -> [home, away]; a key nobody has stays out
-        val out = HashMap<String, DoubleArray>()
-        for (k in stats.keys()) {
-            val home = side[k.toIntOrNull() ?: continue] ?: continue
-            for (g in stats.optJSONObject(k).a("stats").objs()) {
-                val all = g.o("stats") ?: continue
-                for (t in all.keys()) {
-                    val one = all.optJSONObject(t) ?: continue
-                    val key = one.s("key") ?: continue
-                    val v = one.o("stat").d("value") ?: continue
-                    out.getOrPut(key) { DoubleArray(2) }[if (home) 0 else 1] += v
-                }
-            }
-        }
-        out
-    }
+    val totals = remember(m.d) { teamTotals(m).mapValues { it.value.first } }
     val groups = EXTRA_GROUPS.map { (title, list) ->
         title to list.filter { it.key !in have && totals[it.key]?.let { v -> v[0] != 0.0 || v[1] != 0.0 } == true }
     }.filter { it.second.isNotEmpty() }
@@ -810,7 +1029,7 @@ private fun StatRow(st: JSONObject, homeColor: Color, awayColor: Color) {
     if (st.s("type") == "graph" || st.s("key") == "BallPossesion") {
         Column(Modifier.padding(vertical = 6.dp)) {
             T(tr(st.s("title")), 12, FontWeight.SemiBold, C.mute, modifier = Modifier.fillMaxWidth(), align = TextAlign.Center)
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp).height(26.dp).clip(RoundedCornerShape(12.dp)), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp).height(26.dp).clip(RoundedCornerShape(14.dp)), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                 Box(Modifier.weight(max(h, 1.0).toFloat()).fillMaxSize().background(homeColor).padding(horizontal = 12.dp), contentAlignment = Alignment.CenterStart) {
                     T(L("{0}٪", h.toInt()), 13, FontWeight.Black, inkOn(homeColor))
                 }
@@ -842,7 +1061,7 @@ private fun StatRow(st: JSONObject, homeColor: Color, awayColor: Color) {
 
 @Composable
 private fun StatValue(v: String, hi: Boolean, color: Color) {
-    Box(Modifier.widthIn(min = 34.dp).clip(RoundedCornerShape(8.dp)).background(if (hi) color else Color.Transparent).padding(horizontal = 7.dp, vertical = 2.dp),
+    Box(Modifier.widthIn(min = 34.dp).clip(RoundedCornerShape(10.dp)).background(if (hi) color else Color.Transparent).padding(horizontal = 7.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center) {
         Ltr(fa(v), style = vz(13.sp, FontWeight.Black), color = if (hi) inkOn(color) else C.ink)
     }
@@ -903,6 +1122,100 @@ private fun XgRace(m: MatchData) {
     }
 }
 
+/* ---------- shot breakdown ---------- */
+
+/** Two numbers side by side with bars, home on the start side, the larger one in its team's colour. */
+@Composable
+private fun DuoRow(label: String, h: Double, a: Double, hText: String, aText: String, m: MatchData) {
+    val tot = (h + a).takeIf { it > 0 } ?: 1.0
+    Column(Modifier.padding(vertical = 5.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(hText, 14, FontWeight.Black, if (h > a) m.homeColor else C.ink)
+            T(label, 12, FontWeight.SemiBold, C.mute, Modifier.weight(1f), align = TextAlign.Center)
+            T(aText, 14, FontWeight.Black, if (a > h) m.awayColor else C.ink)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(4.dp)).background(C.card2), contentAlignment = Alignment.CenterStart) {
+                Box(Modifier.fillMaxWidth((h / tot).toFloat().coerceIn(0f, 1f)).fillMaxSize().background(m.homeColor))
+            }
+            Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(4.dp)).background(C.card2), contentAlignment = Alignment.CenterEnd) {
+                Box(Modifier.fillMaxWidth((a / tot).toFloat().coerceIn(0f, 1f)).fillMaxSize().background(m.awayColor))
+            }
+        }
+    }
+}
+
+/** A shot from inside the penalty area (FotMob's x runs 0…105 towards the goal attacked, y 0…68 across). */
+private fun insideBox(s: JSONObject) = (s.d("x") ?: 0.0) >= 105 - 16.5 && (s.d("y") ?: 34.0) in 13.84..54.16
+
+/**
+ * "ریز شوت‌ها": where the shots came from (inside or outside the box), how (open play, counter-attack, set pieces, penalties),
+ * with what (foot or head), how they ended, and the big chances: the split SofaScore shows under its shot map.
+ */
+@Composable
+private fun ShotBreakdown(m: MatchData) {
+    val shots = m.shots.filter { !it.b("isPenaltyShootoutEvent") }
+    if (shots.size < 3) return
+    val home = { s: JSONObject -> s.i("teamId") == m.homeId }
+    val setPiece = setOf("FromCorner", "SetPiece", "FreeKick", "ThrowInSetPiece")
+    val rows = listOf<Pair<String, (JSONObject) -> Boolean>>(
+        L("داخل محوطه") to { s -> insideBox(s) },
+        L("بیرون محوطه") to { s -> !insideBox(s) },
+        L("موقعیت عالی (xG بالای ۰٫۳)") to { s -> (s.d("expectedGoals") ?: 0.0) >= 0.3 },
+        L("از جریان بازی") to { s -> s.s("situation") in setOf("RegularPlay", "IndividualPlay") },
+        L("از ضدحمله") to { s -> s.s("situation") == "FastBreak" },
+        L("از ضربه ایستگاهی") to { s -> s.s("situation") in setPiece },
+        L("پنالتی") to { s -> s.s("situation") == "Penalty" },
+        L("با پا") to { s -> s.s("shotType") in setOf("LeftFoot", "RightFoot") },
+        L("ضربه سر") to { s -> s.s("shotType") == "Header" },
+        L("در چارچوب") to { s -> s.b("isOnTarget") },
+        L("بلاک شد") to { s -> s.b("isBlocked") },
+        L("به تیرک خورد") to { s -> s.s("eventType") == "Post" },
+    )
+    Card(pad = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+        T(L("ریز شوت‌ها"), 15, FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 4.dp))
+        rows.forEach { (label, f) ->
+            val h = shots.count { home(it) && f(it) }; val a = shots.count { !home(it) && f(it) }
+            if (h + a > 0) DuoRow(label, h.toDouble(), a.toDouble(), fa(h), fa(a), m)
+        }
+        // chance quality per shot: a few good chances or many hopeful ones
+        val hs = shots.filter(home); val aw = shots.filterNot(home)
+        fun per(l: List<JSONObject>) = if (l.isEmpty()) 0.0 else l.sumOf { it.d("expectedGoals") ?: 0.0 } / l.size
+        DuoRow(L("xG در هر شوت"), per(hs), per(aw), fa(dec(per(hs), 2)), fa(dec(per(aw), 2)), m)
+    }
+}
+
+/** "شوت‌ها در هر ۱۵ دقیقه": each team's shots and xG per quarter of an hour, so you see when each side was on top. */
+@Composable
+private fun ShotSlices(m: MatchData) {
+    val shots = m.shots.filter { !it.b("isPenaltyShootoutEvent") }
+    if (shots.size < 4) return
+    val names = listOf("۰-۱۵", "۱۶-۳۰", "۳۱-۴۵+", "۴۶-۶۰", "۶۱-۷۵", "۷۶-۹۰+")
+    // stoppage time counts with its half (45+2 is still the 31-45 slice); extra time stays out
+    val slice = { s: JSONObject -> val mn = s.i("min") ?: 0; when { mn <= 15 -> 0; mn <= 30 -> 1; mn <= 45 -> 2; mn <= 60 -> 3; mn <= 75 -> 4; mn <= 90 -> 5; else -> -1 } }
+    val extra = shots.any { (it.i("min") ?: 0) > 90 }
+    val counts = Array(2) { IntArray(6) }; val xg = Array(2) { DoubleArray(6) }
+    shots.forEach { s -> val k = slice(s); if (k >= 0) { val t = if (s.i("teamId") == m.homeId) 0 else 1; counts[t][k]++; xg[t][k] += s.d("expectedGoals") ?: 0.0 } }
+    val top = maxOf(0.3, xg.maxOf { it.max() })
+    Card(pad = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
+        T(L("شوت‌ها در هر ۱۵ دقیقه"), 15, FontWeight.ExtraBold)
+        T(L("ستون‌ها xG هر تیم‌اند، عددها تعداد شوت"), 12, color = C.mute, modifier = Modifier.padding(bottom = 8.dp))
+        Row(Modifier.fillMaxWidth().height(130.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
+            for (k in 0 until 6) Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    for (t in 0..1) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom, modifier = Modifier.fillMaxHeight()) {
+                        if (counts[t][k] > 0) T(fa(counts[t][k]), 12, FontWeight.Bold, C.mute)
+                        Box(Modifier.width(14.dp).fillMaxHeight((xg[t][k] / top).toFloat().coerceIn(0.02f, 0.82f)).clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .background(if (t == 0) m.homeColor else m.awayColor))
+                    }
+                }
+                T(names[k], 11, color = C.mute, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
+            }
+        }
+        if (extra) T(L("شوت‌های وقت‌های اضافه در این نمودار نیامده"), 11, color = C.faint, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
 /* ---------- shotmap ---------- */
 
 /**
@@ -940,6 +1253,8 @@ private fun ShotsTab(m: MatchData) {
         }
     }
     XgRace(m)
+    ShotBreakdown(m)
+    ShotSlices(m)
     Card(pad = PaddingValues(12.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Crest(if (home) m.homeId else m.awayId, 22.dp)
@@ -948,7 +1263,7 @@ private fun ShotsTab(m: MatchData) {
         }
         // the attacking half stood up: FotMob's x runs 0…105 towards the goal attacked, y 0…68 across
         CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-            BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(68f / 56f).clip(RoundedCornerShape(16.dp))) {
+            BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(68f / 56f).clip(RoundedCornerShape(18.dp))) {
                 val w = maxWidth; val hgt = maxHeight
                 fun px(s: JSONObject) = ((s.d("y") ?: 34.0) / 68.0).toFloat().coerceIn(0.02f, 0.98f)
                 fun py(s: JSONObject) = ((105.0 - (s.d("x") ?: 90.0)) / 56.0).toFloat().coerceIn(0.02f, 0.98f)
@@ -1033,7 +1348,7 @@ private fun shotResult(s: JSONObject) = when {
 @Composable
 private fun ShotInfo(s: JSONObject) {
     val nav = LocalNav.current
-    Column(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card2).padding(horizontal = 14.dp, vertical = 12.dp)) {
+    Column(Modifier.padding(top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card2).padding(horizontal = 14.dp, vertical = 12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Face(s.i("playerId") ?: 0)
             Column(Modifier.weight(1f)) {
@@ -1054,6 +1369,24 @@ private fun ShotInfo(s: JSONObject) {
 /* ---------- lineup ---------- */
 
 /** One player in the line-up, read once. */
+/** Who came on for whom, from the match's substitution events: (player off id → player on), and the other way round. */
+private class Swaps(val onFor: Map<Int, JSONObject>, val offFor: Map<Int, JSONObject>)
+
+private fun swapsOf(m: MatchData): Swaps {
+    val on = HashMap<Int, JSONObject>(); val off = HashMap<Int, JSONObject>()
+    // the swap may carry only names: find their ids in the line-ups
+    val byName = HashMap<String, Int>()
+    for (k in listOf("homeTeam", "awayTeam")) m.content.path("lineup.$k").let { t -> (t.a("starters").objs() + t.a("subs").objs()).forEach { p -> p.i("id")?.let { id -> p.s("name")?.let { byName[it] = id } } } }
+    fun idOf(x: JSONObject) = x.i("id") ?: x.s("name")?.let { byName[it] }
+    for (e in m.events) {
+        if (e.s("type") != "Substitution") continue
+        val sw = e.a("swap").objs()
+        val pin = sw.getOrNull(0) ?: continue; val pout = sw.getOrNull(1) ?: continue
+        idOf(pout)?.let { on[it] = pin }; idOf(pin)?.let { off[it] = pout }
+    }
+    return Swaps(on, off)
+}
+
 private class LP(val p: JSONObject, val home: Boolean) {
     val id = p.i("id") ?: 0
     val name = p.s("name") ?: ""
@@ -1075,8 +1408,16 @@ private class LP(val p: JSONObject, val home: Boolean) {
 
 @Composable
 private fun LineupTab(m: MatchData) {
-    val nav = LocalNav.current
     val lu = m.content.o("lineup")!!
+    val swaps = remember(m.d) { swapsOf(m) }
+    CompositionLocalProvider(LocalSwaps provides swaps) { LineupBody(m, lu) }
+}
+
+private val LocalSwaps = staticCompositionLocalOf { Swaps(emptyMap(), emptyMap()) }
+
+@Composable
+private fun LineupBody(m: MatchData, lu: JSONObject) {
+    val nav = LocalNav.current
     val H = lu.o("homeTeam")!!
     val A = lu.o("awayTeam")!!
     val hasLayout = H.a("starters").objs().any { it.o("verticalLayout") != null }
@@ -1196,7 +1537,7 @@ private fun Kit(p: LP, color: Color, size: androidx.compose.ui.unit.Dp) {
 
 @Composable
 private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
-    Column(Modifier.width(84.dp).clip(RoundedCornerShape(16.dp)).background(if (p.inAt != null) color.copy(alpha = 0.14f) else C.card2)
+    Column(Modifier.width(84.dp).clip(RoundedCornerShape(18.dp)).background(if (p.inAt != null) color.copy(alpha = 0.14f) else C.card2)
         .clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box {
             Kit(p, color, 44.dp)
@@ -1206,6 +1547,10 @@ private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
         if (p.inAt != null) Row(verticalAlignment = Alignment.CenterVertically) {
             T("⇧", 11, FontWeight.Black, C.win); Ltr("${p.inAt}'", style = vz(11.sp, FontWeight.Bold), color = C.win)
         } else T("#${p.number}", 11, color = C.mute)
+        // the player he came on for
+        LocalSwaps.current.offFor[p.id]?.let { o ->
+            Ltr(L("به‌جای ") + personName(o.s("lastName") ?: (o.s("name") ?: "").substringAfterLast(' ')), style = vz(10.sp, FontWeight.Bold), color = C.mute, maxLines = 1, raw = true)
+        }
     }
 }
 
@@ -1218,13 +1563,15 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: St
     var busy by remember { mutableStateOf(false) }
     val ratings = LocalRatings.current
     val players = team.a("starters").objs().map { LP(it, home) }.filter { it.layout != null }
+    val swaps = LocalSwaps.current
     val best = players.maxByOrNull { ratings[it.id]?.value ?: 0.0 }?.takeIf { ratings[it.id] != null }
     val men = players.map { p ->
         val v = p.layout!!
         val x = (v.d("x") ?: 0.5).toFloat(); val y = (v.d("y") ?: 0.5).toFloat()
         // FotMob: y 0.1 (keeper) … 0.87 (strikers); x 0 is the right back: seen from behind the team, that is the right edge
         PitchMan(p.id, p.short, 0.89f - x * 0.78f, 0.86f - (y - 0.1f) / 0.77f * 0.74f, p.number, ratings[p.id]?.value,
-            p.goals, p.own, p.assists, p.yellow, p.red, p.outAt, p.captain, star = p === best)
+            p.goals, p.own, p.assists, p.yellow, p.red, p.outAt, p.captain, star = p === best,
+            subIn = swaps.onFor[p.id]?.let { personName(it.s("lastName") ?: (it.s("name") ?: "").substringAfterLast(' ')) })
     }
     FormationPitch(men, color, header = {
         Crest(id, 32.dp)
@@ -1253,7 +1600,7 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: St
 
 @Composable
 private fun PitchPlayer(p: LP, color: Color, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier.clip(RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(contentAlignment = Alignment.Center) {
             Box(Modifier.padding(horizontal = 14.dp).glow(Color.Black.copy(alpha = 0.45f), 6.dp, CircleShape)) { Kit(p, color, 42.dp) }
             LocalRatings.current[p.id]?.value?.let { Rating(it, Modifier.align(Alignment.TopEnd).absoluteOffset(2.dp, (-4).dp), small = true) }
@@ -1313,9 +1660,9 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
         }) {
         Column(Modifier.fillMaxWidth().testTag("player-sheet").verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 20.dp)) {
             // header in the team's colours
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp))
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp))
                 .background(Brush.linearGradient(listOf(color.copy(alpha = 0.55f), color.copy(alpha = 0.12f), C.card)))
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp)).padding(16.dp)) {
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(22.dp)).padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box {
                         Box(Modifier.size(84.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).padding(4.dp)) { Kit(p, color, 76.dp) }
@@ -1334,7 +1681,7 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                         positionName(ps?.i("usualPosition"))?.let { T(it, 12, color = C.mute) }
                     }
                     if (rating != null && rating > 0) Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.clip(RoundedCornerShape(16.dp)).clickable(enabled = mine != null) { why = !why }) { BigRating(rating, L("نمره گل‌لایو")) }
+                        Box(Modifier.clip(RoundedCornerShape(18.dp)).clickable(enabled = mine != null) { why = !why }) { BigRating(rating, L("نمره گل‌لایو")) }
                         mine?.let { r ->
                             if (r.minutes < 60) T("± " + fa(dec(r.margin, 1)), 11, FontWeight.Bold, C.mute)
                         }
@@ -1370,9 +1717,9 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                 }
             }
             Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(accent).clickable { onClose(); nav.player(p.id) }.padding(vertical = 12.dp),
+                Box(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).background(accent).clickable { onClose(); nav.player(p.id) }.padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center) { T(L("پروفایل کامل"), 14, FontWeight.ExtraBold, LocalAccentInk.current) }
-                Row(Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).border(1.dp, C.line2, RoundedCornerShape(16.dp)).clickable { onClose(); nav.compare(p.id) }
+                Row(Modifier.weight(1f).clip(RoundedCornerShape(18.dp)).border(1.dp, C.line2, RoundedCornerShape(18.dp)).clickable { onClose(); nav.compare(p.id) }
                     .padding(vertical = 12.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                     Icon(Ic.swap, null, Modifier.size(16.dp), tint = C.ink); Spacer(Modifier.width(6.dp)); T(L("مقایسه"), 14, FontWeight.ExtraBold)
                 }
@@ -1440,7 +1787,7 @@ private fun SheetStat(label: String, s: JSONObject, accent: Color) {
 @Composable
 private fun BigRating(r: Double, label: String) {
     val c = when { r >= 9 -> Color(0xFF1D9BF0); r >= 7.5 -> Color(0xFF14B866); r >= 6.5 -> Color(0xFF9FB21B); r >= 5.5 -> Color(0xFFF08A24); else -> Color(0xFFE5434B) }
-    Column(Modifier.clip(RoundedCornerShape(16.dp)).background(c).padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.clip(RoundedCornerShape(18.dp)).background(c).padding(horizontal = 12.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(fa(dec(r, 1)), color = Color.White, style = vz(22.sp, FontWeight.Black))
         Text(label, color = Color.White.copy(alpha = 0.85f), style = vz(9.sp, FontWeight.Bold))
     }
@@ -1621,7 +1968,7 @@ private fun H2h(m: MatchData, limit: Int) {
             }
         }
         val tot = (hw + dr + aw).coerceAtLeast(1)
-        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp).height(8.dp).clip(RoundedCornerShape(8.dp)), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 14.dp).height(8.dp).clip(RoundedCornerShape(10.dp)), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             if (hw > 0) Box(Modifier.weight(hw.toFloat() / tot).fillMaxSize().background(m.homeColor))
             if (dr > 0) Box(Modifier.weight(dr.toFloat() / tot).fillMaxSize().background(C.draw))
             if (aw > 0) Box(Modifier.weight(aw.toFloat() / tot).fillMaxSize().background(m.awayColor))

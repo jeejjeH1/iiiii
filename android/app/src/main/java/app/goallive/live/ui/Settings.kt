@@ -263,7 +263,7 @@ fun TeamPicker(onClose: () -> Unit) {
         }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding()) {
             Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.padding(top = 6.dp).size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(accent),
+                Box(Modifier.padding(top = 6.dp).size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(accent),
                     contentAlignment = Alignment.Center) { Icon(Ic.ball, null, Modifier.size(34.dp), tint = LocalAccentInk.current) }
                 T(L("تیم محبوبت کدومه؟"), 22, FontWeight.Black, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
                 T(L("اپ با رنگ تیمت درمیاد، بازی‌هاش همیشه بالای صفحه است و گل‌ها و ترکیبش اعلان می‌شه."), 13, color = C.mute, align = TextAlign.Center)

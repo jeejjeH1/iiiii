@@ -253,7 +253,7 @@ private fun CompareRow(title: String, va: String, vb: String, na: Float, nb: Flo
 @Composable
 private fun Value(v: String, win: Boolean, c: Color) {
     Box(Modifier.width(72.dp), contentAlignment = Alignment.Center) {
-        Box(Modifier.clip(RoundedCornerShape(9.dp)).background(if (win) c else Color.Transparent).padding(horizontal = 9.dp, vertical = 3.dp)) {
+        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (win) c else Color.Transparent).padding(horizontal = 9.dp, vertical = 3.dp)) {
             Ltr(fa(v), style = vz(13.sp, FontWeight.Black), color = if (win) inkOn(c) else C.ink)
         }
     }

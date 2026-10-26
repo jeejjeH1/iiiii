@@ -226,7 +226,7 @@ private fun LeaguePick(onPick: (Int) -> Unit) {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
         item {
             Column(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(Modifier.size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(accent),
+                Box(Modifier.size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(accent),
                     contentAlignment = Alignment.Center) { androidx.compose.material3.Icon(Ic.shirt, null, Modifier.size(34.dp), tint = LocalAccentInk.current) }
                 T(L("فوتبال فانتزی"), 22, FontWeight.Black)
                 T(L("با ۱۲۰ میلیون بودجه ۱۱ بازیکن واقعی بخر، کاپیتان انتخاب کن و از روی عملکرد واقعی‌شان در هر هفته امتیاز بگیر."), 13, color = C.mute, align = TextAlign.Center)
@@ -304,8 +304,8 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(
-                Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(24.dp)).drawBehind { cssLinear(135f, 0f to accent.copy(alpha = 0.4f), 1f to C.card) }
-                    .border(1.dp, C.line2, RoundedCornerShape(24.dp)).padding(16.dp),
+                Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(22.dp)).drawBehind { cssLinear(135f, 0f to accent.copy(alpha = 0.4f), 1f to C.card) }
+                    .border(1.dp, C.line2, RoundedCornerShape(22.dp)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -418,7 +418,7 @@ private fun Stat(big: String, small: String, modifier: Modifier, color: Color) {
 private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map<Int, Int>?, lg: FLeague, big: Boolean = false, onOpen: (FPlayer) -> Unit) {
     val disc = if (big) 54.dp else 42.dp
     BoxWithConstraints(
-        Modifier.fillMaxWidth().aspectRatio(if (big) 68f / 104f else 68f / 84f).clip(RoundedCornerShape(20.dp)).drawBehind {
+        Modifier.fillMaxWidth().aspectRatio(if (big) 68f / 104f else 68f / 84f).clip(RoundedCornerShape(18.dp)).drawBehind {
             val n = 10
             for (i in 0 until n) drawRect(if (i % 2 == 0) C.pitch else C.pitch2, Offset(0f, size.height * i / n), Size(size.width, size.height / n + 1))
             val c = Color.White.copy(alpha = 0.45f); val st = Stroke(1.5f)
