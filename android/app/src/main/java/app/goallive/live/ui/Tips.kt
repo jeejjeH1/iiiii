@@ -28,7 +28,7 @@ fun HowToSheet(emoji: String, title: String, steps: List<String>, button: String
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(accent.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) { T(emoji, 30) }
+            EmojiBadge(emoji, 64.dp, accent)
             T(title, 20, FontWeight.Black, modifier = Modifier.padding(top = 10.dp, bottom = 14.dp))
             steps.forEachIndexed { i, s ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

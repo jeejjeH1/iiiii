@@ -51,7 +51,7 @@ fun VoiceButton(m: MatchData) {
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (on) LiveDot(C.live)
-            Text("🎙️", fontSize = 16.sp)
+            androidx.compose.material3.Icon(Ic.mic, null, Modifier.size(18.dp), tint = if (on) Color(0xFF111111) else Color.White)
             T(if (on) L("در حال گزارش · توقف") else L("گزارش صوتی زنده"), 13, FontWeight.Black, if (on) Color(0xFF111111) else Color.White)
         }
         if (on) {

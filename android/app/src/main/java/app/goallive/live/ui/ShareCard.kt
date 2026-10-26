@@ -389,7 +389,7 @@ private fun matchFront(c: Canvas, m: MatchData, o: CardOptions, a: CardAssets, b
         }
     }
     if (o.prediction) Predictions.get(m.matchId)?.let { pk ->
-        val line = L("پیش‌بینی من: {0}", fa(if (en) "${pk.home} - ${pk.away}" else "${pk.away} - ${pk.home}")) + when (pk.points) { 3 -> L("  🎯 +۳"); 1 -> L("  ✓ +۱"); 0 -> "  ✗"; else -> "" }
+        val line = L("پیش‌بینی من: {0}", fa(if (en) "${pk.home} - ${pk.away}" else "${pk.away} - ${pk.home}")) + when (pk.points) { null -> ""; else -> "  ·  +" + fa(pk.points ?: 0) }
         blocks += Block(36f * k * 2.1f) { t -> pill(c, line, W / 2f, t, 34f * k, look.accent, look.panel, a.black, 860, look.stroke) }
     }
 

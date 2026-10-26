@@ -133,7 +133,7 @@ internal fun reelScene(m: MatchData, o: CardOptions, a: CardAssets, faces: Map<I
     parts += Part(3.6f, null, listOf(0.5f to StoryAudio.Fx.WHOOSH)) { c, t ->
         val clk = Clock(t)
         a.league?.let { lg -> c.pop(clk.at(0.1f, 0.6f), SW / 2f, 250f) { crestDisc(c, lg, SW / 2f, 250f, 64f) } }
-        c.enter(clk.at(0.35f), 350f, 430f) { pill(c, L("🎬 بازی در یک دقیقه"), SW / 2f, 360f, 34f, 0xFF0B0F14.toInt(), look.accent, a.black, 700) }
+        c.enter(clk.at(0.35f), 350f, 430f) { pill(c, L("بازی در یک دقیقه"), SW / 2f, 360f, 34f, 0xFF0B0F14.toInt(), look.accent, a.black, 700) }
         for ((k, bm) in listOf(a.home, a.away).withIndex()) {
             val x = if (k == 0) homeX else awayX
             val from = if ((k == 0) != en) SW + 300f else -300f
@@ -156,7 +156,7 @@ internal fun reelScene(m: MatchData, o: CardOptions, a: CardAssets, faces: Map<I
             val round = m.general.s("leagueRoundName")?.let { if (it.all(Char::isDigit)) L(" | هفته {0}", fa(it)) else "" } ?: ""
             text(c, leagueName(m.leagueId, m.general.s("leagueName") ?: "") + round, SW / 2f, 1180f, 40f, look.ink, a.black, SW - 160)
             text(c, fa(persianDate(m.time, "EEEE d MMMM yyyy")), SW / 2f, 1250f, 32f, look.sub, a.bold, SW - 160)
-            m.facts.o("infoBox")?.o("Stadium")?.s("name")?.let { text(c, "🏟 $it", SW / 2f, 1310f, 30f, look.sub, a.bold, SW - 160) }
+            m.facts.o("infoBox")?.o("Stadium")?.s("name")?.let { text(c, it, SW / 2f, 1310f, 30f, look.sub, a.bold, SW - 160) }
         }
     }
 

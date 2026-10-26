@@ -166,7 +166,7 @@ private fun Token(p: PitchMan, color: Color, modifier: Modifier, onClick: () -> 
                 .border(1.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {
                 Text(if (app.goallive.live.Lang.en) "C" else L("ک"), fontSize = 9.sp, fontWeight = FontWeight.Black, color = Color(0xFF2A1A00))
             }
-            if (p.star) Text("★", Modifier.align(Alignment.TopStart).absoluteOffset(4.dp, (-4).dp), color = GOLDEN, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            if (p.star) androidx.compose.material3.Icon(Ic.starOn, null, Modifier.align(Alignment.TopStart).absoluteOffset(4.dp, (-4).dp).size(16.dp), tint = GOLDEN)
         }
         // name plate
         Box(Modifier.clip(RoundedCornerShape(10.dp)).background(Brush.verticalGradient(listOf(Color(0xE6121820), Color(0xE60A0E13))))
@@ -186,7 +186,7 @@ private fun Events(p: PitchMan) {
         p.subIn?.let { n ->
             Row(Modifier.padding(top = 2.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xCC0B2A18)).padding(horizontal = 5.dp, vertical = 1.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("⇧ ", fontSize = 9.sp, color = Color(0xFF39D98A), fontWeight = FontWeight.Black)
+                EmojiIcons.of("⇧")?.let { androidx.compose.material3.Icon(it, null, Modifier.padding(end = 2.dp).size(10.dp), tint = Color(0xFF39D98A)) }
                 Ltr(n, style = vz(9.5.sp, FontWeight.Bold), color = Color.White, raw = true)
             }
         }
@@ -213,7 +213,7 @@ private fun EventBadges(p: PitchMan) {
         else if (p.yellow) Box(Modifier.size(10.dp, 13.dp).clip(RoundedCornerShape(2.dp)).background(C.gold))
         p.outAt?.let { t ->
             Row(Modifier.clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("⇩", fontSize = 9.sp, color = Color(0xFFFF6B6B), fontWeight = FontWeight.Black)
+                EmojiIcons.of("⇩")?.let { androidx.compose.material3.Icon(it, null, Modifier.size(10.dp), tint = Color(0xFFFF6B6B)) }
                 Text(fa(t) + "'", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)
             }
         }

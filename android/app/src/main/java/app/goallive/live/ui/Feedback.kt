@@ -83,7 +83,7 @@ fun WhatsNew(nav: Nav) {
             news().forEach { n ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(18.dp)).background(C.card2).border(1.dp, C.line, RoundedCornerShape(18.dp))
                     .padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    T(n.emoji, 26)
+                    EmojiBadge(n.emoji, 44.dp, accent)
                     Column(Modifier.weight(1f)) { T(n.title, 15, FontWeight.ExtraBold); T(n.sub, 12, color = C.mute) }
                     n.go?.let { go ->
                         T(L("ببین"), 13, FontWeight.ExtraBold, accent, Modifier.clip(RoundedCornerShape(10.dp)).clickable { close(); go(nav) }.padding(horizontal = 8.dp, vertical = 6.dp))

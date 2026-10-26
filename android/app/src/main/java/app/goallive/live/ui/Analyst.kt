@@ -362,7 +362,7 @@ fun AnalystTab(m: MatchData) {
     val an = remember(m.d) { runCatching { analyse(m, ratings) }.getOrNull() } ?: return
     Card(pad = PaddingValues(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            T("🧠", 26)
+            EmojiBadge("🧠", 44.dp, LocalAccent.current)
             Column(Modifier.weight(1f)) {
                 T(L("تحلیلگر گل‌لایو"), 17, FontWeight.Black)
                 T(if (m.live) L("تحلیل زنده؛ با هر به‌روزرسانی تازه می‌شود") else L("بازی از روی اعداد خودش، به زبان ساده"), 12, color = C.mute)
@@ -526,7 +526,6 @@ internal fun Glyph(icon: String, size: androidx.compose.ui.unit.Dp, ink: Color) 
     }
 }
 
-private fun lerpColor(a: Color, b: Color, k: Float) = androidx.compose.ui.graphics.lerp(a, b, k)
 
 /** "نقاط عطف": the goals, red cards and the substitutions that changed something, down a line. */
 @Composable

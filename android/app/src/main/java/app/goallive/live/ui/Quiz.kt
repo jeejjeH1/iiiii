@@ -215,7 +215,7 @@ private fun Result(score: Int, total: Int, onShare: () -> Unit) {
         }.border(1.dp, C.line2, RoundedCornerShape(22.dp)).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        T(if (score == total) "🏆" else if (good) "⚽" else "🥅", 44)
+        EmojiBadge(if (score == total) "🏆" else if (good) "⚽" else "🥅", 84.dp, if (good) LocalAccent.current else C.loss)
         T(L("{0} از {1}", score, total), 30, FontWeight.Black)
         T(when { score == total -> L("بی‌نقص! مثل یک کارشناس فوتبال"); good -> L("آفرین! فردا هم سر بزن"); else -> L("این بار نشد؛ فردا سؤال‌های تازه می‌آیند") }, 14, color = C.mute, align = TextAlign.Center)
         Spacer(Modifier.height(12.dp))

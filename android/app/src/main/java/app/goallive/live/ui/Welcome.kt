@@ -134,7 +134,7 @@ private fun finish(ctx: android.content.Context, teams: List<Pair<Int, String>>,
 @Composable
 private fun Title(emoji: String, title: String, sub: String) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        T(emoji, 40)
+        EmojiBadge(emoji, 72.dp, LocalAccent.current)
         T(title, 26, FontWeight.Black, modifier = Modifier.padding(top = 6.dp), align = TextAlign.Center)
         T(sub, 14, color = C.mute, modifier = Modifier.padding(top = 6.dp), align = TextAlign.Center)
     }
@@ -159,7 +159,7 @@ private fun Hello() {
             androidx.compose.animation.AnimatedVisibility(shown > k, enter = fadeIn() + slideInHorizontally { it / 4 }) {
                 Row(Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(18.dp))
                     .padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    T(e, 24); T(s, 15, FontWeight.Bold, modifier = Modifier.weight(1f))
+                    EmojiBadge(e, 42.dp, LocalAccent.current); T(s, 15, FontWeight.Bold, modifier = Modifier.weight(1f))
                 }
             }
         }

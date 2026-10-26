@@ -194,7 +194,11 @@ fun Ltr(
 @Composable
 fun T(text: String, size: Int = 14, w: FontWeight = FontWeight.Normal, color: Color = C.ink, modifier: Modifier = Modifier,
       maxLines: Int = Int.MAX_VALUE, align: TextAlign? = null) {
-    Text(text, modifier, color = color, style = vz(size.coerceAtLeast(12).sp, w), maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align)
+    val style = vz(size.coerceAtLeast(12).sp, w)
+    if (!hasIcon(text)) { Text(text, modifier, color = color, style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align); return }
+    // emoji become the app's own line icons, inline, in the text's colour
+    val (shown, inline) = remember(text, color) { withIcons(text, color) }
+    Text(shown, modifier, color = color, style = style, maxLines = maxLines, overflow = TextOverflow.Ellipsis, textAlign = align, inlineContent = inline)
 }
 
 /** A player's or coach's name inside a sentence: as FotMob writes it in English, in Persian letters in Persian. */
