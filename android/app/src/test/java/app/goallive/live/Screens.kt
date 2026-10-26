@@ -251,6 +251,12 @@ class Screens {
         app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.space = true; app.goallive.live.ui.StudioPrefs.lanes = true; app.goallive.live.ui.StudioPrefs.block = true
         settle(2000); shot("95-studio-analysis")
         app.goallive.live.ui.StudioPrefs.space = false; app.goallive.live.ui.StudioPrefs.lanes = false; app.goallive.live.ui.StudioPrefs.block = false
+        // the library of ready-made moves, one played: part way, then at its goal
+        runCatching { rule.onAllNodesWithContentDescription("تاکتیک‌های من")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500); shot("96-studio-library")
+        tap("ضدحمله‌ی سریع و گل", exact = true); settle(2200); shot("97-studio-playing"); settle(5200); shot("98-studio-goal")
+        // full screen on its side
+        app.goallive.live.ui.StudioChrome.full = true; app.goallive.live.ui.StudioChrome.landscape = true; settle(2500); shot("99-studio-landscape")
+        app.goallive.live.ui.StudioChrome.full = false; app.goallive.live.ui.StudioChrome.landscape = false; settle(1000)
         app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.style = "disc"; app.goallive.live.ui.StudioPrefs.range = "half"; app.goallive.live.ui.StudioPrefs.grass = "board"
         settle(2000); shot("92-studio-half")
         app.goallive.live.ui.StudioPrefs.style = "photo"; app.goallive.live.ui.StudioPrefs.range = "full"; app.goallive.live.ui.StudioPrefs.grass = "green"

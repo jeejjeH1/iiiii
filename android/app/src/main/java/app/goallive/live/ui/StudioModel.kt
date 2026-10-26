@@ -314,7 +314,7 @@ class StudioBoard {
     }
 
     /** A new step after this one, starting where this one ends. */
-    fun addFrame() { syncOut(); frames.add(cur + 1, frames[cur].copy(paths = emptyMap(), note = "", air = false)); cur += 1; commit() }
+    fun addFrame() { syncOut(); frames.add(cur + 1, frames[cur].copy(paths = emptyMap(), note = "", air = false, ev = null)); cur += 1; commit() }
 
     fun duplicateFrame(k: Int) { syncOut(); frames.add(k + 1, frames[k]); cur = k + 1; applyFrame(frames[cur]); commit() }
 

@@ -64,16 +64,21 @@ import kotlin.math.sqrt
  * From pitch shares to the canvas and back. [v0]..[v1] is the stretch of pitch in view (all of it, the top half or the
  * top third); [tilt] narrows the far end like a broadcast camera. Margins of grass go round the lines.
  */
-class Proj(val w: Float, val h: Float, val v0: Float, val v1: Float, val tilt: Boolean) {
+class Proj(val w: Float, val h: Float, val v0: Float, val v1: Float, val tilt: Boolean, val horiz: Boolean = false) {
     private val mu = 0.05f
     private val mv = 0.035f
     private fun t(v: Float) = (v - v0 + mv) / (v1 - v0 + 2 * mv)
     /** How big things are at depth [v]: smaller far away when tilted. */
-    fun s(v: Float) = if (tilt) 0.6f + 0.4f * t(v) else 1f
-    private val wide = w / (1 + 2 * mu)
-    fun at(u: Float, v: Float) = Offset(w / 2 + (u - 0.5f) * wide * s(v), t(v) * h)
+    fun s(v: Float) = if (tilt && !horiz) 0.6f + 0.4f * t(v) else 1f
+    // lying on its side (a phone turned to landscape) the pitch runs left to right, the home side attacking to the right
+    private val wide = (if (horiz) h else w) / (1 + 2 * mu)
+    fun at(u: Float, v: Float) = if (horiz) Offset((1 - t(v)) * w, h / 2 + (u - 0.5f) * wide) else Offset(w / 2 + (u - 0.5f) * wide * s(v), t(v) * h)
     fun at(p: Offset) = at(p.x, p.y)
     fun back(p: Offset): Offset {
+        if (horiz) {
+            val tv = 1 - p.x / w
+            return Offset(0.5f + (p.y - h / 2) / wide, tv * (v1 - v0 + 2 * mv) + v0 - mv)
+        }
         val tv = p.y / h
         val v = tv * (v1 - v0 + 2 * mv) + v0 - mv
         val sc = if (tilt) 0.6f + 0.4f * tv else 1f
@@ -149,11 +154,12 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
     }
     val (v0, v1) = rangeOf(StudioPrefs.range)
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        val aspect = pitchAspect(StudioPrefs.range, StudioPrefs.tilt)
+        val horiz = StudioChrome.full && StudioChrome.landscape
+        val aspect = if (horiz) (68f * 1.1f) / (105f * (v1 - v0 + 0.07f)) else pitchAspect(StudioPrefs.range, StudioPrefs.tilt)
         val wDp = if (maxWidth * aspect > maxHeight) maxHeight / aspect else maxWidth
         val hDp = wDp * aspect
         val wPx = with(density) { wDp.toPx() }; val hPx = with(density) { hDp.toPx() }
-        val proj = Proj(wPx, hPx, v0, v1, StudioPrefs.tilt)
+        val proj = Proj(wPx, hPx, v0, v1, StudioPrefs.tilt, horiz)
         val projNow by rememberUpdatedState(proj)
         // the camera: while the move plays it closes in a little and follows the ball, then eases back out
         LaunchedEffect(ed.playing, StudioPrefs.follow) {
@@ -513,7 +519,8 @@ private fun DrawScope.drawGrass(proj: Proj, look: String) {
         moveTo(proj.at(u0, va).x, proj.at(u0, va).y); lineTo(proj.at(u1, va).x, proj.at(u1, va).y)
         lineTo(proj.at(u1, vb).x, proj.at(u1, vb).y); lineTo(proj.at(u0, vb).x, proj.at(u0, vb).y); close()
     }
-    val outer = quadPath(-0.06f, proj.back(Offset(0f, 0f)).y, 1.06f, proj.back(Offset(0f, size.height)).y)
+    val va = proj.back(Offset(0f, 0f)).y; val vb = proj.back(Offset(size.width, size.height)).y
+    val outer = quadPath(-0.06f, min(va, vb), 1.06f, max(va, vb))
     drawPath(outer, base)
     clipPath(outer) {
         val bands = 18

@@ -111,7 +111,7 @@ fun StudioScreen() {
     }
     // full screen: no bars, the pitch alone with the playback controls
     val full = StudioChrome.full
-    androidx.activity.compose.BackHandler(enabled = full) { StudioChrome.full = false }
+    androidx.activity.compose.BackHandler(enabled = full) { StudioChrome.full = false; StudioChrome.landscape = false }
     val view = androidx.compose.ui.platform.LocalView.current
     DisposableEffect(full) {
         val win = (view.context as? android.app.Activity)?.window
@@ -122,7 +122,14 @@ fun StudioScreen() {
         }
         onDispose { ctl?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
     }
-    DisposableEffect(Unit) { onDispose { StudioChrome.full = false } }
+    DisposableEffect(Unit) { onDispose { StudioChrome.full = false; StudioChrome.landscape = false } }
+    // turned on its side: the screen held in landscape while it lasts
+    val wide = full && StudioChrome.landscape
+    DisposableEffect(wide) {
+        val act = view.context as? android.app.Activity
+        if (wide) act?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        onDispose { act?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    }
     if (full) { FullStudio(board, ed, ready); SheetsOf(board, ed, teamSheet, library, viewSheet, { teamSheet = -1 }, { library = false }, { viewSheet = false }); return }
     Column(Modifier.fillMaxSize().padding(bottom = BottomSpace - 14.dp)) {
         // title and the board's actions
@@ -179,7 +186,7 @@ fun StudioScreen() {
 @Composable
 private fun SheetsOf(board: StudioBoard, ed: StudioEditor, teamSheet: Int, library: Boolean, viewSheet: Boolean, closeTeam: () -> Unit, closeLibrary: () -> Unit, closeView: () -> Unit) {
     if (teamSheet >= 0) TeamSheet(board, teamSheet, closeTeam)
-    if (library) LibrarySheet(board, closeLibrary)
+    if (library) LibrarySheet(board, ed, closeLibrary)
     if (viewSheet) ViewSheet(closeView)
     ed.editPlayer?.let { p -> PlayerSheet(board, ed, p) { ed.editPlayer = null } }
     if (ed.frameMenu in board.frames.indices) FrameSheet(board, ed, ed.frameMenu) { ed.frameMenu = -1 }
@@ -193,7 +200,11 @@ private fun SheetsOf(board: StudioBoard, ed: StudioEditor, teamSheet: Int, libra
 }
 
 /** Whether the studio is full screen (the app's bars hide). */
-object StudioChrome { var full by mutableStateOf(false) }
+object StudioChrome {
+    var full by mutableStateOf(false)
+    /** Full screen on its side: the phone turned and the pitch lying left to right. */
+    var landscape by mutableStateOf(false)
+}
 
 /** The pitch with what goes over it: the step's caption, the shot's result, the zoom. */
 @Composable
@@ -231,10 +242,14 @@ private fun PitchArea(board: StudioBoard, ed: StudioEditor, ready: Boolean, modi
 private fun FullStudio(board: StudioBoard, ed: StudioEditor, ready: Boolean) {
     val accent = LocalAccent.current
     Box(Modifier.fillMaxSize().background(Color(0xFF05070A))) {
-        PitchArea(board, ed, ready, Modifier.fillMaxSize().padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 84.dp))
+        PitchArea(board, ed, ready, Modifier.fillMaxSize().padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = if (StudioChrome.landscape) 70.dp else 84.dp))
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            RoundBtn(Color.White.copy(alpha = 0.12f), { StudioChrome.full = false }) { FullGlyph(false, Color.White) }
+            RoundBtn(Color.White.copy(alpha = 0.12f), { StudioChrome.full = false; StudioChrome.landscape = false }) { FullGlyph(false, Color.White) }
+            Spacer(Modifier.width(8.dp))
+            RoundBtn(if (StudioChrome.landscape) accent else Color.White.copy(alpha = 0.12f), { StudioChrome.landscape = !StudioChrome.landscape }) {
+                RotateGlyph(if (StudioChrome.landscape) LocalAccentInk.current else Color.White)
+            }
             Spacer(Modifier.weight(1f))
             val n = board.frames.size
             RoundBtn(Color.White.copy(alpha = 0.12f), { ed.playing = false; ed.playT = null; board.show(board.cur + (if (app.goallive.live.Lang.en) -1 else 1)) }) { StepGlyph(!app.goallive.live.Lang.en) }
@@ -280,6 +295,19 @@ private fun StepGlyph(right: Boolean) {
         fun X(x: Float) = if (right) x * w else (1 - x) * w
         drawPath(Path().apply { moveTo(X(0.15f), w * 0.15f); lineTo(X(0.7f), w * 0.5f); lineTo(X(0.15f), w * 0.85f); close() }, Color.White)
         drawRect(Color.White, Offset(minOf(X(0.74f), X(0.88f)), w * 0.15f), androidx.compose.ui.geometry.Size(w * 0.14f, w * 0.7f))
+    }
+}
+
+/** A phone turning on its side. */
+@Composable
+private fun RotateGlyph(ink: Color) {
+    Canvas(Modifier.size(20.dp)) {
+        val w = size.width; val s = Stroke(1.7.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        drawRoundRect(ink, Offset(w * 0.12f, w * 0.38f), androidx.compose.ui.geometry.Size(w * 0.76f, w * 0.48f), androidx.compose.ui.geometry.CornerRadius(w * 0.08f), style = s)
+        val arc = Path().apply { moveTo(w * 0.2f, w * 0.26f); quadraticBezierTo(w * 0.5f, w * 0.02f, w * 0.82f, w * 0.22f) }
+        drawPath(arc, ink, style = s)
+        drawLine(ink, Offset(w * 0.82f, w * 0.22f), Offset(w * 0.66f, w * 0.2f), s.width, StrokeCap.Round)
+        drawLine(ink, Offset(w * 0.82f, w * 0.22f), Offset(w * 0.78f, w * 0.06f), s.width, StrokeCap.Round)
     }
 }
 
@@ -611,11 +639,33 @@ private fun Field(v: String, hint: String, modifier: Modifier, onChange: (String
 
 /** The tactics kept on the phone: start a new one, save this one, open or delete a saved one. */
 @Composable
-private fun LibrarySheet(board: StudioBoard, onClose: () -> Unit) {
+private fun LibrarySheet(board: StudioBoard, ed: StudioEditor, onClose: () -> Unit) {
     var list by remember { mutableStateOf(StudioLibrary.all()) }
     var asking by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf("ready") }
     Sheet(onClose) {
-        T(L("تاکتیک‌های من"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(L("کتابخانه‌ی تاکتیک"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        StudioChips(listOf("ready" to L("سناریوهای آماده"), "mine" to L("تاکتیک‌های من")), tab) { tab = it }
+        if (tab == "ready") {
+            T(L("با تیم‌هایی که روی زمین هستند پخش می‌شود؛ بعد هر چیزی را می‌توانی تغییر بدهی."), 12, color = C.mute,
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+            SCENARIOS.forEachIndexed { i, sc ->
+                val accent = LocalAccent.current
+                Row(Modifier.fillMaxWidth().clickable {
+                    ed.playing = false; ed.playT = null; ed.result = null; ed.fx = null; ed.selected.clear(); ed.selMark = -1
+                    board.loadScenario(sc); onClose(); ed.playing = true
+                }.padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+                        T(fa(i + 1), 15, FontWeight.Black, accent)
+                    }
+                    Column(Modifier.weight(1f)) {
+                        T(sc.name, 15, FontWeight.ExtraBold, maxLines = 1)
+                        T(sc.about, 12, color = C.mute, maxLines = 2)
+                    }
+                    Box(Modifier.size(34.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) { PlayGlyph(false, LocalAccentInk.current) }
+                }
+            }
+        } else {
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill(L("ذخیره‌ی همین"), PillKind.Accent, onClick = { asking = true })
             Pill(L("تاکتیک تازه"), PillKind.Plain, onClick = { board.fresh(); board.commit(); onClose() })
@@ -632,6 +682,7 @@ private fun LibrarySheet(board: StudioBoard, onClose: () -> Unit) {
                 }
                 IconBtn(Ic.x, L("حذف"), C.mute, size = 16.dp) { StudioLibrary.delete(t.id); list = StudioLibrary.all() }
             }
+        }
         }
     }
     if (asking) TextAsk(L("نام تاکتیک"), board.title) { s ->

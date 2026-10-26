@@ -1544,3 +1544,78 @@
 1543|5 m higher
 1544|5 m deeper
 1545|Offside trap
+1546|Tactics library
+1547|Ready-made
+1548|Plays with the sides on the pitch; you can change anything afterwards.
+1549|Building from the back
+1550|The keeper and centre-backs split, the holding midfielder drops and the ball gets through the press
+1551|The keeper passes to the centre-back who has split wide
+1552|The holding midfielder drops between their two forwards to receive
+1553|A forward pass to the midfielder between the lines
+1554|The left winger receives; the press is broken
+1555|Fast counter and a goal
+1556|A tackle in our half, two forward passes and the winger away
+1557|The holding midfielder wins the ball off their forward
+1558|A quick ball to the striker; both wingers sprint
+1559|A ball in behind for the winger past the defence
+1560|The winger runs at goal
+1561|Placed into the far corner
+1562|Counter and a save
+1563|The same counter, but this time their keeper is well placed
+1564|A ball in behind for the winger
+1565|The keeper closes the angle
+1566|The shot; the keeper is ready
+1567|Full-back overlap and cross
+1568|The winger cuts in, the full-back overlaps and crosses
+1569|The winger cuts inside as the full-back overlaps
+1570|A pass to the full-back behind their defender
+1571|A cross to the far post
+1572|Header
+1573|One-two at the edge of the box
+1574|The midfielder passes to the striker, runs on and gets it back
+1575|A pass to the striker with his back to goal
+1576|The return ball to the midfielder who has run past his man
+1577|A shot from inside the box
+1578|Short passing in the final third
+1579|Short passes until a gap opens, then the ball in behind
+1580|Short pass
+1581|Out wide
+1582|Back inside
+1583|Switch of play; their block stretches
+1584|Through ball between the centre-backs
+1585|The finish
+1586|Corner: near post
+1587|A near-post cross and a header
+1588|An inswinger to the near post; the tall defender gets in front of his man
+1589|Near-post header
+1590|Corner: far post
+1591|A high ball to the far post for the late runner
+1592|High ball to the far post
+1593|Short corner
+1594|Played short, back, and crossed from a better angle
+1595|Back to the taker
+1596|Crossed to the midfielder free outside the box
+1597|A long-range shot
+1598|Direct free kick
+1599|A four-man wall and a curler; the dice decide
+1600|Over the wall
+1601|Wide free kick
+1602|A wide free kick crossed in and headed
+1603|Crossed between the keeper and the defence
+1604|The header; the keeper reacts
+1605|The dice with a penalty's real chance
+1606|Gegenpressing
+1607|The ball is lost and three players press at once to win it back
+1608|The pass is cut out
+1609|Three close him down in seconds
+1610|Won back
+1611|Straight to the striker before they regroup
+1612|The back line steps up as the pass is played and the striker is caught offside
+1613|The back line steps up together
+1614|The ball in behind; the striker was beyond the line
+1615|Attacking a low block
+1616|Ten men in front of the box; the ball is moved around and the shot is blocked
+1617|Side to side
+1618|A switch; their block barely moves
+1619|Driving inside
+1620|A shot from outside the box
