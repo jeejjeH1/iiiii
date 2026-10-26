@@ -1403,3 +1403,13 @@
 1402|«GOAL!», cup, crown, GOAT, SIUUU and a heart in your team's colour
 1403|New icons
 1404|Emoji gave way to clean, consistent minimal icons
+1405|Team colours
+1406|Minimal
+1407|Football in Persian
+1408|Subs and coach
+1409|Both line-ups
+1410|Post
+1411|This team only
+1412|Best XI of the week
+1413|Best player in each league
+1414|vs

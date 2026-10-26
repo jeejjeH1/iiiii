@@ -4,6 +4,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.os.Looper
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.test.core.app.ApplicationProvider
 import app.goallive.live.data.Api
@@ -110,6 +111,69 @@ class StoryShots {
             png(name, still)
             for ((t, b) in frames) png("$name-t${(t * 10).toInt()}", b)
         }
+        // the line-up posters: El Clásico (each team, both, post size) and the team of the week, in every design
+        val posters = off {
+            val out = mutableListOf<Pair<String, Bitmap>>()
+            val md = runBlocking { runCatching { MatchData(Api.fm("matchDetails", mapOf("matchId" to 5868105))) }.getOrNull() }
+            fun objs(a: org.json.JSONArray?) = a?.let { x -> (0 until x.length()).map { x.getJSONObject(it) } }.orEmpty()
+            if (md != null) {
+                val lu = md.content!!.optJSONObject("lineup")!!
+                fun team(side: String, home: Boolean, rival: Story.Lineup?): Story.Lineup {
+                    val t = lu.optJSONObject(side)!!
+                    val ev = { p: JSONObject -> objs(p.optJSONObject("performance")?.optJSONArray("events")).map { it.optString("type") } }
+                    val subEv = { p: JSONObject, k: String -> objs(p.optJSONObject("performance")?.optJSONArray("substitutionEvents")).firstOrNull { it.optString("type") == k }?.optString("time") }
+                    val xi = objs(t.optJSONArray("starters")).mapNotNull { p ->
+                        val v = p.optJSONObject("verticalLayout") ?: return@mapNotNull null
+                        val e = ev(p)
+                        app.goallive.live.ui.PitchMan(p.optInt("id"), p.optString("lastName"), 0.89f - v.optDouble("x").toFloat() * 0.78f,
+                            0.86f - (v.optDouble("y").toFloat() - 0.1f) / 0.77f * 0.74f, p.optString("shirtNumber"), p.optJSONObject("performance")?.optDouble("rating")?.takeIf { !it.isNaN() },
+                            e.count { it == "goal" }, 0, e.count { it == "assist" }, "yellowCard" in e, "redCard" in e, subEv(p, "subOut"), p.optBoolean("isCaptain"))
+                    }.let { men -> val b = men.maxByOrNull { it.rating ?: 0.0 }; men.map { m -> if (m !== b) m else app.goallive.live.ui.PitchMan(m.id, m.name, m.x, m.y, m.number, m.rating, m.goals, m.own, m.assists, m.yellow, m.red, m.outAt, m.captain, star = true) } }
+                    val bench = objs(t.optJSONArray("subs")).filter { subEv(it, "subIn") != null }.take(5).map { p ->
+                        app.goallive.live.ui.BenchMan(p.optInt("id"), p.optString("lastName"), subEv(p, "subIn"), p.optJSONObject("performance")?.optDouble("rating")?.takeIf { !it.isNaN() },
+                            ev(p).count { it == "goal" }, ev(p).count { it == "assist" }, "yellowCard" in ev(p))
+                    } + listOfNotNull(t.optJSONObject("coach")?.let { app.goallive.live.ui.BenchMan(it.optInt("id"), it.optString("lastName").ifEmpty { it.optString("name") }, coach = true) })
+                    val id = t.optInt("id")
+                    return Story.Lineup(t.optString("name"), "لالیگا · یکشنبه ۳ آبان", if (home) md.homeColor.toArgb() else md.awayColor.toArgb(), xi, id, null, t.optString("formation"), null, "x",
+                        kicker = "ترکیب اصلی", teamName = t.optString("name"), bench = bench,
+                        score = app.goallive.live.ui.PosterScore(md.homeId, md.homeName, md.home?.optInt("score") ?: 0, md.awayId, md.awayName, md.away?.optInt("score") ?: 0), home = home, rival = rival)
+                }
+                val away0 = team("awayTeam", false, null)
+                val home = team("homeTeam", true, away0)
+                val away = team("awayTeam", false, home)
+                for ((tag, l) in listOf("home" to home, "away" to away)) {
+                    val a = runBlocking { l.load(ctx) }
+                    for (t in app.goallive.live.ui.POSTER_THEMES) out += "77-poster-$tag-$t" to l.scene(CardOptions(theme = t), a).still(0.5f)
+                    out += "77-poster-$tag-post" to l.scene(CardOptions(theme = "team", format = app.goallive.live.ui.CardFormat.PORTRAIT), a).still(0.5f)
+                    if (tag == "home") for (t in listOf("team", "neon", "light")) out += "77-poster-both-$t" to l.scene(CardOptions(theme = t, both = true), a).still(0.5f)
+                    if (tag == "home") out += "77-poster-home-frame" to Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888).also { b -> val c = Canvas(b); c.scale(0.5f, 0.5f); l.scene(CardOptions(theme = "team"), a).frame(c, 1.4f) }
+                }
+            }
+            // the team of the week from the published rankings
+            val wk = rankings?.optJSONArray("weeks")?.optJSONObject(0)
+            if (wk != null) {
+                val spots = mapOf("GK" to listOf(0.5f to 0.88f), "RB" to listOf(0.87f to 0.67f), "LB" to listOf(0.13f to 0.67f), "CB" to listOf(0.63f to 0.7f, 0.37f to 0.7f),
+                    "CM" to listOf(0.5f to 0.45f, 0.8f to 0.42f, 0.2f to 0.42f), "RW" to listOf(0.82f to 0.17f), "LW" to listOf(0.18f to 0.17f), "ST" to listOf(0.5f to 0.12f))
+                val used = HashMap<String, Int>()
+                val all = objs(wk.optJSONArray("all"))
+                val best = all.maxByOrNull { it.optDouble("rating") }
+                val men = all.map { p ->
+                    val sl = p.optString("slot"); val k = used.getOrDefault(sl, 0); used[sl] = k + 1
+                    val (x, y) = spots[sl]?.getOrNull(k) ?: (0.5f to 0.5f)
+                    app.goallive.live.ui.PitchMan(p.optInt("id"), p.optString("name").split(" ").last(), x, y - 0.02f, rating = p.optDouble("rating"),
+                        goals = p.optInt("goals"), assists = p.optInt("assists"), crest = p.optInt("team").takeIf { it > 0 }, star = p === best)
+                }
+                val strip = listOf(47, 87, 55, 54, 53).mapNotNull { lg -> objs(wk.optJSONObject("leagues")?.optJSONArray(lg.toString())).maxByOrNull { it.optDouble("rating") }?.let { b ->
+                    app.goallive.live.ui.BenchMan(b.optInt("id"), b.optString("name").split(" ").last(), rating = b.optDouble("rating"), crest = b.optInt("team"), note = "لیگ $lg") } }
+                val l = Story.Lineup("بهترین ۱۱ هفته", "۵ لیگ معتبر · ۲۷ مهر – ۳ آبان", 0xFFB8860B.toInt(), men, null, null, "۴-۳-۳", null, "x",
+                    kicker = "تیم هفته‌ی گل‌لایو", bench = strip, benchLabel = "بهترین بازیکن هر لیگ", accent = 0xFFC6FF3D.toInt())
+                val a = runBlocking { l.load(ctx) }
+                for (t in app.goallive.live.ui.POSTER_THEMES) out += "78-totw-$t" to l.scene(CardOptions(theme = t), a).still(0.5f)
+            }
+            out
+        }.orEmpty()
+        for ((name, b) in posters) png(name, b)
+        System.err.println("SHOT posters: ${posters.size}")
         // every sticker on one sheet, on dark and on light
         off {
             val tf = android.graphics.Typeface.DEFAULT_BOLD

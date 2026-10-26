@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -119,7 +120,14 @@ private fun TeamOfWeek(d: JSONObject) {
     val star = xi.maxByOrNull { it.d("rating") ?: 0.0 }
     val weekLabel = if (wk == 0 && dayOf(w.s("end") ?: "") + 12 * 3_600_000L >= today) L("این هفته (تا الان)")
         else persianDate(dayOf(w.s("start") ?: ""), "d MMMM") + " – " + persianDate(dayOf(w.s("end") ?: ""), "d MMMM")
-    TeamPitch(xi, star, if (league in leagues) league else 0, weekLabel)
+    // under the five leagues' team: each league's best player, for the poster's strip
+    val strip = if (league in leagues) emptyList() else leagues.mapNotNull { lg ->
+        w.o("leagues")?.a(lg.toString())?.objs()?.maxByOrNull { it.d("rating") ?: 0.0 }?.let { b ->
+            BenchMan(b.i("id") ?: 0, personName(b.s("name") ?: "").split(" ").last(), rating = b.d("rating"), goals = b.i("goals") ?: 0,
+                assists = b.i("assists") ?: 0, crest = (b.i("team") ?: 0).takeIf { it > 0 }, note = compName(lg))
+        }
+    }
+    TeamPitch(xi, star, if (league in leagues) league else 0, weekLabel, strip)
     // the eleven as a list, best first
     Card {
         CardTitle(L("⭐ تیم هفته‌ی گل‌لایو"))
@@ -135,7 +143,7 @@ private fun leagueTone(id: Int) = when (id) {
 }
 
 @Composable
-private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?, league: Int, week: String) {
+private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?, league: Int, week: String, strip: List<BenchMan> = emptyList()) {
     val nav = LocalNav.current
     val count = HashMap<String, Int>()
     val men = xi.map { p ->
@@ -163,9 +171,10 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?, league: Int, week
             busy = true
             scope.launch {
                 runCatching {
-                    shareFormation(ctx, L("تیم هفته‌ی گل‌لایو"), (if (league == 0) L("۵ لیگ معتبر") else compName(league)) + " · " + week, tone, men,
-                        league = league.takeIf { it != 0 }, formation = fa("4-3-3"),
-                        starLine = star?.let { L("بهترین بازیکن هفته: {0}", personName(it.s("name") ?: "")) + " · " + fa(dec(it.d("rating"), 1)) }, fileName = "goallive-team-of-week")
+                    StoryStudio.story = Story.Lineup(L("بهترین ۱۱ هفته"), (if (league == 0) L("۵ لیگ معتبر") else compName(league)) + " · " + week, tone.toArgb(), men,
+                        null, league.takeIf { it != 0 }, fa("4-3-3"),
+                        star?.let { L("بهترین بازیکن هفته: {0}", personName(it.s("name") ?: "")) + " · " + fa(dec(it.d("rating"), 1)) }, "goallive-team-of-week",
+                        kicker = L("تیم هفته‌ی گل‌لایو"), bench = strip, benchLabel = L("بهترین بازیکن هر لیگ"), accent = if (league == 0) 0xFFC6FF3D.toInt() else null)
                 }
                 busy = false
             }

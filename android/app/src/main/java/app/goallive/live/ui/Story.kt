@@ -240,10 +240,14 @@ sealed class Story {
         override fun message() = L("بازی در یک دقیقه") + ": " + teamName(m.homeId, m.homeName) + " ${m.home.i("score") ?: 0}-${m.away.i("score") ?: 0} " + teamName(m.awayId, m.awayName)
     }
 
-    /** A formation (a match line-up or the team of the week). */
+    /** A formation (a match line-up or the team of the week), drawn as a poster: [bench] goes in the strip under the pitch,
+     *  [rival] is the other team's line-up for the poster with both, [home] says which side this one is. */
     class Lineup(val title: String, val sub: String, val tone: Int, val men: List<PitchMan>, val crest: Int?, val league: Int?,
-                 val formation: String, val starLine: String?, val name: String) : Story() {
+                 val formation: String, val starLine: String?, val name: String,
+                 val kicker: String = "", val teamName: String = "", val bench: List<BenchMan> = emptyList(), val benchLabel: String = "",
+                 val score: PosterScore? = null, val accent: Int? = null, val home: Boolean = true, val rival: Lineup? = null) : Story() {
         override val file = name
+        override val theme = "team"
         override fun message() = "$title\n$sub"
     }
 }
@@ -255,7 +259,9 @@ object StoryStudio {
 
 /** Pictures and fonts a story needs, fetched once. */
 class Art(val logo: Bitmap?, val black: Typeface, val bold: Typeface, val faces: Map<Int, Bitmap?> = emptyMap(), val crests: Map<Int, Bitmap?> = emptyMap(),
-          val leagues: Map<Int, Bitmap?> = emptyMap(), val card: CardAssets? = null, val best: PlayerRating? = null)
+          val leagues: Map<Int, Bitmap?> = emptyMap(), val card: CardAssets? = null, val best: PlayerRating? = null,
+          /** The posters' display face (Kufam) and the face for their figures (Barlow). */
+          val display: Typeface? = null, val digits: Typeface? = null)
 
 
 /** The league badge for a white disc (the light version). */
@@ -280,8 +286,13 @@ internal suspend fun Story.load(ctx: Context): Art {
         is Story.Ballon -> Art(logo, black, bold, faces(men.map { it.i("id") ?: 0 }, 420), crests(men.map { it.i("team") ?: 0 }))
         is Story.Duel -> Art(logo, black, bold, faces(listOf(a.i("id") ?: 0, b.i("id") ?: 0), 420),
             crests(listOf(a.o("primaryTeam").i("teamId") ?: 0, b.o("primaryTeam").i("teamId") ?: 0)))
-        is Story.Lineup -> Art(logo, black, bold, faces(men.map { it.id }, 220), crests(men.mapNotNull { it.crest } + listOfNotNull(crest)),
-            league?.let { mapOf(it to image(ctx, badgeUrl(it), 160)) } ?: emptyMap())
+        is Story.Lineup -> {
+            val all = listOfNotNull(this, rival)
+            Art(logo, black, bold, faces(all.flatMap { t -> t.men.map { it.id } + t.bench.map { it.id } }, 220),
+                crests(all.flatMap { t -> t.men.mapNotNull { it.crest } + t.bench.mapNotNull { it.crest } + listOfNotNull(t.crest) } + listOfNotNull(score?.homeId, score?.awayId)),
+                league?.let { mapOf(it to image(ctx, badgeUrl(it), 160)) } ?: emptyMap(),
+                display = ResourcesCompat.getFont(ctx, R.font.kufam_black), digits = ResourcesCompat.getFont(ctx, R.font.barlow_extrabold))
+        }
     }
 }
 
@@ -289,8 +300,7 @@ internal suspend fun Story.load(ctx: Context): Art {
 internal fun Story.scene(o: CardOptions, a: Art): Scene = when (this) {
     is Story.Match -> matchScene(m, o, a.card!!, a.best)
     is Story.Reel -> reelScene(m, o, a.card!!, a.faces, a.best)
-    is Story.Lineup -> formationScene(title, sub, tone, men, a.faces, a.crests, crest?.let { a.crests[it] } ?: league?.let { a.leagues[it] }, a.logo,
-        a.black, a.bold, formation, starLine, o.caption)
+    is Story.Lineup -> posterScene(this, o, a)
     is Story.Player -> playerScene(this, o, a)
     is Story.Table -> tableScene(this, o, a)
     is Story.Ballon -> ballonScene(this, o, a)
@@ -1023,13 +1033,15 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
         ambient = withContext(Dispatchers.Default) { runCatching { softBlur(sc.still(0.1f)) }.getOrNull() }
     }
     // every design drawn small with this very story, for the picker
-    val themed = story !is Story.Lineup && !reel
+    val themed = !reel
+    val lineup = story as? Story.Lineup
+    val themes = if (lineup != null) POSTER_THEMES else CARD_THEMES
     var thumbs by remember { mutableStateOf<Map<String, Bitmap>>(emptyMap()) }
     val thumbKey = shape.copy(theme = "", caption = "", sticker = "")
     LaunchedEffect(thumbKey, art) {
         val a = art ?: return@LaunchedEffect
         if (!themed) return@LaunchedEffect
-        for (t in CARD_THEMES) {
+        for (t in themes) {
             val b = withContext(Dispatchers.Default) { runCatching { val sc = story.scene(thumbKey.copy(theme = t), a); sc.still(0.16f).also { sc.bg.recycle() } }.getOrNull() } ?: continue
             thumbs = thumbs + (t to b)
         }
@@ -1102,23 +1114,23 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                     StudioLabel(L("طرح"))
                     val hc = art?.card?.hc ?: scene?.hc?.takeIf { it != 0 } ?: accent.toArgb(); val ac = art?.card?.ac ?: scene?.ac?.takeIf { it != 0 } ?: deep(accent)
                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(CARD_THEMES.size) { k ->
-                            val t = CARD_THEMES[k]
+                        items(themes.size) { k ->
+                            val t = themes[k]
                             val on = t == o.theme
                             val sc by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0.93f, label = "theme")
                             Column(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.clip(RoundedCornerShape(18.dp)).clickable { o = o.copy(theme = t) }.padding(2.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally) {
                                 val r = RoundedCornerShape(16.dp)
-                                Box(Modifier.size(78.dp, 138.dp).clip(r).background(themeSwatch(t, hc, ac)).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, r)) {
+                                Box(Modifier.size(78.dp, 138.dp).clip(r).background(if (lineup != null) Brush.verticalGradient(listOf(Color(hc), Color(0xFF06080C))) else themeSwatch(t, hc, ac)).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, r)) {
                                     thumbs[t]?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.High) }
-                                    if (t in NEW_THEMES) Box(Modifier.align(Alignment.TopStart).padding(5.dp).clip(RoundedCornerShape(8.dp)).background(accent).padding(horizontal = 6.dp)) {
+                                    if (t in NEW_THEMES && lineup == null) Box(Modifier.align(Alignment.TopStart).padding(5.dp).clip(RoundedCornerShape(8.dp)).background(accent).padding(horizontal = 6.dp)) {
                                         T(L("تازه"), 12, FontWeight.Black, LocalAccentInk.current)
                                     }
                                     if (on) Box(Modifier.align(Alignment.BottomEnd).padding(6.dp).size(22.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
                                         T("✓", 12, FontWeight.Black, LocalAccentInk.current)
                                     }
                                 }
-                                T(themeName(t), 12, if (on) FontWeight.ExtraBold else FontWeight.Normal, if (on) accent else C.mute, modifier = Modifier.padding(top = 5.dp))
+                                T(if (lineup != null) posterThemeName(t) else themeName(t), 12, if (on) FontWeight.ExtraBold else FontWeight.Normal, if (on) accent else C.mute, modifier = Modifier.padding(top = 5.dp))
                             }
                         }
                     }
@@ -1131,7 +1143,16 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                 } else if (video) {
                     StudioLabel(L("آهنگ"))
                     StudioChips(MUSIC.map { it.first to L(it.second) }, music) { music = it; Store.prefs().edit().putString("story.music", it).apply() }
-                } else if (match != null) {
+                }
+                if (lineup != null && !video) {
+                    StudioLabel(L("اندازه"))
+                    StudioChips(listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست")), if (o.both) CardFormat.STORY else o.format) { o = o.copy(format = it, both = false) }
+                }
+                if (lineup?.rival != null) {
+                    StudioLabel(L("روی عکس باشد"))
+                    StudioChips(listOf(false to L("فقط همین تیم"), true to L("هر دو تیم")), o.both) { o = o.copy(both = it, format = if (it) CardFormat.STORY else o.format) }
+                }
+                if (!reel && !video && match != null) {
                     StudioLabel(L("اندازه"))
                     StudioChips(listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست عمودی"), CardFormat.SQUARE to L("پست مربع")), o.format) { o = o.copy(format = it) }
                 }

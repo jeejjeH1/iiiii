@@ -63,6 +63,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -1440,7 +1441,7 @@ private fun LineupBody(m: MatchData, lu: JSONObject) {
     Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), side) { side = it }
     val vs = teamName(m.homeId, m.homeName) + " " + (if (m.started) fa("${m.home.i("score") ?: 0} - ${m.away.i("score") ?: 0}") else "-") + " " + teamName(m.awayId, m.awayName) +
         " · " + leagueName(m.leagueId, m.general.s("leagueName") ?: "")
-    if (hasLayout) Pitch(team, home, color, id, vs, { nav.board(m.matchId, side) }) { sheet = it }
+    if (hasLayout) Pitch(m, team, if (home) A else H, home, color, id, vs, { nav.board(m.matchId, side) }) { sheet = it }
     else TeamBar(team, home, color, id) { nav.board(m.matchId, side) }
     if (!hasLayout) Card { team.a("starters").objs().forEachIndexed { i, p -> LineupRow(LP(p, home), i == 0) { sheet = it } } }
     val subs = team.a("subs").objs().map { LP(it, home) }
@@ -1561,17 +1562,11 @@ private fun BenchChip(p: LP, color: Color, onClick: () -> Unit) {
 }
 
 /** One team's eleven on the formation pitch, keeper at the bottom; the header carries the team, coach, formation and rating. */
-@Composable
-private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: String, onBoard: () -> Unit, onOpen: (LP) -> Unit) {
-    val nav = LocalNav.current
-    val ctx = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var busy by remember { mutableStateOf(false) }
-    val ratings = LocalRatings.current
+/** One team's eleven as [PitchMan]s, keeper at the bottom, the best rated starred. */
+private fun pitchMen(team: JSONObject, home: Boolean, ratings: Map<Int, PlayerRating>, swaps: Swaps): Pair<List<LP>, List<PitchMan>> {
     val players = team.a("starters").objs().map { LP(it, home) }.filter { it.layout != null }
-    val swaps = LocalSwaps.current
     val best = players.maxByOrNull { ratings[it.id]?.value ?: 0.0 }?.takeIf { ratings[it.id] != null }
-    val men = players.map { p ->
+    return players to players.map { p ->
         val v = p.layout!!
         val x = (v.d("x") ?: 0.5).toFloat(); val y = (v.d("y") ?: 0.5).toFloat()
         // FotMob: y 0.1 (keeper) … 0.87 (strikers); x 0 is the right back: seen from behind the team, that is the right edge
@@ -1579,6 +1574,28 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: St
             p.goals, p.own, p.assists, p.yellow, p.red, p.outAt, p.captain, star = p === best,
             subIn = swaps.onFor[p.id]?.let { personName(it.s("lastName") ?: (it.s("name") ?: "").substringAfterLast(' ')) })
     }
+}
+
+/** The substitutes who came on, in order, then the coach: the strip under a line-up poster. */
+private fun benchMen(team: JSONObject, home: Boolean, ratings: Map<Int, PlayerRating>): List<BenchMan> {
+    val subs = team.a("subs").objs().map { LP(it, home) }.filter { it.inAt != null }
+        .sortedBy { it.inAt!!.filter(Char::isDigit).take(3).toIntOrNull() ?: 99 }.take(5)
+        .map { BenchMan(it.id, it.short, it.inAt, ratings[it.id]?.value, it.goals, it.assists, it.yellow) }
+    val coach = team.o("coach")?.let { co -> BenchMan(co.i("id") ?: 0, personName(co.s("lastName") ?: (co.s("name") ?: "").substringAfterLast(' ')), coach = true) }
+    return subs + listOfNotNull(coach)
+}
+
+/** One team's eleven on the formation pitch, keeper at the bottom; the header carries the team, coach, formation and rating. */
+@Composable
+private fun Pitch(m: MatchData, team: JSONObject, rival: JSONObject, home: Boolean, color: Color, id: Int, vs: String, onBoard: () -> Unit, onOpen: (LP) -> Unit) {
+    val nav = LocalNav.current
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    val ratings = LocalRatings.current
+    val swaps = LocalSwaps.current
+    val (players, men) = pitchMen(team, home, ratings, swaps)
+    val best = players.firstOrNull { p -> men.any { it.id == p.id && it.star } }
     FormationPitch(men, color, header = {
         Crest(id, 32.dp)
         Column(Modifier.weight(1f).clickable { nav.team(id) }) {
@@ -1595,8 +1612,18 @@ private fun Pitch(team: JSONObject, home: Boolean, color: Color, id: Int, vs: St
             scope.launch {
                 runCatching {
                     val starName = best?.let { b -> personName(b.name) + " · " + fa(dec(ratings[b.id]?.value, 1)) }
-                    shareFormation(ctx, L("ترکیب {0}", teamName(id, team.s("name") ?: "")), vs, color, men, crest = id, formation = fa(team.s("formation") ?: ""),
-                        starLine = starName?.let { L("بهترین بازیکن گل‌لایو: {0}", it) }, fileName = "goallive-lineup-$id")
+                    val league = leagueName(m.leagueId, m.general.s("leagueName") ?: "")
+                    val score = if (m.started) PosterScore(m.homeId, m.homeName, m.home.i("score") ?: 0, m.awayId, m.awayName, m.away.i("score") ?: 0) else null
+                    val sub = listOf(league, persianDate(m.time, "EEEE d MMMM")).filter { it.isNotBlank() }.joinToString(" · ")
+                    fun poster(t: JSONObject, h: Boolean, c: Color, tid: Int, xi: List<PitchMan>, other: Story.Lineup?) = Story.Lineup(
+                        teamName(tid, t.s("name") ?: ""), sub, c.toArgb(), xi, tid, null, fa(t.s("formation") ?: ""),
+                        starName?.let { L("بهترین بازیکن گل‌لایو: {0}", it) }, "goallive-lineup-$tid",
+                        kicker = if ((m.content.path("lineup").s("lineupType") ?: "standard") != "standard") L("ترکیب احتمالی") else L("ترکیب اصلی"),
+                        teamName = teamName(tid, t.s("name") ?: ""), bench = benchMen(t, h, ratings), score = score, home = h, rival = other)
+                    val otherId = if (home) m.awayId else m.homeId
+                    val otherMen = pitchMen(rival, !home, ratings, swaps).second
+                    val them = if (otherMen.size >= 10) poster(rival, !home, if (home) m.awayColor else m.homeColor, otherId, otherMen, null) else null
+                    StoryStudio.story = poster(team, home, color, id, men, them)
                 }
                 busy = false
             }

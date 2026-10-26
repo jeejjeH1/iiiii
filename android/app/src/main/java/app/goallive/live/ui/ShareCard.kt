@@ -90,6 +90,8 @@ data class CardOptions(
     val prediction: Boolean = true,
     val caption: String = "",
     val sticker: String = "",
+    /** A line-up poster with both teams. */
+    val both: Boolean = false,
 )
 
 internal fun loadOptions(): CardOptions = runCatching {
