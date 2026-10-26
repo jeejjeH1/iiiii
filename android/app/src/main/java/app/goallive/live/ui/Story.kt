@@ -618,11 +618,11 @@ private fun statsScene(s: Story.Stats, o: CardOptions, a: Art): Scene {
                 val rect = RectF(cx - r, cy - r, cx + r, cy + r)
                 val hs = 360f * h / (h + aw).coerceAtLeast(1) * k
                 // home sweeps from the top towards the reading start, away the other way; each glows in its colour, a hairline gap between
-                p.color = 0x22FFFFFF; c.drawArc(rect, 0f, 360f, false, p)
+                p.color = track(look); c.drawArc(rect, 0f, 360f, false, p)
                 p.color = brighten(hc); p.setShadowLayer(26f, 0f, 0f, ca(brighten(hc), 0xAA)); c.drawArc(rect, -90f, if (en) -(hs - 2f).coerceAtLeast(0f) else (hs - 2f).coerceAtLeast(0f), false, p)
                 p.color = brighten(ac); p.setShadowLayer(26f, 0f, 0f, ca(brighten(ac), 0xAA)); c.drawArc(rect, -90f, if (en) (360f * k - hs - 2f).coerceAtLeast(0f) else -(360f * k - hs - 2f).coerceAtLeast(0f), false, p)
                 p.clearShadowLayer()
-                p.strokeWidth = 2f; p.color = 0x33FFFFFF; c.drawCircle(cx, cy, r - 34f, p); c.drawCircle(cx, cy, r + 34f, p)
+                p.strokeWidth = 2f; p.color = if (darkInk(look)) 0x1A000000 else 0x33FFFFFF; c.drawCircle(cx, cy, r - 34f, p); c.drawCircle(cx, cy, r + 34f, p)
                 p.style = Paint.Style.FILL
                 text(c, L("مالکیت"), cx, cy - 26f, 30f, look.sub, a.bold, 220)
                 text(c, fa("${(h * k).roundToInt()}٪"), xs(SW / 2f - 250f), cy - 40f, 64f, look.ink, a.black, 220)
@@ -646,7 +646,7 @@ private fun statsScene(s: Story.Stats, o: CardOptions, a: Art): Scene {
                 val tot = (hn + an).takeIf { it > 0 } ?: 1.0
                 val g = easeOut(clk.at(1.1f + i * 0.12f, 0.7f)); val half = 330f; val by = y + 56f; val bh = 16f
                 val l = SW / 2f - half; val r = SW / 2f + half
-                p.color = 0x22FFFFFF; c.drawRoundRect(RectF(l, by, r, by + bh), bh / 2, bh / 2, p)
+                p.color = track(look); c.drawRoundRect(RectF(l, by, r, by + bh), bh / 2, bh / 2, p)
                 if (hn + an > 0) {
                     val split = (2 * half * (hn / tot)).toFloat()
                     val hw = split * g; val aw = (2 * half - split) * g
@@ -703,10 +703,10 @@ private fun analysisScene(s: Story.Analysis, o: CardOptions, a: Art): Scene {
             bigText(c, fa(an.fair.first), xs(SW / 2f - 96f), top + 66f, 124f, look.ink, a.black, 1f)
             text(c, "-", SW / 2f, top + 92f, 80f, look.sub, a.black, 80)
             bigText(c, fa(an.fair.second), xs(SW / 2f + 96f), top + 66f, 124f, look.ink, a.black, 1f)
-            text(c, "xG " + fa(dec(an.hXg * k, 2)), xs(190f), top + 118f, 38f, hcol, a.black, 280)
-            text(c, "xG " + fa(dec(an.aXg * k, 2)), xs(SW - 190f), top + 118f, 38f, acol, a.black, 280)
+            text(c, "xG " + fa(dec(an.hXg * k, 2)), xs(190f), top + 118f, 38f, readable(hc, look), a.black, 280)
+            text(c, "xG " + fa(dec(an.aXg * k, 2)), xs(SW - 190f), top + 118f, 38f, readable(ac, look), a.black, 280)
             val l = 100f; val r = SW - 100f; val by = top + 228f; val bh = 28f; val w = r - l
-            p.color = 0x22FFFFFF; c.drawRoundRect(RectF(l, by, r, by + bh), bh / 2, bh / 2, p)
+            p.color = track(look); c.drawRoundRect(RectF(l, by, r, by + bh), bh / 2, bh / 2, p)
             var x0 = 0f
             for ((pp, col) in listOf(an.pHome to hcol, an.pDraw to 0xFF8A94A0.toInt(), an.pAway to acol)) {
                 val pw = (w * pp * k).toFloat()

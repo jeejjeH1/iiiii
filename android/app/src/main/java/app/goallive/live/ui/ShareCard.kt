@@ -468,7 +468,7 @@ internal fun glass(c: Canvas, l: Float, t: Float, r: Float, b: Float, look: Card
         return
     }
     val rad = 44f
-    p.color = look.panel; p.setShadowLayer(48f, 0f, 20f, 0x38000000); c.drawRoundRect(rect, rad, rad, p); p.clearShadowLayer()
+    p.color = look.panel; p.setShadowLayer(48f, 0f, 20f, if (darkInk(look)) 0x1A000000 else 0x38000000); c.drawRoundRect(rect, rad, rad, p); p.clearShadowLayer()
     p.shader = LinearGradient(0f, t, 0f, b, intArrayOf(0x24FFFFFF, 0x08FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP); c.drawRoundRect(rect, rad, rad, p)
     p.style = Paint.Style.STROKE; p.strokeWidth = 2.5f
     p.shader = LinearGradient(0f, t, 0f, b, edgeTop(look.stroke), edgeBottom(look.stroke), Shader.TileMode.CLAMP); c.drawRoundRect(rect, rad, rad, p); p.shader = null

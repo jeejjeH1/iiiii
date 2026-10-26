@@ -189,7 +189,7 @@ internal fun background(c: Canvas, theme: String, W: Int, H: Int, hc: Int, ac: I
             var gy = 0f; while (gy < h) { c.drawLine(0f, gy, w, gy, p); gy += 54f }
             p.shader = LinearGradient(0f, 0f, w, 0f, if (Lang.en) intArrayOf(hc, hc, ac, ac) else intArrayOf(ac, ac, hc, hc), floatArrayOf(0f, 0.5f, 0.5f, 1f), Shader.TileMode.CLAMP)
             c.drawRect(0f, 0f, w, 16f, p); p.shader = null
-            CardLook(0xFF15171C.toInt(), 0xFF5D6470.toInt(), 0x12000000, hc or 0xFF000000.toInt(), 0x22000000)
+            CardLook(0xFF15171C.toInt(), 0xFF5D6470.toInt(), 0xE6FFFFFF.toInt(), hc or 0xFF000000.toInt(), 0x1F000000)
         }
         "pitch" -> {
             val n = 12
@@ -602,6 +602,19 @@ internal fun themeLive(c: Canvas, theme: String, t: Float, W: Int, H: Int, hc: I
         }
     }
 }
+
+/** True for a design with dark writing on a light ground. */
+internal fun darkInk(look: CardLook) = android.graphics.Color.red(look.ink) < 0x80
+
+/** A team colour made legible as writing on the design: lifted on dark grounds, deepened on light ones. */
+internal fun readable(c: Int, look: CardLook): Int {
+    val hsv = FloatArray(3); android.graphics.Color.colorToHSV(c or 0xFF000000.toInt(), hsv)
+    if (darkInk(look)) hsv[2] = minOf(hsv[2], 0.5f) else { hsv[2] = maxOf(hsv[2], 0.95f); hsv[1] = minOf(hsv[1], 0.6f) }
+    return android.graphics.Color.HSVToColor(hsv)
+}
+
+/** The empty part of a bar or a ring. */
+internal fun track(look: CardLook) = if (darkInk(look)) 0x16000000 else 0x22FFFFFF
 
 /** Every design's moving layer frozen at one moment, for a still picture. */
 internal const val LIVE_STILL_T = 3.3f
