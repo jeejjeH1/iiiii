@@ -192,7 +192,7 @@ fun MomentumCard(m: MatchData) {
                 Box(Modifier.width(38.dp).clip(RoundedCornerShape(50)).background(C.card2).padding(vertical = 3.dp), contentAlignment = Alignment.Center) {
                     T(fa(mo.minute) + "'", 12, FontWeight.ExtraBold, C.mute)
                 }
-                T(mo.icon, 14)
+                Glyph(mo.icon, 18.dp, C.ink)
                 T(mo.text, 13, modifier = Modifier.weight(1f))
             }
         }

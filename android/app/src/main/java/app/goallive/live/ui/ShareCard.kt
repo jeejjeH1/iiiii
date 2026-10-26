@@ -79,11 +79,6 @@ const val BAZAAR_URL = "https://cafebazaar.ir/app/app.goallive.live"
 
 enum class CardFormat(val w: Int, val h: Int) { STORY(1080, 1920), PORTRAIT(1080, 1350), SQUARE(1080, 1080) }
 
-val CARD_THEMES = listOf("teams", "night", "gold", "light", "pitch", "neon")
-internal fun themeName(k: String) = when (k) {
-    "teams" -> L("رنگ تیم‌ها"); "night" -> L("شب"); "gold" -> L("طلایی"); "light" -> L("روشن"); "pitch" -> L("چمن"); else -> L("نئون")
-}
-
 /** Everything that shapes the picture; kept between shares. */
 data class CardOptions(
     val format: CardFormat = CardFormat.STORY,
@@ -141,25 +136,11 @@ internal suspend fun cardAssets(ctx: Context, m: MatchData, best: PlayerRating?)
 internal fun bestOf(m: MatchData): PlayerRating? =
     runCatching { rateMatch(m) }.getOrDefault(emptyMap()).values.filter { it.minutes >= 20 }.maxByOrNull { it.value }
 
-/** A small look at each design, for the picker. */
-internal fun themeSwatch(t: String, hc: Int, ac: Int): Brush {
-    return when (t) {
-        "teams" -> Brush.linearGradient(listOf(Color(hc), Color(hc), Color(ac), Color(ac)))
-        "night" -> Brush.verticalGradient(listOf(Color(0xFF1A2350), Color(0xFF05060D)))
-        "gold" -> Brush.verticalGradient(listOf(Color(0xFF4A3608), Color(0xFF0D0A04)))
-        "light" -> Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFEDE7DA)))
-        "pitch" -> Brush.verticalGradient(listOf(Color(0xFF1F7A45), Color(0xFF0E3D22)))
-        else -> Brush.linearGradient(listOf(Color(0xFF05050A), Color(hc).copy(alpha = 0.7f), Color(0xFF05050A), Color(ac).copy(alpha = 0.7f)))
-    }
-}
-
 /** White writing sits on the team colours, so a light kit colour is taken down to a mid tone first. */
 internal fun deep(c: Color) = (if (c.luminance() > 0.45f) androidx.compose.ui.graphics.lerp(c, Color.Black, 0.55f) else c).toArgb()
 
 
 /* ---------- drawing ---------- */
-
-internal class CardLook(val ink: Int, val sub: Int, val panel: Int, val accent: Int, val stroke: Int)
 
 /** The share picture: competition at the top, the crests and the score, then the chosen parts spread over the space, and the brand. Drawn at [scale]. */
 internal fun drawCard(@Suppress("UNUSED_PARAMETER") ctx: Context, m: MatchData, o: CardOptions, a: CardAssets, best: PlayerRating?, scale: Float): Bitmap =
@@ -177,11 +158,11 @@ internal fun matchScene(m: MatchData, o: CardOptions, a: CardAssets, best: Playe
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
     val wm = W * 0.95f
     for ((bm, x, y0) in listOf(Triple(a.home, homeX, H * 0.05f), Triple(a.away, awayX, H * 0.55f))) bm?.let {
-        p.alpha = if (o.theme == "light") 13 else 18
+        p.alpha = if (lightTheme(o.theme)) 13 else 18
         bc.drawBitmap(it, null, RectF(x - wm / 2, y0, x + wm / 2, y0 + wm), p); p.alpha = 255
     }
-    grain(bc, W, H, o.theme == "light")
-    return Scene(W, H, bg, a.hc, a.ac) { c, clk -> matchFront(c, m, o, a, best, look, clk) }
+    grain(bc, W, H, lightTheme(o.theme))
+    return Scene(W, H, bg, a.hc, a.ac) { c, clk -> matchFront(c, m, o, a, best, look, clk) }.also { it.theme = o.theme }
 }
 
 private fun matchFront(c: Canvas, m: MatchData, o: CardOptions, a: CardAssets, best: PlayerRating?, look: CardLook, clk: Clock) {
@@ -429,13 +410,7 @@ private fun matchFront(c: Canvas, m: MatchData, o: CardOptions, a: CardAssets, b
     }
 
     // the sticker, big in a top corner, a little tilted
-    if (o.sticker.isNotEmpty()) {
-        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 170f * k }
-        val sx2 = if (en) W - 120f * k else 120f * k; val sy2 = if (story) 90f else 40f
-        c.pop(clk.at(2.9f, 0.5f), sx2, sy2 + 80 * k) {
-            c.save(); c.rotate(if (en) 14f else -14f, sx2, sy2 + 80 * k); c.drawText(o.sticker, sx2 - tp.measureText(o.sticker) / 2, sy2 + tp.textSize * 0.85f, tp); c.restore()
-        }
-    }
+    if (o.sticker.isNotEmpty()) stickerAt(c, o.sticker, if (en) W - 150f * k else 150f * k, if (story) 190f else 140f * k, 110f * k, hc, a.black, clk)
     // the brand: the app's mark and name side by side
     val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 44f * k; typeface = a.black }
     val name = L("گل‌لایو"); val nw = tp.measureText(name); val lr2 = 30f * k
@@ -443,6 +418,7 @@ private fun matchFront(c: Canvas, m: MatchData, o: CardOptions, a: CardAssets, b
     val by = H - footer / 2 - lr2 - (if (story) 10f else 0f)
     val lx = if (en) W / 2f - bw / 2 + lr2 else W / 2f + bw / 2 - lr2
     c.brand(clk, W / 2f, by + lr2) {
+        capsule(c, RectF(W / 2f - bw / 2 - 26f * k, by - 18f * k, W / 2f + bw / 2 + 26f * k, by + 2 * lr2 + 18f * k), look)
         a.logo?.let { logo ->
             p.color = 0xFFFFFFFF.toInt(); c.drawCircle(lx, by + lr2, lr2 + 4, p)
             c.drawBitmap(logo, null, RectF(lx - lr2, by, lx + lr2, by + 2 * lr2), p)
@@ -480,13 +456,22 @@ internal fun grain(c: Canvas, W: Int, H: Int, light: Boolean) {
     }
 }
 
-/** A frosted panel: the theme's glass colour, a light sheen at the top and a hairline edge. */
+/** A frosted panel: the theme's glass colour, a light sheen at the top, an edge brighter at the top than the bottom. Comic: a white box, thick black edge, hard shadow. */
 internal fun glass(c: Canvas, l: Float, t: Float, r: Float, b: Float, look: CardLook) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    val rect = RectF(l, t, r, b); val rad = 40f
-    p.color = look.panel; p.setShadowLayer(40f, 0f, 16f, 0x33000000); c.drawRoundRect(rect, rad, rad, p); p.clearShadowLayer()
-    p.shader = LinearGradient(0f, t, 0f, t + (b - t) * 0.5f, 0x1AFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP); c.drawRoundRect(rect, rad, rad, p); p.shader = null
-    p.style = Paint.Style.STROKE; p.strokeWidth = 2.5f; p.color = look.stroke; c.drawRoundRect(rect, rad, rad, p)
+    val rect = RectF(l, t, r, b)
+    if (look.comic) {
+        val rad = 22f
+        p.color = 0xFF111111.toInt(); c.drawRoundRect(RectF(l + 12f, t + 12f, r + 12f, b + 12f), rad, rad, p)
+        p.color = look.panel; c.drawRoundRect(rect, rad, rad, p)
+        p.style = Paint.Style.STROKE; p.strokeWidth = 6f; p.color = look.stroke; c.drawRoundRect(rect, rad, rad, p)
+        return
+    }
+    val rad = 44f
+    p.color = look.panel; p.setShadowLayer(48f, 0f, 20f, 0x38000000); c.drawRoundRect(rect, rad, rad, p); p.clearShadowLayer()
+    p.shader = LinearGradient(0f, t, 0f, b, intArrayOf(0x24FFFFFF, 0x08FFFFFF, 0x00FFFFFF), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP); c.drawRoundRect(rect, rad, rad, p)
+    p.style = Paint.Style.STROKE; p.strokeWidth = 2.5f
+    p.shader = LinearGradient(0f, t, 0f, b, edgeTop(look.stroke), edgeBottom(look.stroke), Shader.TileMode.CLAMP); c.drawRoundRect(rect, rad, rad, p); p.shader = null
 }
 
 /** A big number: a soft shadow under it and a top-to-bottom sheen in it; [fade] dims it. */
@@ -547,102 +532,6 @@ internal fun cardColor(c: Color, crest: Bitmap?, fallback: Long): Int {
 
 internal fun ratingColor(r: Double) = when { r >= 9 -> 0xFF1D9BF0; r >= 7.5 -> 0xFF14B866; r >= 6.5 -> 0xFF9FB21B; r >= 5.5 -> 0xFFF08A24; else -> 0xFFE5434B }.toInt()
 
-/** Paints the chosen design and returns its colours. */
-internal fun background(c: Canvas, theme: String, W: Int, H: Int, hc: Int, ac: Int): CardLook {
-    val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    val w = W.toFloat(); val h = H.toFloat()
-    fun radial(x: Float, y: Float, r: Float, color: Int, alpha: Int) {
-        p.shader = RadialGradient(x, y, r, intArrayOf((color and 0x00FFFFFF) or (alpha shl 24), color and 0x00FFFFFF), null, Shader.TileMode.CLAMP)
-        c.drawCircle(x, y, r, p); p.shader = null
-    }
-    return when (theme) {
-        "night" -> {
-            p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0xFF141B3D.toInt(), 0xFF070912.toInt(), 0xFF040509.toInt()), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
-            c.drawRect(0f, 0f, w, h, p); p.shader = null
-            radial(w * 0.1f, h * 0.18f, w * 0.75f, hc, 0x88); radial(w * 0.9f, h * 0.55f, w * 0.75f, ac, 0x70)
-            // a few stars
-            p.color = 0xFFFFFFFF.toInt()
-            val rnd = java.util.Random(7)
-            repeat(70) { p.alpha = 40 + rnd.nextInt(120); c.drawCircle(rnd.nextFloat() * w, rnd.nextFloat() * h * 0.7f, 1.5f + rnd.nextFloat() * 2.5f, p) }
-            p.alpha = 255
-            CardLook(0xFFFFFFFF.toInt(), 0xCCB9C3E6.toInt(), 0x22FFFFFF, 0xFF7CF5FF.toInt(), 0x33FFFFFF)
-        }
-        "gold" -> {
-            p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0xFF2E2206.toInt(), 0xFF120D04.toInt(), 0xFF070502.toInt()), null, Shader.TileMode.CLAMP)
-            c.drawRect(0f, 0f, w, h, p); p.shader = null
-            // light rays from the top
-            p.color = 0xFFF5C542.toInt()
-            for (k in 0 until 18) {
-                val a0 = Math.toRadians(20.0 + k * 140.0 / 17); val spread = Math.toRadians(2.2); val len = h * 1.4f
-                val path = Path().apply {
-                    moveTo(w / 2, -40f)
-                    lineTo(w / 2 + len * cos(a0 - spread).toFloat(), -40f + len * sin(a0 - spread).toFloat())
-                    lineTo(w / 2 + len * cos(a0 + spread).toFloat(), -40f + len * sin(a0 + spread).toFloat())
-                    close()
-                }
-                p.alpha = if (k % 2 == 0) 22 else 12; c.drawPath(path, p)
-            }
-            p.alpha = 255
-            radial(w / 2, h * 0.3f, w * 0.7f, 0xFFF5C542.toInt(), 0x55)
-            CardLook(0xFFFFF4D6.toInt(), 0xCCE8D9A8.toInt(), 0x26F5C542, 0xFFF5C542.toInt(), 0x55F5C542)
-        }
-        "light" -> {
-            p.color = 0xFFF7F4EE.toInt(); c.drawRect(0f, 0f, w, h, p)
-            // a band in both colours across the top
-            p.shader = LinearGradient(0f, 0f, w, 0f, if (Lang.en) intArrayOf(hc, hc, ac, ac) else intArrayOf(ac, ac, hc, hc), floatArrayOf(0f, 0.48f, 0.52f, 1f), Shader.TileMode.CLAMP)
-            val band = Path().apply { moveTo(0f, 0f); lineTo(w, 0f); lineTo(w, h * 0.16f); lineTo(0f, h * 0.24f); close() }
-            c.drawPath(band, p); p.shader = null
-            radial(w / 2, h * 0.42f, w * 0.6f, 0xFFFFFFFF.toInt(), 0xFF)
-            CardLook(0xFF15171C.toInt(), 0xFF5D6470.toInt(), 0x14000000, hc or 0xFF000000.toInt(), 0x22000000)
-        }
-        "pitch" -> {
-            val n = 12
-            for (k in 0 until n) { p.color = if (k % 2 == 0) 0xFF1D6E3F.toInt() else 0xFF186236.toInt(); c.drawRect(0f, h * k / n, w, h * (k + 1) / n + 1, p) }
-            p.style = Paint.Style.STROKE; p.strokeWidth = 5f; p.color = 0x55FFFFFF
-            c.drawRect(40f, 40f, w - 40f, h - 40f, p); c.drawLine(40f, h / 2, w - 40f, h / 2, p); c.drawCircle(w / 2, h / 2, w * 0.17f, p)
-            c.drawRect(w * 0.2f, 40f, w * 0.8f, h * 0.14f, p); c.drawRect(w * 0.2f, h * 0.86f, w * 0.8f, h - 40f, p)
-            p.style = Paint.Style.FILL
-            p.shader = RadialGradient(w / 2, h / 2, h * 0.75f, intArrayOf(0x00000000, 0xAA000000.toInt()), null, Shader.TileMode.CLAMP)
-            c.drawRect(0f, 0f, w, h, p); p.shader = null
-            CardLook(0xFFFFFFFF.toInt(), 0xDDDFF5E6.toInt(), 0x44000000, 0xFFFFE14D.toInt(), 0x33FFFFFF)
-        }
-        "neon" -> {
-            p.color = 0xFF05050A.toInt(); c.drawRect(0f, 0f, w, h, p)
-            // glowing rings in both colours
-            p.style = Paint.Style.STROKE
-            for ((col, x, yy) in listOf(Triple(hc, w * 0.15f, h * 0.2f), Triple(ac, w * 0.85f, h * 0.75f))) {
-                for (k in 0 until 4) {
-                    p.color = col or 0xFF000000.toInt(); p.strokeWidth = 6f; p.alpha = 200 - k * 40
-                    p.maskFilter = BlurMaskFilter(18f, BlurMaskFilter.Blur.NORMAL)
-                    c.drawCircle(x, yy, w * (0.25f + k * 0.12f), p)
-                }
-            }
-            p.maskFilter = null; p.style = Paint.Style.FILL; p.alpha = 255
-            radial(w / 2, h * 0.3f, w * 0.5f, 0xFFFFFFFF.toInt(), 0x22)
-            CardLook(0xFFFFFFFF.toInt(), 0xCCC8C8E0.toInt(), 0x1FFFFFFF, 0xFF39FFB4.toInt(), 0x55FFFFFF)
-        }
-        else -> {
-            // the two club colours split on a slant, darkened towards the bottom, with a light behind the score and fine stripes
-            p.color = 0xFF0B0F14.toInt(); c.drawRect(0f, 0f, w, h, p)
-            for ((col, right) in listOf(hc to !Lang.en, ac to Lang.en)) {
-                val path = Path().apply {
-                    if (right) { moveTo(w * 0.6f, 0f); lineTo(w, 0f); lineTo(w, h); lineTo(w * 0.4f, h) }
-                    else { moveTo(0f, 0f); lineTo(w * 0.6f, 0f); lineTo(w * 0.4f, h); lineTo(0f, h) }
-                    close()
-                }
-                p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(col or 0xFF000000.toInt(), col or 0xFF000000.toInt(), 0xFF0B0F14.toInt()), floatArrayOf(0f, 0.4f, 1f), Shader.TileMode.CLAMP)
-                c.drawPath(path, p); p.shader = null
-            }
-            p.color = 0x0FFFFFFF; p.strokeWidth = 3f
-            var x = -h; while (x < w) { c.drawLine(x, h, x + h * 0.6f, 0f, p); x += 46f }
-            radial(w / 2, h * 0.3f, w * 0.55f, 0xFFFFFFFF.toInt(), 0x40)
-            p.shader = LinearGradient(0f, h * 0.5f, 0f, h, 0x00000000, 0xD9000000.toInt(), Shader.TileMode.CLAMP)
-            c.drawRect(0f, h * 0.5f, w, h, p); p.shader = null
-            CardLook(0xFFFFFFFF.toInt(), 0xCCFFFFFF.toInt(), 0x40000000, 0xFFF5C542.toInt(), 0x33FFFFFF)
-        }
-    }
-}
-
 /** Text in a rounded pill with a hairline edge, centred on [cx]. */
 internal fun pill(c: Canvas, s: String, cx: Float, top: Float, size: Float, ink: Int, bg: Int, tf: Typeface, maxW: Int, stroke: Int = 0) {
     val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf }
@@ -661,6 +550,15 @@ internal fun text(c: Canvas, s: String, cx: Float, top: Float, size: Float, colo
     val l = StaticLayout.Builder.obtain(s, 0, s.length, tp, width).setAlignment(Layout.Alignment.ALIGN_CENTER)
         .setMaxLines(maxLines).setEllipsize(TextUtils.TruncateAt.END).setIncludePad(false).build()
     c.save(); c.translate(cx - width / 2f, top); l.draw(c); c.restore()
+}
+
+/** Text from the reading start of the box [left]..[left] + [width] (the right edge in Persian), wrapped to [maxLines]. */
+internal fun startText(c: Canvas, s: String, left: Float, top: Float, size: Float, color: Int, tf: Typeface, width: Int, maxLines: Int = 1, spacing: Float = 1.25f) {
+    if (s.isBlank()) return
+    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color; textSize = size; typeface = tf }
+    val l = StaticLayout.Builder.obtain(s, 0, s.length, tp, width).setAlignment(Layout.Alignment.ALIGN_NORMAL).setLineSpacing(0f, spacing)
+        .setMaxLines(maxLines).setEllipsize(TextUtils.TruncateAt.END).setIncludePad(false).build()
+    c.save(); c.translate(left, top); l.draw(c); c.restore()
 }
 
 /* ---------- a formation as a story picture: team of the week and match line-ups ---------- */

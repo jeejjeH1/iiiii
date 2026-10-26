@@ -81,7 +81,7 @@ class StoryShots {
         val drawn = off {
             stories.map { (name, s) ->
                 val a = runBlocking { s.load(ctx) }
-                val sc = s.scene(CardOptions(theme = s.theme, caption = if (name == "player") "بهترین بازیکن فصل! 🔥" else "", sticker = if (name == "duel") "🔥" else ""), a)
+                val sc = s.scene(CardOptions(theme = s.theme, caption = if (name == "player") "بهترین بازیکن فصل! 🔥" else "", sticker = when (name) { "duel" -> "fire"; "match" -> "goal"; "analysis" -> "crown"; else -> "" }), a)
                 val frames = listOf(0.4f, 0.9f, 1.6f, 2.6f, 6.0f).map { t ->
                     val b = Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888)
                     val c = Canvas(b); c.scale(0.5f, 0.5f); sc.frame(c, t); t to b
@@ -94,6 +94,35 @@ class StoryShots {
             for ((t, b) in frames) png("71-story-$name-t${(t * 10).toInt()}", b)
         }
         System.err.println("SHOT stories: ${drawn.map { it.first }}")
+        // every design on the match, the stats and the player stories, small, plus a moment of the moving ones
+        val themed = off {
+            stories.filter { it.first in setOf("match", "stats", "player", "analysis") }.flatMap { (name, s) ->
+                val a = runBlocking { s.load(ctx) }
+                app.goallive.live.ui.CARD_THEMES.map { t ->
+                    val sc = s.scene(CardOptions(theme = t, sticker = if (name == "player") "star" else ""), a)
+                    Triple("74-theme-$name-$t", sc.still(0.5f), if (name == "match" && t in setOf("fire", "ice", "neon", "stadium", "holo", "aurora")) listOf(1.0f, 2.2f).map { tt ->
+                        val b = Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888); val c = Canvas(b); c.scale(0.5f, 0.5f); sc.frame(c, tt); tt to b
+                    } else emptyList())
+                }
+            }
+        }.orEmpty()
+        for ((name, still, frames) in themed) {
+            png(name, still)
+            for ((t, b) in frames) png("$name-t${(t * 10).toInt()}", b)
+        }
+        // every sticker on one sheet, on dark and on light
+        off {
+            val tf = android.graphics.Typeface.DEFAULT_BOLD
+            val sheet = Bitmap.createBitmap(1400, 640, Bitmap.Config.ARGB_8888)
+            val c = Canvas(sheet)
+            c.drawColor(0xFF10141A.toInt())
+            val p = android.graphics.Paint().apply { color = 0xFFF2EEE6.toInt() }
+            c.drawRect(0f, 320f, 1400f, 640f, p)
+            app.goallive.live.ui.STICKERS.filter { it.isNotEmpty() }.forEachIndexed { i, k ->
+                for (row in 0..1) app.goallive.live.ui.drawSticker(c, k, 60f + i * 105f, 160f + row * 320f, 44f, 0xFF1E5BD8.toInt(), tf)
+            }
+            png("75-stickers", sheet)
+        }
         // the match reel: a frame every two seconds
         (stories.firstOrNull { it.first == "match" }?.second as? Story.Match)?.let { st ->
             val reel = off {

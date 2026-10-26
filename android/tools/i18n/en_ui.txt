@@ -1384,3 +1384,14 @@
 1383|Persian and English search
 1384|Type teams and players in Persian or English, typos and all
 1385|Pictures and animated videos with music of matches, players, tables and line-ups; and every match in a minute
+1386|Aurora
+1387|Hologram
+1388|Fire
+1389|Ice
+1390|Comic
+1391|Pick a design, a sticker and your words, then send
+1392|Picture
+1393|Animated video
+1394|New
+1395|No sticker
+1396|e.g. Game of the season!

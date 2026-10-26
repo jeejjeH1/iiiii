@@ -209,7 +209,7 @@ fun OpponentRadar(m: MatchData) {
                     r.insights.forEach { ins ->
                         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background((if (ins.good) C.win else C.away).copy(alpha = 0.10f))
                             .padding(horizontal = 12.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            T(ins.icon, 18)
+                            Glyph(ins.icon, 22.dp, if (ins.good) C.win else C.away)
                             T(ins.text, 13, FontWeight.Bold, modifier = Modifier.weight(1f))
                             T(if (ins.good) L("قوت") else L("ضعف"), 12, FontWeight.Black, if (ins.good) C.win else C.away)
                         }

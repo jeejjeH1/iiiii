@@ -14,6 +14,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -502,7 +505,8 @@ private fun InsightCard(x: Finding, m: MatchData) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(22.dp)).height(IntrinsicSize.Min)) {
         Box(Modifier.width(5.dp).fillMaxHeight().background(color))
         Row(Modifier.padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(color.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) { T(x.icon, 20) }
+            Box(Modifier.size(42.dp).clip(CircleShape).background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(color, lerpColor(color, Color.Black, 0.35f)))),
+                contentAlignment = Alignment.Center) { Glyph(x.icon, 24.dp, Color.White) }
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (x.home != null) Crest(if (x.home) m.homeId else m.awayId, 18.dp)
@@ -513,6 +517,16 @@ private fun InsightCard(x: Finding, m: MatchData) {
         }
     }
 }
+
+/** A finding's or turning point's drawn icon. */
+@Composable
+internal fun Glyph(icon: String, size: androidx.compose.ui.unit.Dp, ink: Color) {
+    androidx.compose.foundation.Canvas(Modifier.size(size)) {
+        drawIntoCanvas { drawGlyph(it.nativeCanvas, icon, this.size.width / 2, this.size.height / 2, this.size.minDimension / 2, ink.toArgb()) }
+    }
+}
+
+private fun lerpColor(a: Color, b: Color, k: Float) = androidx.compose.ui.graphics.lerp(a, b, k)
 
 /** "نقاط عطف": the goals, red cards and the substitutions that changed something, down a line. */
 @Composable
@@ -528,7 +542,7 @@ private fun TurnsCard(turns: List<Turn>, m: MatchData) {
                     Box(Modifier.width(2.dp).weight(1f).background(if (k == turns.lastIndex) Color.Transparent else C.line2))
                 }
                 Row(Modifier.weight(1f).padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    T(t.icon, 16); T(t.text, 13, modifier = Modifier.weight(1f))
+                    Glyph(t.icon, 20.dp, C.ink); T(t.text, 13, modifier = Modifier.weight(1f))
                 }
             }
         }
