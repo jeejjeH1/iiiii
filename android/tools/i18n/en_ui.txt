@@ -1704,3 +1704,9 @@
 1703|Clear events
 1704|Clear notes
 1705|Keep this step only
+1706|Play
+1707|Tactic picture
+1708|A story-sized picture with the pitch, the teams and your drawings
+1709|Floating tools
+1710|Tools at the bottom
+1711|Team of the week

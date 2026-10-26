@@ -627,25 +627,9 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
         })
         .semantics { contentDescription = desc }) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 18.dp else 10.dp),
+            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 18.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            // status
-            Box(Modifier.width(if (datePlace) 50.dp else 44.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
-                val st = statusText(m).replace(L("بین دو نیمه"), L("نیمه"))
-                when {
-                    m.live -> Row(verticalAlignment = Alignment.CenterVertically) {
-                        LiveDot(size = 6.dp); Spacer(Modifier.width(3.dp))
-                        Ltr(st, style = vz(12.sp, FontWeight.ExtraBold), color = C.live)
-                    }
-                    // another day: weekday over the date, so "which day?" needs no thinking
-                    datePlace -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        T(persianDate(m.time, "EEEE"), 12, FontWeight.ExtraBold, if (m.finished) C.mute else C.ink, maxLines = 1)
-                        T(persianDate(m.time, "d MMM"), 12, FontWeight.Medium, C.mute, maxLines = 1)
-                    }
-                    st.isNotEmpty() -> T(st, 12, FontWeight.ExtraBold, C.mute, maxLines = 2, align = TextAlign.Center)
-                }
-            }
             val homeLose = m.finished && (m.home.score ?: 0) < (m.away.score ?: 0)
             val awayLose = m.finished && (m.away.score ?: 0) < (m.home.score ?: 0)
             // home (right)
@@ -653,10 +637,24 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
                 Crest(m.home.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-h" else null)
                 TeamText(m.home.id, m.home.name, Modifier.weight(1f, false), 14, if (homeLose) FontWeight.SemiBold else FontWeight.Bold, if (homeLose) C.mute else C.ink, maxLines = 2)
             }
-            Box(Modifier.clearAndSetSemantics {}) { ScoreBox(m) }
+            // the score or the kick-off, and under it the minute, "full time" or another day's date: no column of its own,
+            // so the names get the room
+            Column(Modifier.clearAndSetSemantics {}, horizontalAlignment = Alignment.CenterHorizontally) {
+                ScoreBox(m)
+                val st = statusText(m).replace(L("بین دو نیمه"), L("نیمه"))
+                when {
+                    m.live -> Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                        LiveDot(size = 5.dp); Spacer(Modifier.width(3.dp))
+                        Ltr(st, style = vz(11.sp, FontWeight.ExtraBold), color = C.live)
+                    }
+                    datePlace -> T(persianDate(m.time, "EEEE d MMM"), 10, FontWeight.Bold, C.mute, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
+                    st.isNotEmpty() -> T(st, 10, FontWeight.Bold, C.mute, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
+                }
+            }
             // away (left): crest on the outer edge
             Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
-                TeamText(m.away.id, m.away.name, Modifier.weight(1f, false), 14, if (awayLose) FontWeight.SemiBold else FontWeight.Bold, if (awayLose) C.mute else C.ink, maxLines = 2)
+                // a name on two lines keeps to its crest's side
+                TeamText(m.away.id, m.away.name, Modifier.weight(1f, false), 14, if (awayLose) FontWeight.SemiBold else FontWeight.Bold, if (awayLose) C.mute else C.ink, maxLines = 2, align = TextAlign.End)
                 Crest(m.away.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-a" else null)
             }
             if (star) StarButton(Store.follows(m), { Store.toggleMatch(m.id) }, 16.dp, box = 26.dp) else Spacer(Modifier.width(26.dp))
@@ -667,7 +665,7 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
         if (hc != null || ac != null) Box(Modifier.align(Alignment.CenterStart).padding(start = 3.dp).width(3.dp).height(34.dp).clip(RoundedCornerShape(2.dp))
             .background(Brush.verticalGradient(listOf(hc ?: C.line2, hc ?: C.line2, ac ?: C.line2, ac ?: C.line2))))
         if (sub != null) T(personName(sub), 12, color = C.faint, maxLines = 1, align = TextAlign.Center,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 1.dp, start = 50.dp, end = 34.dp).clearAndSetSemantics {})
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 1.dp, start = 34.dp, end = 34.dp).clearAndSetSemantics {})
         // live minute progress along the bottom edge
         val min = m.minute.substringBefore('+').filter(Char::isDigit).toIntOrNull()
         if (m.live && min != null && min > 0) Box(

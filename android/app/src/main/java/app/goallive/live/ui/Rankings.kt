@@ -171,7 +171,7 @@ private fun TeamPitch(xi: List<JSONObject>, star: JSONObject?, league: Int, week
             busy = true
             scope.launch {
                 runCatching {
-                    StoryStudio.story = Story.Lineup(L("بهترین ۱۱ هفته"), (if (league == 0) L("۵ لیگ معتبر") else compName(league)) + " · " + week, tone.toArgb(), men,
+                    StoryStudio.story = Story.Lineup(L("تیم منتخب هفته"), (if (league == 0) L("۵ لیگ معتبر") else compName(league)) + " · " + week, tone.toArgb(), men,
                         null, league.takeIf { it != 0 }, fa("4-3-3"),
                         star?.let { L("بهترین بازیکن هفته: {0}", personName(it.s("name") ?: "")) + " · " + fa(dec(it.d("rating"), 1)) }, "goallive-team-of-week",
                         kicker = L("تیم هفته‌ی گل‌لایو"), bench = strip, benchLabel = L("بهترین بازیکن هر لیگ"), accent = if (league == 0) 0xFFC6FF3D.toInt() else null)
