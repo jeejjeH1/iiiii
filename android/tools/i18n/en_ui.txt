@@ -1372,3 +1372,15 @@
 1371|Deserved
 1372|Difference
 1373|GoalLive forecast
+1374|A new «Analysis» tab in every match: the fair result, why it ended that way, turning points and the real shape
+1375|Win chances minute by minute
+1376|See each team's chance of winning at every minute and where the match turned
+1377|League luck table
+1378|Which teams got more points than they deserved, and which got fewer
+1379|You vs GoalLive
+1380|GoalLive predicts the score too; see which of you does better
+1381|Fuller stats
+1382|Possession, a two-team radar, players' stat tables, the xG race and average positions
+1383|Persian and English search
+1384|Type teams and players in Persian or English, typos and all
+1385|Pictures and animated videos with music of matches, players, tables and line-ups; and every match in a minute
