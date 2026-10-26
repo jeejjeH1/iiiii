@@ -24,7 +24,7 @@ import app.goallive.live.data.Store
 @Composable
 fun HowToSheet(emoji: String, title: String, steps: List<String>, button: String = L("فهمیدم، بزن بریم"), onClose: () -> Unit, onGo: () -> Unit = onClose) {
     val accent = LocalAccent.current
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
+    GlSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {

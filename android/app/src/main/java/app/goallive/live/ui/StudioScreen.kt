@@ -37,6 +37,7 @@ import app.goallive.live.data.i
 import app.goallive.live.data.s
 import app.goallive.live.data.b
 import app.goallive.live.data.o
+import app.goallive.live.data.tr
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -526,8 +527,13 @@ private fun PenRow(color: Int, width: Float, alpha: Float, layer: String, onColo
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun Sheet(onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, containerColor = C.cardSolid, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
-        Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp).verticalScroll(rememberScrollState()), content = content)
+    GlSheet(onDismissRequest = onClose) {
+        Box(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 16.dp).verticalScroll(rememberScrollState()), content = content)
+            // a round close button level with the title
+            Box(Modifier.align(Alignment.TopEnd).padding(end = 12.dp).size(36.dp).clip(CircleShape).background(C.card2).border(1.dp, C.line2, CircleShape)
+                .clickable(onClick = onClose), contentAlignment = Alignment.Center) { Icon(Ic.x, L("بستن"), Modifier.size(16.dp), tint = C.mute) }
+        }
     }
 }
 
@@ -547,7 +553,7 @@ private fun TeamSheet(board: StudioBoard, side: Int, onClose: () -> Unit) {
         found = runCatching { search(q.trim()).teams }.getOrDefault(emptyList()).take(12)
     }
     Sheet(onClose) {
-        T(if (side == 0) L("تیم پایین زمین") else L("تیم بالای زمین"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(if (side == 0) L("تیم پایین زمین") else L("تیم بالای زمین"), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp))
         StudioChips(listOf("club" to L("باشگاه یا تیم ملی"), "own" to L("تیم دلخواه")), mode) { mode = it }
         if (mode == "club") {
             Box(Modifier.padding(horizontal = 16.dp)) { SearchField(q, L("نام تیم؛ فارسی یا انگلیسی…")) { q = it } }
@@ -661,7 +667,7 @@ private fun LibrarySheet(board: StudioBoard, ed: StudioEditor, onClose: () -> Un
         }
     }
     Sheet(onClose) {
-        T(L("کتابخانه‌ی تاکتیک"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(L("کتابخانه‌ی تاکتیک"), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp))
         StudioChips(listOf("ready" to L("سناریوهای آماده"), "mine" to L("تاکتیک‌های من")), tab) { tab = it }
         if (tab == "ready") {
             T(L("با تیم‌هایی که روی زمین هستند پخش می‌شود؛ بعد هر چیزی را می‌توانی تغییر بدهی."), 12, color = C.mute,
@@ -713,7 +719,7 @@ private fun LibrarySheet(board: StudioBoard, ed: StudioEditor, onClose: () -> Un
 @Composable
 private fun ViewSheet(onClose: () -> Unit) {
     Sheet({ StudioPrefs.keep(); onClose() }) {
-        T(L("نمای زمین"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(L("نمای زمین"), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp))
         StudioLabel(L("دوربین"))
         StudioChips(listOf(false to L("از بالا"), true to L("تلویزیونی")), StudioPrefs.tilt) { StudioPrefs.tilt = it }
         StudioLabel(L("محدوده"))
@@ -875,7 +881,7 @@ private fun FrameSheet(board: StudioBoard, ed: StudioEditor, k: Int, onClose: ()
     var note by remember(k) { mutableStateOf(f.note) }
     fun close() { if (note != board.frames.getOrNull(k)?.note) board.frames.getOrNull(k)?.let { board.setFrame(k, it.copy(note = note.trim())) }; onClose() }
     Sheet(::close) {
-        T(L("مرحله‌ی {0}", fa(k + 1)), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(L("مرحله‌ی {0}", fa(k + 1)), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp))
         if (k > 0) {
             StudioLabel(L("زمان رسیدن به این مرحله"))
             StudioChips(listOf(0.6f to L("{0} ثانیه", fa("0.6")), 1.2f to L("{0} ثانیه", fa("1.2")), 2f to L("{0} ثانیه", fa(2)), 3f to L("{0} ثانیه", fa(3))), f.dur) {
@@ -902,7 +908,7 @@ private fun FrameSheet(board: StudioBoard, ed: StudioEditor, k: Int, onClose: ()
 private fun AnalysisSheet(board: StudioBoard, onClose: () -> Unit) {
     var newStep by remember { mutableStateOf(true) }
     Sheet({ StudioPrefs.keep(); onClose() }) {
-        T(L("تحلیل تیمی"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(L("تحلیل تیمی"), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp))
         StudioLabel(L("روی زمین نشان بده"))
         Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Toggle(L("کنترل فضا"), StudioPrefs.space) { StudioPrefs.space = it }
@@ -957,7 +963,7 @@ private fun ShareSheet(board: StudioBoard, onClose: () -> Unit) {
     }
     val steps = board.frames.size
     Sheet(onClose) {
-        T(L("اشتراک تاکتیک"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(L("اشتراک تاکتیک"), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp))
         StudioLabel(L("ویدیو برای استوری"))
         StudioChips(listOf("" to L("بی‌صدا"), "crowd" to L("صدای ورزشگاه"), "music" to L("ورزشگاه و موسیقی")), sound) { sound = it; Store.prefs().edit().putString("studio.sound", it).apply() }
         Box(Modifier.padding(16.dp).fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).background(if (steps >= 2) LocalAccent.current else C.card2)
@@ -1003,7 +1009,7 @@ private fun MatchSheet(board: StudioBoard, ed: StudioEditor, id: Int, onClose: (
     var failed by remember { mutableStateOf(false) }
     LaunchedEffect(id) { val r = runCatching { loadStudioMatch(id) }; sm = r.getOrNull(); failed = sm == null }
     Sheet(onClose) {
-        T(L("این بازی در استودیو"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        T(L("این بازی در استودیو"), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp))
         val m = sm
         when {
             failed -> T(L("ترکیب این بازی هنوز در دسترس نیست."), 13, color = C.mute, modifier = Modifier.padding(18.dp))

@@ -1251,30 +1251,6 @@ private fun ShareMark(kind: String, tint: Color) {
     }
 }
 
-@Composable
-internal fun StudioLabel(s: String) = T(s, 13, FontWeight.ExtraBold, C.mute, Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp))
-
-@Composable
-internal fun <K> StudioChips(options: List<Pair<K, String>>, selected: K, onPick: (K) -> Unit) {
-    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(options.size) { k ->
-            val (key, label) = options[k]
-            val on = key == selected
-            Box(Modifier.clip(RoundedCornerShape(50)).background(if (on) LocalAccent.current else C.card2).clickable { onPick(key) }.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                T(label, 13, FontWeight.Bold, if (on) LocalAccentInk.current else C.ink)
-            }
-        }
-    }
-}
-
-@Composable
-internal fun Toggle(label: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    val accent = LocalAccent.current
-    Row(Modifier.clip(RoundedCornerShape(50)).background(if (on) accent.copy(alpha = 0.18f) else C.card2).border(1.dp, if (on) accent else C.line2, RoundedCornerShape(50))
-        .clickable { onChange(!on) }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        T(if (on) "✓ " else "", 12, FontWeight.Black, accent); T(label, 13, FontWeight.Bold, if (on) C.ink else C.mute)
-    }
-}
 
 private val INSTAGRAM = listOf("com.instagram.android")
 private val TELEGRAM = listOf("org.telegram.messenger", "org.telegram.messenger.web", "org.thunderdog.challegram", "org.telegram.plus")

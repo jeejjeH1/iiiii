@@ -76,7 +76,7 @@ fun WhatsNew(nav: Nav) {
     if (!show) return
     val close = { show = false; markNewsSeen(ctx) }
     val accent = LocalAccent.current
-    ModalBottomSheet(onDismissRequest = close, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
+    GlSheet(onDismissRequest = close, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
             T(L("✨ چه خبر تازه؟"), 22, FontWeight.Black)

@@ -472,7 +472,7 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
             || personName(it.name).contains(q.trim()) }
         .sortedByDescending { when (sort) { "rating" -> it.rating ?: 0.0; "goals" -> (it.goals * 3 + it.assists).toDouble(); else -> it.price } }
         .take(80)
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
+    GlSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = C.cardSolid,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {
             T(L("خرید {0} · بودجه باقی {1}م", POS[pos], dec(BUDGET - spent, 1)), 16, FontWeight.Black, modifier = Modifier.padding(horizontal = 16.dp))
@@ -509,7 +509,7 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
 @Composable
 private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable: Boolean, pts: Pair<Int, List<String>>?, onClose: () -> Unit, onCaptain: () -> Unit, onRemove: () -> Unit) {
     val nav = LocalNav.current
-    ModalBottomSheet(onDismissRequest = onClose, containerColor = C.cardSolid, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
+    GlSheet(onDismissRequest = onClose, containerColor = C.cardSolid, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
             Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Face(p.id, 56.dp)

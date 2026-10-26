@@ -751,7 +751,7 @@ fun PageHero(c1: Color, pattern: String?, ink: Color = Color.White, watermark: I
 private fun MatchPeek(m: MatchItem, onOpen: () -> Unit, onClose: () -> Unit) {
     val l = rememberLoader(m.id, "peek") { MatchData(Api.fm("matchDetails", mapOf("matchId" to m.id), 15_000)) }
     val accent = LocalAccent.current
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, containerColor = C.cardSolid, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
+    GlSheet(onDismissRequest = onClose, containerColor = C.cardSolid, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
             if (m.leagueName.isNotEmpty()) Ltr(m.leagueName, Modifier.fillMaxWidth(), style = vz(12.sp, FontWeight.Bold), color = C.mute, align = TextAlign.Center)
             Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {

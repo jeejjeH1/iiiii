@@ -257,7 +257,7 @@ fun TeamPicker(onClose: () -> Unit) {
             onClose()
         }
     }
-    ModalBottomSheet(onDismissRequest = { Store.onboarded = true; onClose() }, sheetState = state, containerColor = C.cardSolid,
+    GlSheet(onDismissRequest = { Store.onboarded = true; onClose() }, sheetState = state, containerColor = C.cardSolid,
         shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), dragHandle = {
             Box(Modifier.padding(top = 10.dp).width(44.dp).height(5.dp).clip(RoundedCornerShape(5.dp)).background(C.line2))
         }) {
