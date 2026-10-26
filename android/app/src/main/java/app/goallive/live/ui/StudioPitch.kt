@@ -404,7 +404,7 @@ private fun DrawScope.drawGrass(proj: Proj, look: String) {
         }
         // the markings: 68 m across, 105 m long
         val st = Stroke(max(1.5f, proj.perMetre(0.5f) * 0.18f), cap = StrokeCap.Round, join = StrokeJoin.Round)
-        fun poly(vararg p: Offset, closed: Boolean = false) {
+        fun poly(p: List<Offset>, closed: Boolean = false) {
             val path = Path(); p.forEachIndexed { i, q -> val s = proj.at(q); if (i == 0) path.moveTo(s.x, s.y) else path.lineTo(s.x, s.y) }
             if (closed) path.close(); drawPath(path, line, style = st)
         }
@@ -417,15 +417,15 @@ private fun DrawScope.drawGrass(proj: Proj, look: String) {
             }
             drawPath(path, line, style = st)
         }
-        poly(Offset(0f, 0f), Offset(1f, 0f), Offset(1f, 1f), Offset(0f, 1f), closed = true)
-        poly(Offset(0f, 0.5f), Offset(1f, 0.5f))
+        poly(listOf(Offset(0f, 0f), Offset(1f, 0f), Offset(1f, 1f), Offset(0f, 1f)), closed = true)
+        poly(listOf(Offset(0f, 0.5f), Offset(1f, 0.5f)))
         ring(0.5f, 0.5f, 9.15f)
         drawCircle(line, max(2f, proj.perMetre(0.5f) * 0.3f), proj.at(0.5f, 0.5f))
         for (top in listOf(true, false)) {
             val g = if (top) 0f else 1f; val d = if (top) 1f else -1f
             val b = 16.5f / 105f; val sx = 5.5f / 105f
-            poly(Offset(0.2035f, g), Offset(0.2035f, g + d * b), Offset(0.7965f, g + d * b), Offset(0.7965f, g))
-            poly(Offset(0.3653f, g), Offset(0.3653f, g + d * sx), Offset(0.6347f, g + d * sx), Offset(0.6347f, g))
+            poly(listOf(Offset(0.2035f, g), Offset(0.2035f, g + d * b), Offset(0.7965f, g + d * b), Offset(0.7965f, g)))
+            poly(listOf(Offset(0.3653f, g), Offset(0.3653f, g + d * sx), Offset(0.6347f, g + d * sx), Offset(0.6347f, g)))
             val spot = g + d * 11f / 105f
             drawCircle(line, max(2f, proj.perMetre(spot) * 0.25f), proj.at(0.5f, spot))
             // the D: the part of the circle round the spot outside the box
@@ -434,7 +434,7 @@ private fun DrawScope.drawGrass(proj: Proj, look: String) {
             val gl = 0.4462f; val gr = 0.5538f; val gb = g - d * 2.2f / 105f
             val net = Path(); for (k in 0..6) { val u = gl + (gr - gl) * k / 6; val a = proj.at(u, g); val z = proj.at(u, gb); net.moveTo(a.x, a.y); net.lineTo(z.x, z.y) }
             drawPath(net, line.copy(alpha = line.alpha * 0.4f), style = Stroke(1f))
-            poly(Offset(gl, g), Offset(gl, gb), Offset(gr, gb), Offset(gr, g))
+            poly(listOf(Offset(gl, g), Offset(gl, gb), Offset(gr, gb), Offset(gr, g)))
             // corner arcs
             ring(0f, g, 1f, if (top) 0f else 270f, if (top) 90f else 360f); ring(1f, g, 1f, if (top) 90f else 180f, if (top) 180f else 270f)
         }
@@ -572,7 +572,7 @@ private fun DrawScope.drawPlayers(board: StudioBoard, ed: StudioEditor, proj: Pr
                     moveTo(c.x - s * 0.35f, c.y - s * 0.95f); lineTo(c.x - s, c.y - s * 0.55f); lineTo(c.x - s * 0.72f, c.y - s * 0.05f)
                     lineTo(c.x - s * 0.55f, c.y - s * 0.2f); lineTo(c.x - s * 0.55f, c.y + s * 0.95f); lineTo(c.x + s * 0.55f, c.y + s * 0.95f)
                     lineTo(c.x + s * 0.55f, c.y - s * 0.2f); lineTo(c.x + s * 0.72f, c.y - s * 0.05f); lineTo(c.x + s, c.y - s * 0.55f)
-                    lineTo(c.x + s * 0.35f, c.y - s * 0.95f); quadraticTo(c.x, c.y - s * 0.6f, c.x - s * 0.35f, c.y - s * 0.95f); close()
+                    lineTo(c.x + s * 0.35f, c.y - s * 0.95f); quadraticBezierTo(c.x, c.y - s * 0.6f, c.x - s * 0.35f, c.y - s * 0.95f); close()
                 }
                 drawPath(shirt, kit)
                 drawPath(shirt, Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Black.copy(alpha = 0.18f)), c.y - s, c.y + s))

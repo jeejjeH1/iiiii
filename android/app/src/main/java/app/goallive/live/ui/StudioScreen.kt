@@ -155,7 +155,7 @@ private fun UndoBtn(undo: Boolean, enabled: Boolean, onClick: () -> Unit) {
             fun X(x: Float) = if (dir > 0) x * w else (1 - x) * w
             val p = Path().apply { moveTo(X(0.32f), w * 0.22f); lineTo(X(0.14f), w * 0.4f); lineTo(X(0.32f), w * 0.58f) }
             drawPath(p, ink, style = s)
-            val arc = Path().apply { moveTo(X(0.16f), w * 0.4f); lineTo(X(0.62f), w * 0.4f); quadraticTo(X(0.88f), w * 0.4f, X(0.88f), w * 0.62f); quadraticTo(X(0.88f), w * 0.84f, X(0.6f), w * 0.84f) }
+            val arc = Path().apply { moveTo(X(0.16f), w * 0.4f); lineTo(X(0.62f), w * 0.4f); quadraticBezierTo(X(0.88f), w * 0.4f, X(0.88f), w * 0.62f); quadraticBezierTo(X(0.88f), w * 0.84f, X(0.6f), w * 0.84f) }
             drawPath(arc, ink, style = s)
         }
     }
@@ -166,7 +166,7 @@ private fun EyeGlyph(open: Boolean) {
     Canvas(Modifier.size(20.dp)) {
         val w = size.width; val ink = if (open) C.ink else C.faint
         val s = Stroke(1.7.dp.toPx(), cap = StrokeCap.Round)
-        val p = Path().apply { moveTo(w * 0.08f, w * 0.5f); quadraticTo(w * 0.5f, w * 0.08f, w * 0.92f, w * 0.5f); quadraticTo(w * 0.5f, w * 0.92f, w * 0.08f, w * 0.5f) }
+        val p = Path().apply { moveTo(w * 0.08f, w * 0.5f); quadraticBezierTo(w * 0.5f, w * 0.08f, w * 0.92f, w * 0.5f); quadraticBezierTo(w * 0.5f, w * 0.92f, w * 0.08f, w * 0.5f) }
         drawPath(p, ink, style = s); drawCircle(ink, w * 0.13f, Offset(w / 2, w / 2))
         if (!open) drawLine(ink, Offset(w * 0.15f, w * 0.85f), Offset(w * 0.85f, w * 0.15f), s.width, cap = StrokeCap.Round)
     }
@@ -199,12 +199,12 @@ private fun ToolGlyph(t: String, ink: Color) {
                 drawPath(p, ink, style = s); head(w * 0.9f, w * 0.5f, 0f)
             }
             "curve", "lob" -> {
-                val p = Path().apply { moveTo(w * 0.1f, w * 0.82f); quadraticTo(w * 0.2f, w * 0.1f, w * 0.88f, w * 0.3f) }
+                val p = Path().apply { moveTo(w * 0.1f, w * 0.82f); quadraticBezierTo(w * 0.2f, w * 0.1f, w * 0.88f, w * 0.3f) }
                 drawPath(p, ink, style = if (t == "lob") Stroke(s.width, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(2f, w * 0.14f))) else s)
                 head(w * 0.88f, w * 0.3f, 18f)
             }
             "zone" -> {
-                val p = Path().apply { moveTo(w * 0.2f, w * 0.3f); quadraticTo(w * 0.6f, w * 0.05f, w * 0.85f, w * 0.4f); quadraticTo(w * 0.9f, w * 0.85f, w * 0.45f, w * 0.85f); quadraticTo(w * 0.05f, w * 0.75f, w * 0.2f, w * 0.3f) }
+                val p = Path().apply { moveTo(w * 0.2f, w * 0.3f); quadraticBezierTo(w * 0.6f, w * 0.05f, w * 0.85f, w * 0.4f); quadraticBezierTo(w * 0.9f, w * 0.85f, w * 0.45f, w * 0.85f); quadraticBezierTo(w * 0.05f, w * 0.75f, w * 0.2f, w * 0.3f) }
                 drawPath(p, ink.copy(alpha = 0.25f)); drawPath(p, ink, style = s)
             }
             "rect" -> { drawRect(ink.copy(alpha = 0.25f), Offset(w * 0.15f, w * 0.25f), androidx.compose.ui.geometry.Size(w * 0.7f, w * 0.5f)); drawRect(ink, Offset(w * 0.15f, w * 0.25f), androidx.compose.ui.geometry.Size(w * 0.7f, w * 0.5f), style = s) }
