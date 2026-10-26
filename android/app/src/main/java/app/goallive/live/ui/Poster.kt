@@ -135,6 +135,8 @@ private fun panel(c: Canvas, theme: String, pl: Palette, lk: PosterLook, r: Rect
         p.color = 0xFF000000.toInt(); p.setShadowLayer(70f, 0f, 30f, if (theme == "light") 0x33000000 else 0x80000000.toInt()); c.drawPath(clip, p); p.clearShadowLayer()
         if (lk.glow != 0) { p.style = Paint.Style.STROKE; p.strokeWidth = 30f; p.maskFilter = android.graphics.BlurMaskFilter(40f, android.graphics.BlurMaskFilter.Blur.NORMAL); p.color = lk.glow; c.drawPath(clip, p); p.maskFilter = null; p.style = Paint.Style.FILL }
     }
+    // the fills below take the paint's alpha: back to opaque after the glow
+    p.color = 0xFF000000.toInt()
     c.save(); c.clipPath(clip)
     fun fill(vararg cs: Int, top: Float = r.top, bottom: Float = r.bottom) { p.shader = LinearGradient(0f, top, 0f, bottom, cs, null, Shader.TileMode.CLAMP); c.drawRect(r.left, top, r.right, bottom, p); p.shader = null }
     when (theme) {
