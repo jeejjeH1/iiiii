@@ -264,6 +264,38 @@ class Art(val logo: Bitmap?, val black: Typeface, val bold: Typeface, val faces:
           val display: Typeface? = null, val digits: Typeface? = null)
 
 
+/** A face a story can be written in: [black] for its titles and big figures, [bold] for the rest. */
+class StoryFont(val key: String, val name: String, val black: Int, val bold: Int)
+
+/** The faces to choose from, all free (SIL Open Font License) and made for Persian. */
+val STORY_FONTS = listOf(
+    StoryFont("vazir", "وزیر", R.font.vazir_black, R.font.vazir_bold),
+    StoryFont("lalezar", "لاله‌زار", R.font.lalezar, R.font.lalezar),
+    StoryFont("sahel", "ساحل", R.font.sahel_black, R.font.sahel_bold),
+    StoryFont("samim", "صمیم", R.font.samim_bold, R.font.samim_bold),
+    StoryFont("shabnam", "شبنم", R.font.shabnam_bold, R.font.shabnam_bold),
+    StoryFont("kufam", "کوفی", R.font.kufam_black, R.font.vazir_bold),
+    StoryFont("rakkas", "رقاص", R.font.rakkas, R.font.vazir_bold),
+    StoryFont("nastaliq", "نستعلیق", R.font.gulzar, R.font.vazir_bold),
+    StoryFont("amiri", "نسخ", R.font.amiri_bold, R.font.amiri_bold),
+    StoryFont("ruqaa", "رقعه", R.font.aref_ruqaa_bold, R.font.vazir_bold),
+    StoryFont("mirza", "میرزا", R.font.mirza_bold, R.font.mirza_bold),
+)
+
+/**
+ * The story in face [key]: its titles, names and figures written in that face (the posters' display face too); the
+ * default face, or English, leaves it as it was made.
+ */
+internal fun Art.styled(ctx: Context, key: String): Art {
+    val f = STORY_FONTS.firstOrNull { it.key == key }
+    if (f == null || f.key == "vazir" || Lang.en) return this
+    val black = runCatching { ResourcesCompat.getFont(ctx, f.black) }.getOrNull() ?: return this
+    val bold = runCatching { ResourcesCompat.getFont(ctx, f.bold) }.getOrNull() ?: black
+    return Art(logo, black, bold, faces, crests, leagues,
+        card?.let { CardAssets(it.home, it.away, it.logo, it.best, black, bold, it.hc, it.ac, it.league) }, best,
+        display = display?.let { black }, digits = digits)
+}
+
 /** The league badge for a white disc (the light version). */
 private fun badgeUrl(id: Int) = "https://images.fotmob.com/image_resources/logo/leaguelogo/$id.png"
 
@@ -959,8 +991,11 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
     var video by remember { mutableStateOf(reel || Store.prefs().getBoolean("story.video", false)) }
     var reelSound by remember { mutableStateOf(Store.prefs().getString("reel.sound", "full") ?: "full") }
     var music by remember { mutableStateOf(Store.prefs().getString("story.music", "energy") ?: "energy") }
-    var art by remember { mutableStateOf<Art?>(null) }
-    LaunchedEffect(story) { art = withContext(Dispatchers.IO) { story.load(ctx) } }
+    // the pictures and fonts as loaded, then in the face chosen
+    var base by remember { mutableStateOf<Art?>(null) }
+    LaunchedEffect(story) { base = withContext(Dispatchers.IO) { story.load(ctx) } }
+    var font by remember { mutableStateOf(Store.prefs().getString("story.font", "vazir") ?: "vazir") }
+    val art = remember(base, font) { base?.styled(ctx, font) }
     // a video is always story size
     val shape = if (video) o.copy(format = CardFormat.STORY) else o
     var scene by remember { mutableStateOf<Scene?>(null) }
@@ -1131,6 +1166,24 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                                     }
                                 }
                                 T(if (lineup != null) posterThemeName(t) else themeName(t), 12, if (on) FontWeight.ExtraBold else FontWeight.Normal, if (on) accent else C.mute, modifier = Modifier.padding(top = 5.dp))
+                            }
+                        }
+                    }
+                }
+                // the face: each written in itself
+                if (!Lang.en) {
+                    StudioLabel(L("فونت"))
+                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(STORY_FONTS.size) { k ->
+                            val f = STORY_FONTS[k]
+                            val on = f.key == font
+                            val r = RoundedCornerShape(16.dp)
+                            val family = remember(f.key) { androidx.compose.ui.text.font.FontFamily(androidx.compose.ui.text.font.Font(f.black)) }
+                            Column(Modifier.width(84.dp).clip(r).background(if (on) accent.copy(alpha = 0.18f) else C.card2).border(if (on) 2.dp else 1.dp, if (on) accent else C.line2, r)
+                                .clickable { font = f.key; Store.prefs().edit().putString("story.font", f.key).apply() }.padding(vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally) {
+                                androidx.compose.material3.Text("گل ۲–۱", color = if (on) accent else C.ink, fontFamily = family, fontSize = 20.sp, maxLines = 1)
+                                T(f.name, 11, if (on) FontWeight.ExtraBold else FontWeight.Bold, if (on) accent else C.mute, maxLines = 1, modifier = Modifier.padding(top = 4.dp))
                             }
                         }
                     }

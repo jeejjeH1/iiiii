@@ -17,6 +17,7 @@ import app.goallive.live.ui.Story
 import app.goallive.live.ui.StorySheet
 import app.goallive.live.ui.load
 import app.goallive.live.ui.scene
+import app.goallive.live.ui.styled
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Rule
@@ -94,6 +95,13 @@ class StoryShots {
             png("70-story-$name", still)
             for ((t, b) in frames) png("71-story-$name-t${(t * 10).toInt()}", b)
         }
+        // the match story in each face the studio offers
+        off {
+            stories.firstOrNull { it.first == "match" }?.second?.let { s ->
+                val a = runBlocking { s.load(ctx) }
+                for (f in app.goallive.live.ui.STORY_FONTS) png("72-font-match-${f.key}", s.scene(CardOptions(theme = s.theme), a.styled(ctx, f.key)).still(0.4f))
+            }
+        }
         System.err.println("SHOT stories: ${drawn.map { it.first }}")
         // every design on the match, the stats and the player stories, small, plus a moment of the moving ones
         val themed = off {
@@ -146,6 +154,7 @@ class StoryShots {
                     for (t in app.goallive.live.ui.POSTER_THEMES) out += "77-poster-$tag-$t" to l.scene(CardOptions(theme = t), a).still(0.5f)
                     out += "77-poster-$tag-post" to l.scene(CardOptions(theme = "team", format = app.goallive.live.ui.CardFormat.PORTRAIT), a).still(0.5f)
                     if (tag == "home") for (t in listOf("team", "neon", "light")) out += "77-poster-both-$t" to l.scene(CardOptions(theme = t, both = true), a).still(0.5f)
+                    if (tag == "home") for (f in listOf("lalezar", "nastaliq", "sahel")) out += "77-poster-font-$f" to l.scene(CardOptions(theme = "team"), a.styled(ctx, f)).still(0.5f)
                     if (tag == "home") out += "77-poster-home-frame" to Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888).also { b -> val c = Canvas(b); c.scale(0.5f, 0.5f); l.scene(CardOptions(theme = "team"), a).frame(c, 1.4f) }
                 }
             }
