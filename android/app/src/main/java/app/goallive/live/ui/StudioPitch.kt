@@ -126,6 +126,10 @@ class StudioEditor {
     var playT by mutableStateOf<Float?>(null)
     /** The step whose menu is open. */
     var frameMenu by mutableIntStateOf(-1)
+    /** The menu of everything else, the sheet for changing many things at once, and a count bumped to show the tool's hint again. */
+    var menu by mutableStateOf(false)
+    var bulk by mutableStateOf(false)
+    var hint by mutableIntStateOf(0)
     /** An event being shown: the step it happened on and the seconds since; a pause after it; the last shot's result for the banner. */
     var fx by mutableStateOf<Pair<Int, Float>?>(null)
     var hold by mutableFloatStateOf(0f)
@@ -325,7 +329,7 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
     private var ballFrom = Offset.Zero
 
     private fun hitPlayer(c: Offset): SPlayer? = board.players.filter { it.side == 0 || board.showAway }
-        .minByOrNull { (proj.at(it.u, it.v) - c).getDistance() }?.takeIf { (proj.at(it.u, it.v) - c).getDistance() < proj.r(it.v) * 1.7f }
+        .minByOrNull { (proj.at(it.u, it.v) - c).getDistance() }?.takeIf { (proj.at(it.u, it.v) - c).getDistance() < maxOf(proj.r(it.v) * 1.9f, proj.perMetre(it.v) * 4.2f) }
 
     private fun hitMark(c: Offset): Int {
         var best = -1; var bestD = 34f

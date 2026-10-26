@@ -372,7 +372,9 @@ fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifi
     val spring = androidx.compose.animation.core.spring<Float>(0.82f, 420f)
     val x by androidx.compose.animation.core.animateFloatAsState(at?.left ?: 0f, spring, label = "tabX")
     val w by androidx.compose.animation.core.animateFloatAsState(at?.width ?: 0f, spring, label = "tabW")
-    Box(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) {
+    // the pill and the row share one box the row's own size, so a tab's place in the row is its place for the pill too
+    // (a wider box would set the row at its start, the right edge in Persian, and the pill would land on the wrong tab)
+    Box(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) { Box {
         if (at != null) Box(Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft)
             .absoluteOffset { androidx.compose.ui.unit.IntOffset(x.roundToInt(), at.top.roundToInt()) }
             .size(with(density) { w.toDp() }, with(density) { at.height.toDp() })
@@ -388,7 +390,7 @@ fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifi
                 ) { T(label, 13, FontWeight.ExtraBold, ink, maxLines = 1) }
             }
         }
-    }
+    } }
 }
 
 /** ".rate": the coloured player rating badge. */

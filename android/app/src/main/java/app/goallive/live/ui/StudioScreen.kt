@@ -18,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -55,6 +57,14 @@ private fun toolName(t: String) = when (t) {
     "move" -> L("جابه‌جایی"); "pass" -> L("پاس"); "run" -> L("حرکت"); "dribble" -> L("دریبل"); "curve" -> L("منحنی"); "lob" -> L("پاس بلند")
     "both" -> L("دوطرفه"); "zone" -> L("ناحیه"); "rect" -> L("مستطیل"); "circle" -> L("دایره"); "dist" -> L("فاصله"); "hline" -> L("خط دفاع")
     "spot" -> L("ذره‌بین"); "route" -> L("مسیر"); "analyze" -> L("تحلیل"); else -> L("متن")
+}
+
+private fun toolHint(t: String) = when (t) {
+    "spot" -> L("روی بازیکن بزن تا نور روی او بیفتد؛ دوباره بزن تا خاموش شود")
+    "route" -> L("از روی یک بازیکن، مسیر دویدنش را با انگشت بکش؛ در مرحله‌ی اول، مرحله‌ی تازه‌ای ساخته می‌شود")
+    "move" -> L("بازیکن، توپ یا هر رسمی را بکش؛ روی بازیکن بزن برای ویرایش؛ دور چند بازیکن کادر بکش برای انتخاب گروهی؛ با دو انگشت بزرگ‌نمایی کن")
+    "text" -> L("روی زمین بزن و نوشته‌ات را بنویس")
+    else -> L("روی زمین بکش تا {0} رسم شود؛ رنگ و ضخامت را از نوار پایین عوض کن", toolName(t))
 }
 
 private val TOOLS = listOf("move", "analyze", "route", "pass", "run", "dribble", "curve", "lob", "both", "zone", "rect", "circle", "dist", "hline", "spot", "text")
@@ -135,66 +145,53 @@ fun StudioScreen() {
         if (wide) act?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose { act?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
     }
-    if (full) { FullStudio(board, ed, ready); SheetsOf(board, ed, teamSheet, library, viewSheet, { teamSheet = -1 }, { library = false }, { viewSheet = false }); return }
-    Column(Modifier.fillMaxSize().padding(bottom = BottomSpace - 14.dp)) {
-        // title and the board's actions
-        Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                T(L("استودیو تاکتیک"), 19, FontWeight.Black, maxLines = 1)
-                if (board.title.isNotBlank()) T(board.title, 12, color = C.mute, maxLines = 1)
-            }
-            IconBtn(Ic.share, L("اشتراک‌گذاری"), C.ink, C.card2, 19.dp) { ed.shareSheet = true }
-            Spacer(Modifier.width(6.dp))
-            IconBtn(Ic.list, L("تاکتیک‌های من"), C.ink, C.card2, 19.dp) { library = true }
-            Spacer(Modifier.width(6.dp))
-            UndoBtn(true, board.canUndo) { board.undo() }
-            Spacer(Modifier.width(6.dp))
-            UndoBtn(false, board.canRedo) { board.redo() }
-            Spacer(Modifier.width(6.dp))
-            IconBtn(Ic.sliders, L("نما"), C.ink, C.card2, 19.dp) { viewSheet = true }
-            Spacer(Modifier.width(6.dp))
-            Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(C.card2).clickable { StudioChrome.full = true }, contentAlignment = Alignment.Center) {
-                FullGlyph(true, C.ink)
-            }
-        }
-        // the two sides
-        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    if (full) { FullStudio(board, ed, ready); SheetsOf(board, ed, teamSheet, library, viewSheet, { teamSheet = -1 }, { library = it }, { viewSheet = it }); return }
+    val nav = LocalNav.current
+    Column(Modifier.fillMaxSize().navigationBarsPadding()) {
+        // one slim row: out, the two sides, undo / redo and the menu with everything else
+        Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 4.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            IconBtn(Ic.back, L("بازگشت"), size = 22.dp) { nav.back() }
             TeamChip(board.home, Modifier.weight(1f)) { teamSheet = 0 }
-            T(L("مقابل"), 12, FontWeight.Bold, C.mute)
             TeamChip(board.away, Modifier.weight(1f), dim = !board.showAway) { teamSheet = 1 }
-            Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(if (board.showAway) C.card2 else Color.Transparent)
-                .border(1.dp, C.line2, RoundedCornerShape(12.dp)).clickable { board.showAway = !board.showAway; board.commit() }, contentAlignment = Alignment.Center) {
-                EyeGlyph(board.showAway)
+            UndoBtn(true, board.canUndo) { board.undo() }
+            UndoBtn(false, board.canRedo) { board.redo() }
+            Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(LocalAccent.current).clickable { ed.menu = true }
+                .semantics { contentDescription = L("بیشتر") }, contentAlignment = Alignment.Center) {
+                DotsGlyph(LocalAccentInk.current)
             }
         }
-        // the pitch
-        PitchArea(board, ed, ready, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp))
+        // the pitch, as big as the screen allows
+        PitchArea(board, ed, ready, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 2.dp))
         Timeline(board, ed)
         ContextBar(board, ed)
         // the tools
-        LazyRow(Modifier.fillMaxWidth().padding(top = 6.dp), contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        LazyRow(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 6.dp), contentPadding = PaddingValues(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             items(TOOLS.size) { k ->
                 val t = TOOLS[k]
                 val on = ed.tool == t
                 val accent = LocalAccent.current
-                Column(Modifier.width(62.dp).clip(RoundedCornerShape(16.dp)).background(if (on) accent.copy(alpha = 0.18f) else C.card2)
-                    .border(if (on) 1.5.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(16.dp))
-                    .clickable { if (t == "analyze") ed.analysis = true else { ed.tool = t; ed.selMark = -1 } }.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(Modifier.width(54.dp).clip(RoundedCornerShape(14.dp)).background(if (on) accent.copy(alpha = 0.18f) else C.card2)
+                    .border(if (on) 1.5.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(14.dp))
+                    .clickable { if (t == "analyze") ed.analysis = true else { ed.tool = t; ed.selMark = -1; ed.hint++ } }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     ToolGlyph(t, if (on) accent else C.ink)
-                    T(toolName(t), 10, FontWeight.Bold, if (on) accent else C.mute, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
+                    T(toolName(t), 9, FontWeight.Bold, if (on) accent else C.mute, maxLines = 1, modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }
     }
-    SheetsOf(board, ed, teamSheet, library, viewSheet, { teamSheet = -1 }, { library = false }, { viewSheet = false })
+    SheetsOf(board, ed, teamSheet, library, viewSheet, { teamSheet = -1 }, { library = it }, { viewSheet = it })
 }
 
 /** The sheets and questions the studio opens. */
 @Composable
-private fun SheetsOf(board: StudioBoard, ed: StudioEditor, teamSheet: Int, library: Boolean, viewSheet: Boolean, closeTeam: () -> Unit, closeLibrary: () -> Unit, closeView: () -> Unit) {
+private fun SheetsOf(board: StudioBoard, ed: StudioEditor, teamSheet: Int, library: Boolean, viewSheet: Boolean, closeTeam: () -> Unit,
+                     setLibrary: (Boolean) -> Unit, setView: (Boolean) -> Unit) {
     if (teamSheet >= 0) TeamSheet(board, teamSheet, closeTeam)
-    if (library) LibrarySheet(board, ed, closeLibrary)
-    if (viewSheet) ViewSheet(closeView)
+    if (library) LibrarySheet(board, ed) { setLibrary(false) }
+    if (viewSheet) ViewSheet { setView(false) }
+    if (ed.menu) MenuSheet(board, ed, { setLibrary(true) }, { setView(true) }) { ed.menu = false }
+    if (ed.bulk) BulkSheet(board, ed) { ed.bulk = false }
     ed.editPlayer?.let { p -> PlayerSheet(board, ed, p) { ed.editPlayer = null } }
     if (ed.frameMenu in board.frames.indices) FrameSheet(board, ed, ed.frameMenu) { ed.frameMenu = -1 }
     if (ed.analysis) AnalysisSheet(board) { ed.analysis = false }
@@ -237,6 +234,16 @@ private fun PitchArea(board: StudioBoard, ed: StudioEditor, ready: Boolean, modi
                     T(L("احتمال گل این شوت: {0}٪", fa(Math.round(r.xg * 100))), 12, FontWeight.Bold, Color.White)
                     T(when (r.decide) { "auto" -> L("نتیجه از روی احتمال"); "luck" -> L("نتیجه با تاس"); else -> L("نتیجه‌ی دستی") }, 11, color = Color.White.copy(alpha = 0.65f))
                 }
+            }
+        }
+        // what the tool does, for a few seconds after it is picked (and when the studio opens)
+        var hintOn by remember { mutableStateOf(true) }
+        LaunchedEffect(ed.hint, ed.tool) { hintOn = true; delay(4200); hintOn = false }
+        androidx.compose.animation.AnimatedVisibility(hintOn && !ed.playing && ed.playT == null, Modifier.align(Alignment.BottomCenter),
+            enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+            Box(Modifier.padding(bottom = 10.dp, start = 18.dp, end = 18.dp).clip(RoundedCornerShape(14.dp)).background(Color.Black.copy(alpha = 0.66f))
+                .clickable { hintOn = false }.padding(horizontal = 12.dp, vertical = 7.dp)) {
+                T(toolHint(ed.tool), 11, FontWeight.Bold, Color.White, maxLines = 3)
             }
         }
         if (ed.zoom > 1.01f && !ed.playing) Box(Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f))
@@ -452,7 +459,9 @@ private fun ToolGlyph(t: String, ink: Color) {
 private fun ContextBar(board: StudioBoard, ed: StudioEditor) {
     val sel = board.marks.getOrNull(ed.selMark)
     val drawing = ed.tool !in setOf("move", "spot")
-    Column(Modifier.fillMaxWidth().heightIn(min = 46.dp).padding(top = 6.dp)) {
+    // nothing to set: no bar, the room goes to the pitch (the tool's hint shows over the pitch instead)
+    if (sel == null && !drawing && ed.selected.size <= 1 && !(ed.tool == "move" && board.cur > 0 && ed.playT == null)) return
+    Column(Modifier.fillMaxWidth().heightIn(min = 42.dp).padding(top = 4.dp)) {
         when {
             sel != null -> {
                 fun set(m: SMark) { board.marks[ed.selMark] = m; board.commit() }
@@ -478,11 +487,7 @@ private fun ContextBar(board: StudioBoard, ed: StudioEditor) {
                 }
                 if (ev?.kind == "shot") T(outcomeName(ev.outcome) + " · " + fa(Math.round(ev.xg * 100)) + "٪", 12, FontWeight.Black, LocalAccent.current)
             }
-            else -> T(when (ed.tool) {
-                "spot" -> L("روی بازیکن بزن تا نور روی او بیفتد؛ دوباره بزن تا خاموش شود")
-                "route" -> L("از روی یک بازیکن، مسیر دویدنش را با انگشت بکش؛ در مرحله‌ی اول، مرحله‌ی تازه‌ای ساخته می‌شود")
-                else -> L("بازیکن، توپ یا هر رسمی را بکش؛ روی بازیکن بزن برای ویرایش؛ دور چند بازیکن کادر بکش برای انتخاب گروهی؛ با دو انگشت بزرگ‌نمایی کن")
-            }, 11, color = C.mute, modifier = Modifier.padding(horizontal = 16.dp), maxLines = 2)
+            else -> {}
         }
     }
 }
@@ -1046,5 +1051,213 @@ private fun MatchSheet(board: StudioBoard, ed: StudioEditor, id: Int, onClose: (
                 T(L("فقط جای شوت هر گل معلوم است؛ بقیه‌ی صحنه تقریبی چیده می‌شود."), 11, color = C.mute, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
             }
         }
+    }
+}
+
+/* ---------- the menu, and many things at once ---------- */
+
+/** Three dots, for the menu. */
+@Composable
+private fun DotsGlyph(ink: Color) {
+    Canvas(Modifier.size(18.dp)) { for (k in 0..2) drawCircle(ink, size.width * 0.09f, Offset(size.width * (0.2f + 0.3f * k), size.height / 2)) }
+}
+
+/** Stacked cards: many changed together. */
+@Composable
+private fun StackGlyph(ink: Color) {
+    Canvas(Modifier.size(22.dp)) {
+        val w = size.width; val s = Stroke(1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        for (k in 0..2) {
+            val y = w * (0.18f + 0.22f * k)
+            drawPath(Path().apply { moveTo(w * 0.5f, y); lineTo(w * 0.92f, y + w * 0.16f); lineTo(w * 0.5f, y + w * 0.32f); lineTo(w * 0.08f, y + w * 0.16f); close() }, ink, style = s)
+        }
+    }
+}
+
+@Composable
+private fun MenuTile(label: String, modifier: Modifier, strong: Boolean = false, onClick: () -> Unit, icon: @Composable () -> Unit) {
+    val accent = LocalAccent.current
+    Column(modifier.height(84.dp).clip(RoundedCornerShape(18.dp)).background(if (strong) accent.copy(alpha = 0.16f) else C.card2)
+        .border(1.dp, if (strong) accent else C.line2, RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        icon()
+        T(label, 12, FontWeight.ExtraBold, if (strong) accent else C.ink, maxLines = 2, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+/** Everything that is not on the main screen: change many at once, share, saved moves, the view, full screen, analysis, the other side. */
+@Composable
+private fun MenuSheet(board: StudioBoard, ed: StudioEditor, openLibrary: () -> Unit, openView: () -> Unit, onClose: () -> Unit) {
+    val accent = LocalAccent.current
+    Sheet(onClose) {
+        T(L("استودیو تاکتیک"), 20, FontWeight.Black, modifier = Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 12.dp))
+        val tiles: List<Triple<String, @Composable () -> Unit, () -> Unit>> = listOf(
+            Triple(L("تغییر گروهی"), @Composable { StackGlyph(accent) }, { ed.bulk = true }),
+            Triple(L("اشتراک‌گذاری"), @Composable { Icon(Ic.share, null, Modifier.size(22.dp), tint = C.ink) }, { ed.shareSheet = true }),
+            Triple(L("تاکتیک‌های من"), @Composable { Icon(Ic.list, null, Modifier.size(22.dp), tint = C.ink) }, openLibrary),
+            Triple(L("نمای زمین"), @Composable { Icon(Ic.sliders, null, Modifier.size(22.dp), tint = C.ink) }, openView),
+            Triple(L("تمام‌صفحه"), @Composable { FullGlyph(true, C.ink) }, { StudioChrome.full = true }),
+            Triple(L("تحلیل تیمی"), @Composable { ToolGlyph("analyze", C.ink) }, { ed.analysis = true }),
+            Triple(if (board.showAway) L("پنهان کردن حریف") else L("نمایش حریف"), @Composable { EyeGlyph(board.showAway) }, { board.showAway = !board.showAway; board.commit() }),
+            Triple(L("صفحه‌ی تازه"), @Composable { Icon(Ic.x, null, Modifier.size(20.dp), tint = C.ink) }, {
+                ed.playing = false; ed.playT = null; ed.result = null; ed.fx = null; ed.selected.clear(); ed.selMark = -1
+                board.fresh(); board.commit()
+            }),
+            Triple(L("راهنمای ابزار"), @Composable { T("?", 20, FontWeight.Black, C.ink) }, { ed.hint++ }),
+        )
+        Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            tiles.chunked(3).forEachIndexed { r, row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    row.forEachIndexed { c, (label, icon, act) ->
+                        MenuTile(label, Modifier.weight(1f), strong = r == 0 && c == 0, onClick = { onClose(); act() }) { icon() }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+/**
+ * "تغییر گروهی": one place to change many things together: a side, both or the picked players moved, packed, spread or turned
+ * round on this step or every step; a side's colours and shape; how all players look; every drawing (or one layer's) recoloured,
+ * resized, moved to a layer or cleared; and every step's length, routes, events and notes.
+ */
+@Composable
+private fun BulkSheet(board: StudioBoard, ed: StudioEditor, onClose: () -> Unit) {
+    val accent = LocalAccent.current
+    var who by remember { mutableStateOf(if (ed.selected.size > 1) "sel" else "both") }
+    var all by remember { mutableStateOf(false) }
+    var layer by remember { mutableStateOf("all") }
+    var done by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(done) { if (done != null) { delay(1500); done = null } }
+    val keys = when (who) {
+        "home" -> board.players.filter { it.side == 0 }
+        "away" -> board.players.filter { it.side == 1 }
+        "sel" -> board.players.filter { it.key in ed.selected }
+        else -> board.players.filter { it.side == 0 || board.showAway }
+    }.map { it.key }.toSet()
+    fun did(s: String = L("انجام شد")) { done = s }
+    fun move(f: (SFrame) -> (Offset) -> Offset) { board.transform(keys, all, ball = who == "both", f = f); did() }
+    Sheet(onClose) {
+        Row(Modifier.padding(start = 20.dp, end = 60.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            T(L("تغییر گروهی"), 20, FontWeight.Black)
+            Spacer(Modifier.width(10.dp))
+            androidx.compose.animation.AnimatedVisibility(done != null) {
+                Box(Modifier.clip(RoundedCornerShape(10.dp)).background(accent.copy(alpha = 0.18f)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                    T(done ?: "", 12, FontWeight.Bold, accent)
+                }
+            }
+        }
+        T(L("هر تغییری با دکمه‌ی برگشت بالای صفحه برمی‌گردد."), 11, color = C.mute, modifier = Modifier.padding(horizontal = 20.dp))
+
+        // who
+        StudioLabel(L("بازیکن‌ها"))
+        val whoOptions = buildList {
+            add("both" to L("همه"))
+            add("home" to board.home.name)
+            if (board.showAway) add("away" to board.away.name)
+            if (ed.selected.size > 1) add("sel" to L("انتخاب‌شده‌ها ({0})", fa(ed.selected.size)))
+        }
+        StudioChips(whoOptions, who) { who = it }
+        if (board.frames.size > 1) {
+            Spacer(Modifier.height(8.dp))
+            StudioChips(listOf(false to L("فقط این مرحله"), true to L("همه‌ی مراحل")), all) { all = it }
+        }
+        Spacer(Modifier.height(10.dp))
+        val dv = 5f / 105f; val du = 5f / 68f
+        Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill(L("۵ متر بالاتر"), PillKind.Plain, onClick = { move { { o -> Offset(o.x, o.y - dv) } } })
+            Pill(L("۵ متر پایین‌تر"), PillKind.Plain, onClick = { move { { o -> Offset(o.x, o.y + dv) } } })
+            Pill(L("به چپ"), PillKind.Plain, onClick = { move { { o -> Offset(o.x - du, o.y) } } })
+            Pill(L("به راست"), PillKind.Plain, onClick = { move { { o -> Offset(o.x + du, o.y) } } })
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill(L("فشرده‌تر"), PillKind.Plain, onClick = { move { f -> val m = board.middleOf(f, keys); { o -> m + (o - m) * 0.85f } } })
+            Pill(L("بازتر"), PillKind.Plain, onClick = { move { f -> val m = board.middleOf(f, keys); { o -> m + (o - m) * 1.15f } } })
+            Pill(L("قرینه‌ی چپ و راست"), PillKind.Plain, onClick = { move { { o -> Offset(1 - o.x, o.y) } } })
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (who == "both") Pill(L("جابه‌جایی دو تیم"), PillKind.Plain, onClick = { board.swapSides(); did() })
+            Pill(L("خاموش کردن نورها"), PillKind.Plain, onClick = { board.players.filter { it.key in keys }.forEach { it.spot = false }; board.commit(); did() })
+            if (who == "home" || who == "away") {
+                val side = if (who == "home") 0 else 1
+                Pill(L("برگشت به ترکیب"), PillKind.Plain, onClick = { board.reform(side, (if (side == 0) board.home else board.away).formation); board.commit(); did() })
+            }
+        }
+
+        // a side's colours and shape
+        if (who == "home" || who == "away") {
+            val side = if (who == "home") 0 else 1
+            val team = if (side == 0) board.home else board.away
+            StudioLabel(L("رنگ پیراهن {0}", team.name))
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(KIT_COLORS.size) { k ->
+                    val c = KIT_COLORS[k]; val on = c == team.color
+                    Box(Modifier.size(36.dp).clip(CircleShape).background(Color(c)).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, CircleShape).clickable {
+                        val t = STeam(team.name, c, inkFor(c), team.teamId, team.formation)
+                        if (side == 0) board.home = t else board.away = t
+                        board.commit(); did()
+                    })
+                }
+            }
+            StudioLabel(L("ترکیب {0}", team.name))
+            StudioChips(STUDIO_FORMATIONS.map { it to fa(it) }, team.formation) { board.reform(side, it); board.commit(); did() }
+        }
+
+        // how every player looks
+        StudioLabel(L("ظاهر همه‌ی بازیکن‌ها"))
+        StudioChips(listOf("photo" to L("عکس"), "shirt" to L("پیراهن"), "disc" to L("دایره")), StudioPrefs.style) { StudioPrefs.style = it; StudioPrefs.keep() }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.padding(horizontal = 16.dp)) { Toggle(L("نام بازیکن‌ها"), StudioPrefs.names) { StudioPrefs.names = it; StudioPrefs.keep() } }
+
+        // every drawing
+        StudioLabel(L("رسم‌ها"))
+        StudioChips(listOf("all" to L("همه")) + LAYERS.map { it to layerName(it) }, layer) { layer = it }
+        val idx = board.marks.indices.filter { layer == "all" || board.marks[it].layer == layer }
+        if (idx.isEmpty()) T(L("رسمی اینجا نیست"), 12, color = C.mute, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+        else {
+            fun each(f: (SMark) -> SMark) { idx.forEach { i -> board.marks[i] = f(board.marks[i]) }; board.commit(); did() }
+            T(L("{0} رسم", fa(idx.size)), 12, FontWeight.Bold, C.mute, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                items(PENS.size) { k -> Box(Modifier.size(34.dp).clip(CircleShape).background(Color(PENS[k])).border(1.dp, C.line2, CircleShape).clickable { each { m -> m.copy(color = PENS[k]) } }) }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill(L("نازک"), PillKind.Plain, onClick = { each { it.copy(width = 2f) } })
+                Pill(L("معمولی"), PillKind.Plain, onClick = { each { it.copy(width = 3.5f) } })
+                Pill(L("ضخیم"), PillKind.Plain, onClick = { each { it.copy(width = 6f) } })
+                Pill(L("کم‌رنگ"), PillKind.Plain, onClick = { each { it.copy(alpha = 0.55f) } })
+                Pill(L("پررنگ"), PillKind.Plain, onClick = { each { it.copy(alpha = 1f) } })
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                LAYERS.forEach { l -> Pill(L("به لایه‌ی {0}", layerName(l)), PillKind.Plain, onClick = { each { it.copy(layer = l) } }) }
+                Pill(L("پاک کردن"), PillKind.Plain, onClick = {
+                    idx.sortedDescending().forEach { board.marks.removeAt(it) }; ed.selMark = -1; board.commit(); did(L("پاک شد"))
+                })
+            }
+        }
+
+        // every step
+        StudioLabel(L("مراحل حرکت"))
+        T(L("{0} مرحله", fa(board.frames.size)), 12, FontWeight.Bold, C.mute, modifier = Modifier.padding(horizontal = 20.dp))
+        Spacer(Modifier.height(8.dp))
+        val durs = board.frames.map { it.dur }.distinct()
+        StudioChips(listOf(0.7f to L("تند"), 1.2f to L("معمولی"), 1.8f to L("آهسته")), durs.singleOrNull() ?: -1f) { d -> board.everyFrame { it.copy(dur = d) }; did() }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill(L("پاک کردن مسیرها"), PillKind.Plain, onClick = { board.everyFrame { it.copy(paths = emptyMap()) }; did(L("پاک شد")) })
+            Pill(L("پاک کردن اتفاق‌ها"), PillKind.Plain, onClick = { board.everyFrame { it.copy(ev = null) }; ed.result = null; did(L("پاک شد")) })
+            Pill(L("پاک کردن نوشته‌ها"), PillKind.Plain, onClick = { board.everyFrame { it.copy(note = "") }; did(L("پاک شد")) })
+            if (board.frames.size > 1) Pill(L("فقط همین مرحله بماند"), PillKind.Plain, onClick = {
+                board.syncOut(); val f = board.frames[board.cur].copy(paths = emptyMap(), ev = null)
+                ed.playing = false; ed.playT = null; ed.result = null; ed.fx = null
+                board.frames.clear(); board.frames += f; board.cur = 0; board.commit(); did()
+            })
+        }
+        Spacer(Modifier.height(14.dp))
     }
 }

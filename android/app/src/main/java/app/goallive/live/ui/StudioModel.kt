@@ -497,6 +497,43 @@ class StudioBoard {
         if (side == 0) home = STeam(home.name, home.color, home.ink, home.teamId, formation) else away = STeam(away.name, away.color, away.ink, away.teamId, formation)
     }
 
+    /* ---------- many at once ---------- */
+
+    /**
+     * Moves the players [keys] (and the ball when [ball], every drawing when [marks]) by [f] on this step, or on every step when [all];
+     * [f] is made for each step from that step, so it can work around where the group stands there.
+     */
+    fun transform(keys: Set<Int>, all: Boolean, ball: Boolean = false, marks: Boolean = false, f: (SFrame) -> (Offset) -> Offset) {
+        syncOut()
+        fun clamp(o: Offset) = Offset(o.x.coerceIn(-0.03f, 1.03f), o.y.coerceIn(-0.03f, 1.03f))
+        for (k in if (all) frames.indices else listOf(cur)) {
+            val fr = frames[k]; val g = f(fr)
+            frames[k] = fr.copy(pos = fr.pos.mapValues { (key, o) -> if (key in keys) clamp(g(o)) else o },
+                ball = if (ball) clamp(g(fr.ball)) else fr.ball,
+                paths = fr.paths.mapValues { (key, ps) -> if (key in keys) ps.map { clamp(g(it)) } else ps })
+        }
+        if (marks) { val g = f(frames[cur]); for (i in this.marks.indices) this.marks[i] = this.marks[i].let { m -> m.copy(pts = m.pts.map(g)) } }
+        applyFrame(frames[cur]); commit()
+    }
+
+    /** Where [keys] stand on average in [f]. */
+    fun middleOf(f: SFrame, keys: Set<Int>): Offset {
+        val ps = keys.mapNotNull { f.pos[it] }
+        return if (ps.isEmpty()) Offset(0.5f, 0.5f) else Offset(ps.map { it.x }.average().toFloat(), ps.map { it.y }.average().toFloat())
+    }
+
+    /** The two sides change places: colours, names and players swap, and everything turns round so each still attacks its way. */
+    fun swapSides() {
+        syncOut()
+        val swapped = players.map { SPlayer(it.key, 1 - it.side, it.u, it.v, it.num, it.name, it.pid, it.spot) }
+        players.clear(); players += swapped
+        val h = home; home = away; away = h; showAway = true
+        transform(players.map { it.key }.toSet(), all = true, ball = true, marks = true) { { o -> Offset(1 - o.x, 1 - o.y) } }
+    }
+
+    /** Every step changed by [f] (its length, its routes, its event, its note). */
+    fun everyFrame(f: (SFrame) -> SFrame) { syncOut(); for (k in frames.indices) frames[k] = f(frames[k]); applyFrame(frames[cur]); commit() }
+
     /* ---------- the move between steps ---------- */
 
     /** Where everyone and the ball are at time [t] (in steps: 1.5 is half way from the second step to the third), and the ball's height. */
