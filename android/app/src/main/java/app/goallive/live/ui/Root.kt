@@ -103,6 +103,7 @@ val BottomSpace: androidx.compose.ui.unit.Dp
 private val TABS = listOf(
     Triple("home", L("بازی‌ها"), { Ic.ball }),
     Triple("leagues", L("لیگ‌ها"), { Ic.trophy }),
+    Triple("studio", L("تاکتیک"), { StudioIcon }),
     Triple("following", L("دنبال‌شده‌ها"), { Ic.star }),
     Triple("more", L("بیشتر"), { Ic.grid }),
 )
@@ -148,6 +149,7 @@ fun Root(openMatch: MutableIntState) {
                         screen("home") { HomeScreen() }
                         screen("leagues") { LeaguesScreen() }
                         screen("following") { FollowingScreen() }
+                        screen("studio") { StudioScreen() }
                         screen("settings") { SettingsScreen() }
                         screen("search") { SearchScreen() }
                         screen("more") { MoreScreen() }

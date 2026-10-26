@@ -1416,3 +1416,69 @@
 1415|Line-up posters
 1416|Share any line-up and the team of the week like a club poster: 6 designs, subs, the coach and both teams on one pitch
 1417|Saved; you can change it until kick-off.
+1418|m
+1419|Move
+1420|Pass
+1421|Run
+1422|Dribble
+1423|Curve
+1424|Two-way
+1425|Zone
+1426|Box
+1427|Circle
+1428|Distance
+1429|Line
+1430|Spotlight
+1431|Text
+1432|Tactics studio
+1433|My tactics
+1434|View
+1435|Zoom {0}×
+1436|Text on the pitch
+1437|{0} players selected; drag one to move them all
+1438|Clear
+1439|Tap a player to light him up; tap again to switch it off
+1440|Drag a player, the ball or any drawing; tap a player to edit; box several to select them; pinch to zoom
+1441|Delete
+1442|Faint
+1443|Bottom side
+1444|Top side
+1445|Club or national team
+1446|Your own side
+1447|Team name…
+1448|Fetching the line-up…
+1449|Couldn't fetch this team; try again
+1450|The team's last line-up comes on with photos and numbers.
+1451|Team name
+1452|e.g. My team
+1453|Shirt colour
+1454|Opponent
+1455|Save
+1456|Player {0}
+1457|Number
+1458|Spotlight
+1459|Take off
+1460|Swap with
+1461|Save this
+1462|New tactic
+1463|No saved tactics yet.
+1464|Tactic name
+1465|Pitch view
+1466|Camera
+1467|Top
+1468|Broadcast
+1469|Area
+1470|Whole pitch
+1471|Attacking half
+1472|Final third
+1473|Player style
+1474|Shirt
+1475|Pitch
+1476|Dark
+1477|Whiteboard
+1478|Names
+1479|Snap to grid
+1480|Visible layers
+1481|Tactics
+1482|Attack
+1483|Notes

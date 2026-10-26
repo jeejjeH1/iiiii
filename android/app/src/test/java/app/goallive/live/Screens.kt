@@ -220,6 +220,29 @@ class Screens {
             runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.4f, durationMillis = 500) } }; settle(1500); shot("26b-predict-forecast")
         }
         NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
+        // the tactics studio: Barcelona against Real Madrid with some of everything drawn on it
+        runCatching {
+            val b = app.goallive.live.ui.StudioBoard(); b.fresh()
+            kotlinx.coroutines.runBlocking { b.setSide(0, app.goallive.live.ui.loadTeam(8634, 0)); b.setSide(1, app.goallive.live.ui.loadTeam(8633, 1)) }
+            fun o(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x, y)
+            val pens = app.goallive.live.ui.PENS
+            b.marks += app.goallive.live.ui.SMark("pass", listOf(o(0.3f, 0.62f), o(0.62f, 0.42f)), pens[0], 3.5f, 1f)
+            b.marks += app.goallive.live.ui.SMark("run", listOf(o(0.85f, 0.55f), o(0.86f, 0.45f), o(0.8f, 0.33f), o(0.7f, 0.25f)), pens[1], 3.5f, 1f)
+            b.marks += app.goallive.live.ui.SMark("dribble", listOf(o(0.5f, 0.45f), o(0.52f, 0.36f), o(0.55f, 0.28f)), pens[2], 3.5f, 1f)
+            b.marks += app.goallive.live.ui.SMark("curve", listOf(o(0.12f, 0.3f), o(0.25f, 0.12f), o(0.48f, 0.12f)), pens[3], 3.5f, 1f)
+            b.marks += app.goallive.live.ui.SMark("zone", listOf(o(0.35f, 0.18f), o(0.62f, 0.16f), o(0.66f, 0.27f), o(0.38f, 0.29f)), pens[4], 3.5f, 1f, layer = "defense")
+            b.marks += app.goallive.live.ui.SMark("dist", listOf(o(0.2f, 0.75f), o(0.45f, 0.75f)), pens[0], 2f, 1f)
+            b.marks += app.goallive.live.ui.SMark("hline", listOf(o(0.5f, 0.22f)), pens[5], 2f, 1f)
+            b.marks += app.goallive.live.ui.SMark("text", listOf(o(0.5f, 0.06f)), pens[1], 3f, 1f, "فضای پشت مدافعان")
+            b.players.firstOrNull { it.side == 0 && it.v < 0.6f }?.spot = true
+            app.goallive.live.data.Store.prefs().edit().putString("studio.current", b.json().toString()).commit()
+        }.onFailure { System.err.println("SHOT studio board failed: $it") }
+        NavHook.nav?.tab("studio"); settle(9000); shot("90-studio")
+        app.goallive.live.ui.StudioPrefs.tilt = true; app.goallive.live.ui.StudioPrefs.style = "shirt"; settle(2000); shot("91-studio-tv")
+        app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.style = "disc"; app.goallive.live.ui.StudioPrefs.range = "half"; app.goallive.live.ui.StudioPrefs.grass = "board"
+        settle(2000); shot("92-studio-half")
+        app.goallive.live.ui.StudioPrefs.style = "photo"; app.goallive.live.ui.StudioPrefs.range = "full"; app.goallive.live.ui.StudioPrefs.grass = "green"
+        runCatching { rule.onAllNodesWithContentDescription("نما")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500); shot("93-studio-view")
         NavHook.nav?.rankings(); settle(9000); shot("50-rank-best")
         // the team of the week: one league, further down, its story
         tap("لالیگا", exact = true); settle(4000); shot("50c-week-laliga")
