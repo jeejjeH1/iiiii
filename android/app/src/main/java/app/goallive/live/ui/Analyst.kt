@@ -150,7 +150,9 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
         val txg = if (home) hXg else aXg
         val big = (if (home) hShots else aShots).filter { xg(it) >= 0.3 && it.s("eventType") != "Goal" }
         val d = own - txg
-        if (d >= 1.2) ins += Finding("🎯", L("تمام‌کنندگی عالی {0}", team(home)), L("{0} از موقعیت‌هایی به ارزش {1} گل، {2} گل زد؛ یعنی بیشتر از انتظار.", team(home), x2(txg), fa(own)), home, 70 + d * 10)
+        // the verdict already said a close game was won on finishing: no second card saying the same
+        val saidAlready = ins.any { it.icon == "🎯" && it.home == home }
+        if (d >= 1.2 && !saidAlready) ins += Finding("🎯", L("تمام‌کنندگی عالی {0}", team(home)), L("{0} از موقعیت‌هایی به ارزش {1} گل، {2} گل زد؛ یعنی بیشتر از انتظار.", team(home), x2(txg), fa(own)), home, 70 + d * 10)
         if (d <= -1.2) ins += Finding("😩", L("بی‌دقتی {0} جلوی دروازه", team(home)), L("موقعیت‌هایی به ارزش {0} گل ساخت و فقط {1} گل زد{2}.", x2(txg), fa(own),
             if (big.isNotEmpty()) L("؛ {0} موقعیت عالی از دست رفت", fa(big.size)) else ""), home, 70 - d * 10)
         else if (big.size >= 2) ins += Finding("🙈", L("موقعیت‌های سوخته‌ی {0}", team(home)), L("{0} موقعیت عالی (هر کدام با بیش از ۳۰٪ شانس گل) گل نشد؛ مجموعاً {1} xG.", fa(big.size), x2(big.sumOf(xg))), home, 50.0 + big.size * 4)
