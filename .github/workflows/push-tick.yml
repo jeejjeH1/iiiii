@@ -2,6 +2,7 @@
 # (it was every 30s, which used up the free Vercel allowance).
 # Scheduled runs only fire from the default branch, so each run also loops for ~5.5h and then
 # re-dispatches itself (workflow_dispatch is allowed from GITHUB_TOKEN). Cancel the running job or disable the workflow to stop it.
+# It also starts the daily rankings rebuild, whose own schedule has the same default-branch problem.
 name: Push notifications
 
 on:
@@ -13,6 +14,7 @@ on:
 
 permissions:
   actions: write
+  contents: read
 
 concurrency:
   group: push-tick
@@ -25,12 +27,25 @@ jobs:
     env:
       SITE: https://iiiii-psi.vercel.app
     steps:
-      - name: Poll every 2 minutes
+      - name: Poll every 2 minutes (and keep the daily rankings fresh)
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           end=$(( $(date +%s) + 330 * 60 ))
+          n=0
           while [ "$(date +%s)" -lt "$end" ]; do
             curl -fsS -m 55 "$SITE/api/push?a=tick" || true
             echo
+            # once an hour: rebuild the GoalLive rankings when they are over 20 hours old and it is past 04:00 UTC
+            # (their own schedule only fires from the default branch, like this workflow's)
+            if [ $((n % 30)) -eq 0 ]; then
+              upd=$(gh release view rankings --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[] | select(.name=="rankings.json") | .updatedAt' 2>/dev/null || true)
+              if [ -n "$upd" ] && [ $(( $(date +%s) - $(date -d "$upd" +%s) )) -gt 72000 ] && [ "$(date -u +%H)" -ge 4 ]; then
+                busy=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow rankings.yml --json status --jq '[.[] | select(.status != "completed")] | length' 2>/dev/null || echo 1)
+                if [ "$busy" = "0" ]; then gh workflow run rankings.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" && echo "rankings rebuild started"; fi
+              fi
+            fi
+            n=$((n + 1))
             sleep 120
           done
       - name: Hand over to the next run

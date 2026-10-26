@@ -20,12 +20,14 @@ logo/teamlogo/9875.png
 logo/teamlogo/9885.png
 logo/teamlogo/9891.png
 logo/teamlogo/9906.png
+playerimages/1015185.png
 playerimages/1029063.png
 playerimages/1077894.png
 playerimages/1083323.png
 playerimages/1167220.png
 playerimages/1187213.png
 playerimages/1253890.png
+playerimages/1254166.png
 playerimages/131509.png
 playerimages/1367619.png
 playerimages/1404415.png
@@ -33,6 +35,7 @@ playerimages/1467236.png
 playerimages/1523327.png
 playerimages/1532137.png
 playerimages/1598982.png
+playerimages/1610744.png
 playerimages/1676901.png
 playerimages/1735453.png
 playerimages/1793874.png
@@ -40,10 +43,14 @@ playerimages/1815149.png
 playerimages/288406.png
 playerimages/361757.png
 playerimages/488139.png
+playerimages/576165.png
+playerimages/593118.png
+playerimages/638622.png
 playerimages/675088.png
 playerimages/696679.png
 playerimages/701154.png
 playerimages/743533.png
+playerimages/760712.png
 playerimages/776151.png
 playerimages/78719.png
 playerimages/787350.png
@@ -55,3 +62,4 @@ playerimages/843099.png
 playerimages/873289.png
 playerimages/906937.png
 playerimages/914458.png
+playerimages/959594.png
