@@ -849,6 +849,60 @@ private fun StatValue(v: String, hi: Boolean, color: Color) {
 }
 
 
+/* ---------- xG race ---------- */
+
+/**
+ * "روند xG": each team's chance quality added up shot by shot over the minutes, as two stepped lines, goals as dots on them.
+ * Time runs left to right whatever the language, like every match graph.
+ */
+@Composable
+private fun XgRace(m: MatchData) {
+    val shots = m.shots.filter { !it.b("isPenaltyShootoutEvent") }.sortedBy { (it.i("min") ?: 0) * 100 + (it.i("minAdded") ?: 0) }
+    if (shots.size < 3) return
+    val minuteOf = { s: JSONObject -> (s.i("min") ?: 0) + (s.i("minAdded") ?: 0) * 0.1f }
+    val end = maxOf(90f, shots.maxOf(minuteOf) + 2f, if (m.live) (cleanMinute(m.minute).filter(Char::isDigit).toIntOrNull() ?: 0).toFloat() else 0f)
+    fun line(home: Boolean): List<Triple<Float, Float, Boolean>> {
+        var sum = 0f
+        return shots.filter { (it.i("teamId") == m.homeId) == home }.map { s -> sum += (s.d("expectedGoals") ?: 0.0).toFloat(); Triple(minuteOf(s), sum, s.s("eventType") == "Goal") }
+    }
+    val h = line(true); val a = line(false)
+    val top = maxOf(1f, h.lastOrNull()?.second ?: 0f, a.lastOrNull()?.second ?: 0f) * 1.1f
+    Card(pad = PaddingValues(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(L("روند xG"), 15, FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            T(fa(dec(h.lastOrNull()?.second?.toDouble() ?: 0.0, 2)), 14, FontWeight.Black, m.homeColor)
+            T("  –  ", 13, color = C.faint)
+            T(fa(dec(a.lastOrNull()?.second?.toDouble() ?: 0.0, 2)), 14, FontWeight.Black, m.awayColor)
+        }
+        T(L("کیفیت موقعیت‌های هر تیم که در طول بازی جمع شده؛ دایره‌ها گل‌اند"), 12, color = C.mute, modifier = Modifier.padding(bottom = 8.dp))
+        CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+            Column {
+                val grid = C.line; val bg = C.cardSolid
+                Canvas(Modifier.fillMaxWidth().height(150.dp)) {
+                    fun x(t: Float) = size.width * (t / end).coerceIn(0f, 1f)
+                    fun y(v: Float) = size.height * (1f - v / top)
+                    for (t in listOf(15f, 30f, 45f, 60f, 75f, 90f)) drawLine(grid, Offset(x(t), 0f), Offset(x(t), size.height), if (t == 45f) 2f else 1f)
+                    drawLine(grid, Offset(0f, size.height), Offset(size.width, size.height), 2f)
+                    for ((pts, col) in listOf(h to m.homeColor, a to m.awayColor)) {
+                        val path = Path().apply {
+                            moveTo(0f, y(0f)); var last = 0f
+                            pts.forEach { (t, v, _) -> lineTo(x(t), y(last)); lineTo(x(t), y(v)); last = v }
+                            lineTo(x(end), y(last))
+                        }
+                        drawPath(path, col, style = Stroke(3.dp.toPx(), join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                        pts.filter { it.third }.forEach { (t, v, _) ->
+                            drawCircle(col, 7.dp.toPx(), Offset(x(t), y(v))); drawCircle(bg, 3.5.dp.toPx(), Offset(x(t), y(v)))
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    listOf(0, 45, 90).forEach { t -> T(fa("$t′"), 11, color = C.mute, modifier = Modifier.weight(1f), align = when (t) { 0 -> TextAlign.Start; 45 -> TextAlign.Center; else -> TextAlign.End }) }
+                }
+            }
+        }
+    }
+}
+
 /* ---------- shotmap ---------- */
 
 /**
@@ -885,6 +939,7 @@ private fun ShotsTab(m: MatchData) {
             }
         }
     }
+    XgRace(m)
     Card(pad = PaddingValues(12.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Crest(if (home) m.homeId else m.awayId, 22.dp)
@@ -1423,6 +1478,12 @@ private fun PlayersTab(m: MatchData) {
     val best = ratings.values.filter { it.minutes >= 20 }.maxByOrNull { it.value }?.id
     val list = all.filter { team == "all" || (team == "h") == (it.i("teamId") == m.homeId) }.sortedByDescending(key)
     Seg(listOf("all" to L("همه"), "h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), team) { team = it }
+    // FotMob's own groups (attack, defence, duels…), each shown as a table like SofaScore's player statistics
+    val groups = remember(m.d) { all.flatMap { p -> p.a("stats").objs().mapNotNull { it.s("title") } }.distinct().filter { statColumns(all, it).isNotEmpty() } }
+    var view by rememberSaveable { mutableStateOf("summary") }
+    if (view != "summary" && view !in groups) view = "summary"
+    Chips(listOf("summary" to L("خلاصه")) + groups.map { it to tr(it) }, view) { view = it }
+    if (view != "summary") { StatTable(list, view, statColumns(all, view), ratings); return }
     Seg(listOf("rating" to L("نمره"), "ga" to L("گل و پاس گل"), "xg" to "xG", "min" to L("دقایق")), sort) { sort = it }
     Card {
         list.forEachIndexed { i, p ->
@@ -1437,6 +1498,98 @@ private fun PlayersTab(m: MatchData) {
                 }
                 if (p.i("id") == best) Icon(Ic.starOn, null, Modifier.size(14.dp), tint = C.gold)
                 Rating(ratings[p.i("id") ?: 0]?.value)
+            }
+        }
+    }
+}
+
+private val NOT_COLUMNS = setOf("Shotmap", "FotMob rating", "Fantasy points")
+
+/** A player's stat in one of FotMob's groups, by its title. */
+private fun statIn(p: JSONObject, group: String, title: String): JSONObject? =
+    p.a("stats").objs().firstOrNull { it.s("title") == group }?.o("stats")?.optJSONObject(title)?.o("stat")
+
+/** The stat titles of a group, in FotMob's order, across every player who has them. */
+private fun statColumns(players: List<JSONObject>, group: String): List<String> =
+    players.flatMap { p -> p.a("stats").objs().firstOrNull { it.s("title") == group }?.o("stats")?.keys()?.asSequence()?.toList().orEmpty() }
+        .distinct().filter { it !in NOT_COLUMNS }
+
+/** A table cell: short enough for a column (12/15 rather than 12/15 (80%)). */
+private fun cellText(s: JSONObject?): String {
+    val v = s.d("value") ?: return "–"
+    val total = s.d("total")
+    return when (s.s("type")) {
+        "fractionWithPercentage" -> fa("${v.toInt()}/${total?.toInt() ?: 0}")
+        // kilometres from a kilometre up, metres below
+        "distance", "distanceWithPercentage" -> if (v >= 1000) dec(v / 1000.0, 1) else fa(v.toInt())
+        "double", "speed" -> fa(dec(v, if (v >= 10) 1 else 2))
+        "boolean" -> if (v != 0.0) "✓" else "–"
+        else -> fa(v.toInt())
+    }
+}
+
+/** A row of choices that scrolls sideways when they don't fit (FotMob has up to seven groups). */
+@Composable
+private fun Chips(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
+    val accent = LocalAccent.current
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        options.forEach { (k, label) ->
+            val on = k == selected
+            Box(Modifier.height(36.dp).clip(RoundedCornerShape(50)).background(if (on) accent else C.card).border(1.dp, if (on) Color.Transparent else C.line, RoundedCornerShape(50))
+                .clickable { onSelect(k) }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                T(label, 13, FontWeight.ExtraBold, if (on) LocalAccentInk.current else C.ink, maxLines = 1)
+            }
+        }
+    }
+}
+
+/**
+ * One stat group as a table: the players down the side (they stay put), a column per stat that scrolls sideways,
+ * the GoalLive rating first. A tap on a heading sorts by it; a tap on a player opens his page.
+ */
+@Composable
+private fun StatTable(list: List<JSONObject>, group: String, cols: List<String>, ratings: Map<Int, PlayerRating>) {
+    val nav = LocalNav.current
+    val accent = LocalAccent.current
+    var sortCol by rememberSaveable(group) { mutableStateOf(cols.firstOrNull() ?: "") }
+    if (sortCol != "★" && sortCol !in cols) sortCol = cols.firstOrNull() ?: "★"
+    val sortKey: (JSONObject) -> Double = if (sortCol == "★") { p -> ratings[p.i("id") ?: 0]?.value ?: -1.0 } else { p -> statIn(p, group, sortCol).d("value") ?: -1.0 }
+    val rows = list.sortedByDescending(sortKey)
+    val head = 46.dp; val rowH = 46.dp; val colW = 78.dp
+    val stripe = { i: Int -> if (i % 2 == 1) C.card2.copy(alpha = 0.5f) else Color.Transparent }
+    Card {
+        Row {
+            Column(Modifier.width(140.dp)) {
+                Box(Modifier.height(head).fillMaxWidth().padding(horizontal = 12.dp), contentAlignment = Alignment.CenterStart) { T(L("بازیکن"), 11, FontWeight.Bold, C.mute) }
+                rows.forEachIndexed { i, p ->
+                    Row(Modifier.height(rowH).fillMaxWidth().background(stripe(i)).clickable { nav.player(p.i("id") ?: 0) }.padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Face(p.i("id") ?: 0, 28.dp)
+                        Ltr(personName((p.s("name") ?: "").substringAfterLast(' ')), Modifier.weight(1f), style = vz(12.sp, FontWeight.Bold))
+                    }
+                }
+            }
+            Box(Modifier.weight(1f).horizontalScroll(rememberScrollState())) {
+                Column {
+                    Row(Modifier.height(head)) {
+                        (listOf("★") + cols).forEach { c ->
+                            val on = c == sortCol
+                            Box(Modifier.width(colW).fillMaxHeight().clickable { sortCol = c }.padding(horizontal = 4.dp), contentAlignment = Alignment.Center) {
+                                T(if (c == "★") L("نمره") else tr(c), 11, FontWeight.Bold, if (on) accent else C.mute, maxLines = 2, align = TextAlign.Center)
+                            }
+                        }
+                    }
+                    rows.forEachIndexed { i, p ->
+                        Row(Modifier.height(rowH).background(stripe(i)), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.width(colW), contentAlignment = Alignment.Center) { Rating(ratings[p.i("id") ?: 0]?.value, small = true) }
+                            cols.forEach { c ->
+                                Box(Modifier.width(colW), contentAlignment = Alignment.Center) {
+                                    T(cellText(statIn(p, group, c)), 13, if (c == sortCol) FontWeight.Black else FontWeight.Medium, if (c == sortCol) C.ink else C.ink.copy(alpha = 0.85f))
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

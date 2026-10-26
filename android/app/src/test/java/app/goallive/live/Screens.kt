@@ -129,6 +129,10 @@ class Screens {
             runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(8) { swipeDown(durationMillis = 200) } } }; settle(800)
             tap("شوت‌ها", exact = true); settle(3000); shot("03b-match-shots")
             tap("بازیکنان", exact = true); settle(3000); shot("04b-match-players")
+            // the players' stats as a table, one FotMob group at a time
+            tap("حمله", exact = true); settle(2000); shot("04f-players-attack")
+            tap("دفاع", exact = true); settle(2000); shot("04g-players-defence")
+            tap("خلاصه", exact = true); settle(1000)
             tap("ترکیب", exact = true); settle(3000); shot("04-match-lineup")
             // the team switch inside the tab (the team's name elsewhere on the page opens the team)
             runCatching { rule.onAllNodesWithText(teamName(match.home.id, match.home.name), substring = false).let { n -> if (n.fetchSemanticsNodes().size >= 3) n[1].performSemanticsAction(SemanticsActions.OnClick) } }

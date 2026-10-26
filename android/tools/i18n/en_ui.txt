@@ -1216,3 +1216,5 @@
 1215|Where each player stood on average
 1216|Both
 1217|{0} attack left to right
+1218|xG race
+1219|Each team's chance quality adding up over the match; circles are goals
