@@ -35,6 +35,8 @@ import app.goallive.live.L
 import app.goallive.live.data.Store
 import app.goallive.live.data.i
 import app.goallive.live.data.s
+import app.goallive.live.data.b
+import app.goallive.live.data.o
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -68,6 +70,8 @@ fun StudioScreen() {
     var teamSheet by remember { mutableIntStateOf(-1) }
     var library by remember { mutableStateOf(false) }
     var viewSheet by remember { mutableStateOf(false) }
+    // opened from a match's line-up: its sides and goals
+    LaunchedEffect(StudioOpen.match, ready) { if (ready && StudioOpen.match > 0) { ed.matchSheet = StudioOpen.match; StudioOpen.match = 0 } }
     LaunchedEffect(Unit) {
         val saved = Store.prefs().getString("studio.current", null)
         if (saved == null || runCatching { board.load(JSONObject(saved)) }.isFailure || board.players.isEmpty()) board.fresh()
@@ -138,6 +142,8 @@ fun StudioScreen() {
                 T(L("استودیو تاکتیک"), 19, FontWeight.Black, maxLines = 1)
                 if (board.title.isNotBlank()) T(board.title, 12, color = C.mute, maxLines = 1)
             }
+            IconBtn(Ic.share, L("اشتراک‌گذاری"), C.ink, C.card2, 19.dp) { ed.shareSheet = true }
+            Spacer(Modifier.width(6.dp))
             IconBtn(Ic.list, L("تاکتیک‌های من"), C.ink, C.card2, 19.dp) { library = true }
             Spacer(Modifier.width(6.dp))
             UndoBtn(true, board.canUndo) { board.undo() }
@@ -191,6 +197,8 @@ private fun SheetsOf(board: StudioBoard, ed: StudioEditor, teamSheet: Int, libra
     ed.editPlayer?.let { p -> PlayerSheet(board, ed, p) { ed.editPlayer = null } }
     if (ed.frameMenu in board.frames.indices) FrameSheet(board, ed, ed.frameMenu) { ed.frameMenu = -1 }
     if (ed.analysis) AnalysisSheet(board) { ed.analysis = false }
+    if (ed.shareSheet) ShareSheet(board) { ed.shareSheet = false }
+    if (ed.matchSheet > 0) MatchSheet(board, ed, ed.matchSheet) { ed.matchSheet = 0 }
     ed.textAt?.let { at ->
         TextAsk(L("نوشته روی زمین"), "") { s ->
             if (s != null && s.isNotBlank()) { board.marks += SMark("text", listOf(at), ed.pen, ed.width, ed.alpha, s.trim(), ed.layer); board.commit() }
@@ -643,6 +651,15 @@ private fun LibrarySheet(board: StudioBoard, ed: StudioEditor, onClose: () -> Un
     var list by remember { mutableStateOf(StudioLibrary.all()) }
     var asking by remember { mutableStateOf(false) }
     var tab by remember { mutableStateOf("ready") }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    // a tactic file a friend sent
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val ok = importStudioFile(ctx, uri, board)
+            android.widget.Toast.makeText(ctx, if (ok) L("تاکتیک باز شد") else L("این فایل تاکتیک گل‌لایو نیست"), android.widget.Toast.LENGTH_SHORT).show()
+            if (ok) onClose()
+        }
+    }
     Sheet(onClose) {
         T(L("کتابخانه‌ی تاکتیک"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
         StudioChips(listOf("ready" to L("سناریوهای آماده"), "mine" to L("تاکتیک‌های من")), tab) { tab = it }
@@ -669,6 +686,7 @@ private fun LibrarySheet(board: StudioBoard, ed: StudioEditor, onClose: () -> Un
         Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Pill(L("ذخیره‌ی همین"), PillKind.Accent, onClick = { asking = true })
             Pill(L("تاکتیک تازه"), PillKind.Plain, onClick = { board.fresh(); board.commit(); onClose() })
+            Pill(L("باز کردن فایل"), PillKind.Plain, onClick = { runCatching { pick.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*")) } })
         }
         if (list.isEmpty()) T(L("هنوز تاکتیکی ذخیره نکرده‌ای."), 13, color = C.mute, modifier = Modifier.padding(18.dp))
         list.forEach { t ->
@@ -913,5 +931,114 @@ private fun AnalysisSheet(board: StudioBoard, onClose: () -> Unit) {
             }
         }
         Spacer(Modifier.height(10.dp))
+    }
+}
+
+
+/** Sending the move: a video for a story (silent, with the stadium, or with music too), pictures of the steps, or the tactic as a file. */
+@Composable
+private fun ShareSheet(board: StudioBoard, onClose: () -> Unit) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    var sound by remember { mutableStateOf(Store.prefs().getString("studio.sound", "crowd") ?: "crowd") }
+    var making by remember { mutableStateOf<Float?>(null) }
+    var ready by remember { mutableStateOf<Pair<List<java.io.File>, String>?>(null) }
+    val alive = remember { java.util.concurrent.atomic.AtomicBoolean(true) }
+    DisposableEffect(Unit) { onDispose { alive.set(false) } }
+    fun build(work: suspend () -> Pair<List<java.io.File>, String>?) {
+        if (making != null) return
+        making = 0f; ready = null
+        scope.launch {
+            val r = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching { work() }.getOrNull() }
+            making = null
+            if (r == null || r.first.isEmpty()) android.widget.Toast.makeText(ctx, L("ساختن ممکن نشد؛ دوباره امتحان کن"), android.widget.Toast.LENGTH_SHORT).show()
+            else ready = r
+        }
+    }
+    val steps = board.frames.size
+    Sheet(onClose) {
+        T(L("اشتراک تاکتیک"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        StudioLabel(L("ویدیو برای استوری"))
+        StudioChips(listOf("" to L("بی‌صدا"), "crowd" to L("صدای ورزشگاه"), "music" to L("ورزشگاه و موسیقی")), sound) { sound = it; Store.prefs().edit().putString("studio.sound", it).apply() }
+        Box(Modifier.padding(16.dp).fillMaxWidth().height(50.dp).clip(RoundedCornerShape(16.dp)).background(if (steps >= 2) LocalAccent.current else C.card2)
+            .clickable(enabled = steps >= 2 && making == null) {
+                build { val art = studioArt(ctx, board); studioVideo(ctx, board, art, sound, { making = it }, { alive.get() })?.let { listOf(it) to "video/mp4" } }
+            }, contentAlignment = Alignment.Center) {
+            T(if (steps >= 2) L("ساختن ویدیو") else L("برای ویدیو دست کم دو مرحله لازم است"), 15, FontWeight.Black, if (steps >= 2) LocalAccentInk.current else C.mute)
+        }
+        StudioLabel(L("عکس"))
+        Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill(L("همین مرحله"), PillKind.Plain, onClick = { build { val art = studioArt(ctx, board); studioPictures(ctx, board, art, false) to "image/png" } })
+            if (steps > 1) Pill(L("همه‌ی {0} مرحله", fa(steps)), PillKind.Plain, onClick = { build { val art = studioArt(ctx, board); studioPictures(ctx, board, art, true) to "image/png" } })
+        }
+        StudioLabel(L("برای دوستت"))
+        Box(Modifier.padding(horizontal = 16.dp)) {
+            Pill(L("فایل تاکتیک"), PillKind.Plain, onClick = { ready = listOf(studioFile(ctx, board)) to "application/json" })
+        }
+        T(L("دوستت فایل را در گل‌لایو، از «تاکتیک‌های من» و «باز کردن فایل»، باز می‌کند و می‌تواند تغییرش بدهد."), 11, color = C.mute,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+        making?.let { pr ->
+            Column(Modifier.padding(16.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                T(if (pr > 0f) L("ساختن ویدیو… {0}٪", fa((pr * 100).toInt())) else L("صبر کنید…"), 14, FontWeight.Bold)
+                Box(Modifier.padding(top = 8.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(C.card2)) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(pr.coerceIn(0.03f, 1f)).background(LocalAccent.current))
+                }
+            }
+        }
+        ready?.let { (files, mime) ->
+            Row(Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(16.dp)).background(LocalAccent.current).clickable { shareStudio(ctx, files, mime) },
+                    contentAlignment = Alignment.Center) { T(L("فرستادن"), 15, FontWeight.Black, LocalAccentInk.current) }
+                if (!mime.contains("json")) Box(Modifier.weight(1f).height(48.dp).clip(RoundedCornerShape(16.dp)).background(C.card2).clickable { saveStudio(ctx, files, mime) },
+                    contentAlignment = Alignment.Center) { T(L("ذخیره در گالری"), 15, FontWeight.Black) }
+            }
+        }
+    }
+}
+
+/** A match opened in the studio: both sides as they started, or one of its goals rebuilt and played. */
+@Composable
+private fun MatchSheet(board: StudioBoard, ed: StudioEditor, id: Int, onClose: () -> Unit) {
+    var sm by remember { mutableStateOf<StudioMatch?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(id) { val r = runCatching { loadStudioMatch(id) }; sm = r.getOrNull(); failed = sm == null }
+    Sheet(onClose) {
+        T(L("این بازی در استودیو"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        val m = sm
+        when {
+            failed -> T(L("ترکیب این بازی هنوز در دسترس نیست."), 13, color = C.mute, modifier = Modifier.padding(18.dp))
+            m == null -> T(L("در حال آوردن ترکیب…"), 13, color = C.mute, modifier = Modifier.padding(18.dp))
+            else -> {
+                Row(Modifier.fillMaxWidth().clickable {
+                    ed.playing = false; ed.playT = null; ed.result = null; ed.fx = null; ed.selected.clear()
+                    board.loadLineups(m); onClose()
+                }.padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Crest(m.m.homeId, 30.dp); Crest(m.m.awayId, 30.dp)
+                    Column(Modifier.weight(1f)) {
+                        T(L("ترکیب دو تیم"), 15, FontWeight.ExtraBold)
+                        T(L("هر دو تیم همان‌طور که بازی را شروع کردند"), 12, color = C.mute)
+                    }
+                }
+                if (m.goals.isNotEmpty()) StudioLabel(L("گل‌های بازی، بازسازی‌شده"))
+                m.goals.forEach { e ->
+                    val home = e.b("isHome")
+                    Row(Modifier.fillMaxWidth().clickable {
+                        ed.playing = false; ed.playT = null; ed.result = null; ed.fx = null; ed.selected.clear()
+                        board.loadGoal(m, e); onClose(); ed.playing = true
+                    }.padding(horizontal = 18.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.width(44.dp).clip(RoundedCornerShape(10.dp)).background(C.card2).padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                            T(fa(minuteText(e)) + "'", 13, FontWeight.Black)
+                        }
+                        Crest(if (home) m.m.homeId else m.m.awayId, 24.dp)
+                        Column(Modifier.weight(1f)) {
+                            T(personName(e.o("player").s("name") ?: e.s("nameStr") ?: ""), 14, FontWeight.Bold, maxLines = 1)
+                            T(listOfNotNull(e.o("shotmapEvent")?.s("situation")?.let { tr(it) }, e.o("shotmapEvent")?.s("shotType")?.let { tr(it) }).joinToString(" · "), 12, color = C.mute, maxLines = 1)
+                        }
+                        Box(Modifier.size(32.dp).clip(CircleShape).background(LocalAccent.current), contentAlignment = Alignment.Center) { PlayGlyph(false, LocalAccentInk.current) }
+                    }
+                }
+                T(L("فقط جای شوت هر گل معلوم است؛ بقیه‌ی صحنه تقریبی چیده می‌شود."), 11, color = C.mute, modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp))
+            }
+        }
     }
 }

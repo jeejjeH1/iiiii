@@ -132,6 +132,9 @@ class StudioEditor {
     var result by mutableStateOf<SEvent?>(null)
     /** The analysis panel is open. */
     var analysis by mutableStateOf(false)
+    /** The share panel is open; the match whose panel is open. */
+    var shareSheet by mutableStateOf(false)
+    var matchSheet by mutableIntStateOf(0)
 }
 
 /* ---------- the canvas ---------- */
@@ -213,95 +216,100 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
         }) {
             val view = View2(ed.zoom, ed.pan, Offset(size.width / 2, size.height / 2))
             withTransform({ translate(view.pan.x, view.pan.y); scale(view.zoom, view.zoom, view.c) }) {
-                drawGrass(proj, StudioPrefs.grass)
-                // the drawings, layer by layer, under the players
-                board.marks.forEachIndexed { i, m -> if (m.layer !in StudioPrefs.hidden) drawMark(proj, m, i == ed.selMark, tf) }
-                ed.draft?.let { drawMark(proj, it, false, tf) }
-                val t = ed.playT
-                val now = t?.let { board.at(it) }
-                fun where(p: SPlayer) = now?.pos?.get(p.key) ?: Offset(p.u, p.v)
-                if (t != null && now != null) {
-                    // trails: where each player and the ball have just been, fading
-                    if (StudioPrefs.trails) for (p in board.players) {
-                        if (p.side == 1 && !board.showAway) continue
-                        val team = if (p.side == 0) board.home else board.away
-                        val pts = (0..12).map { k -> board.at(t - k * 0.06f).pos[p.key] ?: where(p) }.map { proj.at(it) }
-                        if ((pts.first() - pts.last()).getDistance() < 6f) continue
-                        for (k in 0 until pts.size - 1) drawLine(Color(team.color).copy(alpha = 0.55f * (1 - k / 12f)), pts[k], pts[k + 1], proj.r(p.v) * 0.5f * (1 - k / 14f), cap = StrokeCap.Round)
-                    }
-                    val bpts = (0..8).map { k -> board.at(t - k * 0.035f) }.map { proj.at(it.ball) - Offset(0f, it.height * proj.perMetre(it.ball.y) * 68f) }
-                    if ((bpts.first() - bpts.last()).getDistance() > 14f)
-                        for (k in 0 until bpts.size - 1) drawLine(Color.White.copy(alpha = 0.7f * (1 - k / 8f)), bpts[k], bpts[k + 1], proj.r(now.ball.y) * 0.45f * (1 - k / 9f), cap = StrokeCap.Round)
-                } else if (StudioPrefs.onion && board.cur > 0) {
-                    // the step before, faintly, and how each player gets from there
-                    val prev = board.frames[board.cur - 1]
-                    val routes = board.frames[board.cur].paths
-                    for (p in board.players) {
-                        if (p.side == 1 && !board.showAway) continue
-                        val from = prev.pos[p.key] ?: continue
-                        val to = Offset(p.u, p.v)
-                        val team = if (p.side == 0) board.home else board.away
-                        val route = routes[p.key]
-                        if ((from - to).getDistance() > 0.01f || route != null) {
-                            val pts = (route ?: listOf(from, to)).map { proj.at(it) }
-                            val path = Path().apply { pts.forEachIndexed { i, q -> if (i == 0) moveTo(q.x, q.y) else lineTo(q.x, q.y) } }
-                            drawPath(path, Color.White.copy(alpha = 0.55f), style = Stroke(2.2f, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 9f))))
-                            drawCircle(Color(team.color).copy(alpha = 0.35f), proj.r(from.y) * 0.8f, proj.at(from))
-                            drawCircle(Color.White.copy(alpha = 0.4f), proj.r(from.y) * 0.8f, proj.at(from), style = Stroke(1.5f))
-                        }
-                    }
-                    if ((prev.ball - board.ball).getDistance() > 0.01f) {
-                        drawLine(Color.White.copy(alpha = 0.6f), proj.at(prev.ball), proj.at(board.ball), 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
-                        drawCircle(Color.White.copy(alpha = 0.35f), proj.r(prev.ball.y) * 0.4f, proj.at(prev.ball))
-                    }
-                }
-                // the analyst's overlays, live as the move plays
-                if (StudioPrefs.space || StudioPrefs.lanes || StudioPrefs.block) drawAnalysis(board, proj, ::where, now?.ball ?: board.ball, tf)
-                // an event being shown: its frame, its kind and how long ago
-                val fxNow = ed.fx?.let { (i, sec) -> board.frames.getOrNull(i)?.ev?.let { Triple(i, it, sec) } }
-                var shown = now?.pos
-                var ballAt = now?.ball ?: board.ball
-                if (fxNow != null && t != null) {
-                    val (i, ev, sec) = fxNow
-                    val frame = board.frames[i]
-                    // the scorers celebrate: hopping on the spot
-                    if (ev.kind == "shot" && ev.outcome == "goal") {
-                        val side = board.players.firstOrNull { it.key == ev.by }?.side ?: 0
-                        val m = HashMap(shown ?: board.players.associate { it.key to Offset(it.u, it.v) })
-                        board.players.filter { it.side == side }.forEach { p -> m[p.key]?.let { m[p.key] = it - Offset(0f, abs(sin(sec * 9f + p.key)) * 0.012f * (1 - (sec / 2.6f)).coerceAtLeast(0f)) } }
-                        shown = m
-                    }
-                    // off the post: the ball comes back out
-                    if (ev.kind == "shot" && ev.outcome == "post") {
-                        val out = if (frame.ball.y < 0.5f) 1f else -1f
-                        ballAt = frame.ball + Offset((0.5f - frame.ball.x) * 0.6f, out * 0.09f) * easeOutF(min(1f, sec / 0.9f))
-                    }
-                }
-                drawPlayers(board, ed, proj, faces, tf, shown)
-                drawBall(proj, ballAt, now?.height ?: 0f, now?.roll ?: 0f)
-                if (fxNow != null && t != null) drawEvent(proj, board, fxNow.first, fxNow.second, fxNow.third, tf)
-                // the spotlight: everything dimmed but the players it is on
-                val lit = board.players.filter { it.spot && (it.side == 0 || board.showAway) }
-                if (lit.isNotEmpty()) {
-                    drawContext.canvas.saveLayer(Rect(Offset.Zero, size), androidx.compose.ui.graphics.Paint())
-                    drawRect(Color.Black.copy(alpha = 0.5f))
-                    lit.forEach { p -> val w = where(p); drawCircle(Color.Black, proj.r(w.y) * 2.6f, proj.at(w), blendMode = BlendMode.Clear) }
-                    drawContext.canvas.restore()
-                    lit.forEach { p ->
-                        val w = where(p); val c = proj.at(w); val r = proj.r(w.y) * 2.6f
-                        drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent), c, r), r, c)
-                        drawCircle(Color.White.copy(alpha = 0.8f), r, c, style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))))
-                    }
-                }
-                // the selection box being dragged
-                ed.lasso?.let { (a, b) ->
-                    val pa = proj.at(a); val pb = proj.at(b)
-                    val tl = Offset(min(pa.x, pb.x), min(pa.y, pb.y)); val sz = Size(abs(pa.x - pb.x), abs(pa.y - pb.y))
-                    drawRect(Color.White.copy(alpha = 0.08f), tl, sz)
-                    drawRect(Color.White.copy(alpha = 0.8f), tl, sz, style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))))
-                }
+                drawBoardScene(board, ed, proj, faces, tf)
             }
         }
+    }
+}
+
+/** Everything on the board at the editor's moment: grass, drawings, the analyst's layers, players, ball, spotlight and the event being shown. */
+fun DrawScope.drawBoardScene(board: StudioBoard, ed: StudioEditor, proj: Proj, faces: Map<Int, ImageBitmap>, tf: Typeface) {
+    drawGrass(proj, StudioPrefs.grass)
+    // the drawings, layer by layer, under the players
+    board.marks.forEachIndexed { i, m -> if (m.layer !in StudioPrefs.hidden) drawMark(proj, m, i == ed.selMark, tf) }
+    ed.draft?.let { drawMark(proj, it, false, tf) }
+    val t = ed.playT
+    val now = t?.let { board.at(it) }
+    fun where(p: SPlayer) = now?.pos?.get(p.key) ?: Offset(p.u, p.v)
+    if (t != null && now != null) {
+        // trails: where each player and the ball have just been, fading
+        if (StudioPrefs.trails) for (p in board.players) {
+            if (p.side == 1 && !board.showAway) continue
+            val team = if (p.side == 0) board.home else board.away
+            val pts = (0..12).map { k -> board.at(t - k * 0.06f).pos[p.key] ?: where(p) }.map { proj.at(it) }
+            if ((pts.first() - pts.last()).getDistance() < 6f) continue
+            for (k in 0 until pts.size - 1) drawLine(Color(team.color).copy(alpha = 0.55f * (1 - k / 12f)), pts[k], pts[k + 1], proj.r(p.v) * 0.5f * (1 - k / 14f), cap = StrokeCap.Round)
+        }
+        val bpts = (0..8).map { k -> board.at(t - k * 0.035f) }.map { proj.at(it.ball) - Offset(0f, it.height * proj.perMetre(it.ball.y) * 68f) }
+        if ((bpts.first() - bpts.last()).getDistance() > 14f)
+            for (k in 0 until bpts.size - 1) drawLine(Color.White.copy(alpha = 0.7f * (1 - k / 8f)), bpts[k], bpts[k + 1], proj.r(now.ball.y) * 0.45f * (1 - k / 9f), cap = StrokeCap.Round)
+    } else if (StudioPrefs.onion && board.cur > 0) {
+        // the step before, faintly, and how each player gets from there
+        val prev = board.frames[board.cur - 1]
+        val routes = board.frames[board.cur].paths
+        for (p in board.players) {
+            if (p.side == 1 && !board.showAway) continue
+            val from = prev.pos[p.key] ?: continue
+            val to = Offset(p.u, p.v)
+            val team = if (p.side == 0) board.home else board.away
+            val route = routes[p.key]
+            if ((from - to).getDistance() > 0.01f || route != null) {
+                val pts = (route ?: listOf(from, to)).map { proj.at(it) }
+                val path = Path().apply { pts.forEachIndexed { i, q -> if (i == 0) moveTo(q.x, q.y) else lineTo(q.x, q.y) } }
+                drawPath(path, Color.White.copy(alpha = 0.55f), style = Stroke(2.2f, cap = StrokeCap.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 9f))))
+                drawCircle(Color(team.color).copy(alpha = 0.35f), proj.r(from.y) * 0.8f, proj.at(from))
+                drawCircle(Color.White.copy(alpha = 0.4f), proj.r(from.y) * 0.8f, proj.at(from), style = Stroke(1.5f))
+            }
+        }
+        if ((prev.ball - board.ball).getDistance() > 0.01f) {
+            drawLine(Color.White.copy(alpha = 0.6f), proj.at(prev.ball), proj.at(board.ball), 2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f)))
+            drawCircle(Color.White.copy(alpha = 0.35f), proj.r(prev.ball.y) * 0.4f, proj.at(prev.ball))
+        }
+    }
+    // the analyst's overlays, live as the move plays
+    if (StudioPrefs.space || StudioPrefs.lanes || StudioPrefs.block) drawAnalysis(board, proj, ::where, now?.ball ?: board.ball, tf)
+    // an event being shown: its frame, its kind and how long ago
+    val fxNow = ed.fx?.let { (i, sec) -> board.frames.getOrNull(i)?.ev?.let { Triple(i, it, sec) } }
+    var shown = now?.pos
+    var ballAt = now?.ball ?: board.ball
+    if (fxNow != null && t != null) {
+        val (i, ev, sec) = fxNow
+        val frame = board.frames[i]
+        // the scorers celebrate: hopping on the spot
+        if (ev.kind == "shot" && ev.outcome == "goal") {
+            val side = board.players.firstOrNull { it.key == ev.by }?.side ?: 0
+            val m = HashMap(shown ?: board.players.associate { it.key to Offset(it.u, it.v) })
+            board.players.filter { it.side == side }.forEach { p -> m[p.key]?.let { m[p.key] = it - Offset(0f, abs(sin(sec * 9f + p.key)) * 0.012f * (1 - (sec / 2.6f)).coerceAtLeast(0f)) } }
+            shown = m
+        }
+        // off the post: the ball comes back out
+        if (ev.kind == "shot" && ev.outcome == "post") {
+            val out = if (frame.ball.y < 0.5f) 1f else -1f
+            ballAt = frame.ball + Offset((0.5f - frame.ball.x) * 0.6f, out * 0.09f) * easeOutF(min(1f, sec / 0.9f))
+        }
+    }
+    drawPlayers(board, ed, proj, faces, tf, shown)
+    drawBall(proj, ballAt, now?.height ?: 0f, now?.roll ?: 0f)
+    if (fxNow != null && t != null) drawEvent(proj, board, fxNow.first, fxNow.second, fxNow.third, tf)
+    // the spotlight: everything dimmed but the players it is on
+    val lit = board.players.filter { it.spot && (it.side == 0 || board.showAway) }
+    if (lit.isNotEmpty()) {
+        drawContext.canvas.saveLayer(Rect(Offset.Zero, size), androidx.compose.ui.graphics.Paint())
+        drawRect(Color.Black.copy(alpha = 0.5f))
+        lit.forEach { p -> val w = where(p); drawCircle(Color.Black, proj.r(w.y) * 2.6f, proj.at(w), blendMode = BlendMode.Clear) }
+        drawContext.canvas.restore()
+        lit.forEach { p ->
+            val w = where(p); val c = proj.at(w); val r = proj.r(w.y) * 2.6f
+            drawCircle(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.22f), Color.Transparent), c, r), r, c)
+            drawCircle(Color.White.copy(alpha = 0.8f), r, c, style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))))
+        }
+    }
+    // the selection box being dragged
+    ed.lasso?.let { (a, b) ->
+        val pa = proj.at(a); val pb = proj.at(b)
+        val tl = Offset(min(pa.x, pb.x), min(pa.y, pb.y)); val sz = Size(abs(pa.x - pb.x), abs(pa.y - pb.y))
+        drawRect(Color.White.copy(alpha = 0.08f), tl, sz)
+        drawRect(Color.White.copy(alpha = 0.8f), tl, sz, style = Stroke(2f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))))
     }
 }
 

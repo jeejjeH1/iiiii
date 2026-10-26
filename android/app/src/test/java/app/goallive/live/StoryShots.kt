@@ -174,6 +174,29 @@ class StoryShots {
         }.orEmpty()
         for ((name, b) in posters) png(name, b)
         System.err.println("SHOT posters: ${posters.size}")
+        // the tactics studio's export: a goal of El Clásico rebuilt, drawn as the video's frames and a step picture
+        val tactic = off {
+            val out = mutableListOf<Pair<String, Bitmap>>()
+            val sm = runBlocking { app.goallive.live.ui.loadStudioMatch(5868105) }
+            if (sm != null) {
+                sm.goals.forEachIndexed { gi, g ->
+                    val b = app.goallive.live.ui.StudioBoard(); b.fresh(); b.loadGoal(sm, g)
+                    val art = runBlocking { app.goallive.live.ui.studioArt(ctx, b) }
+                    val plan = app.goallive.live.ui.StudioPlan(b)
+                    val times = if (gi == 0) listOf(0.4f, plan.seconds * 0.45f, plan.seconds - 2.4f, plan.seconds - 1.6f) else listOf(plan.seconds - 2.2f)
+                    times.forEachIndexed { k, sec ->
+                        val (t, fx) = plan.at(sec)
+                        val bmp = Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888)
+                        val c = Canvas(bmp); c.scale(0.5f, 0.5f)
+                        app.goallive.live.ui.drawStudioStory(c, b, art, t, fx)
+                        out += "79-tactic-goal$gi-$k" to bmp
+                    }
+                }
+            } else System.err.println("SHOT tactic: no match")
+            out
+        }.orEmpty()
+        for ((name, b) in tactic) png(name, b)
+        System.err.println("SHOT tactic frames: ${tactic.size}")
         // every sticker on one sheet, on dark and on light
         off {
             val tf = android.graphics.Typeface.DEFAULT_BOLD

@@ -1619,3 +1619,40 @@
 1618|A switch; their block barely moves
 1619|Driving inside
 1620|A shot from outside the box
+1621|Minute {0}: a penalty for {1}
+1622|Minute {0}: a corner
+1623|Crossed for {0} to head
+1624|Crossed into the box
+1625|Minute {0}: {1}'s free kick
+1626|Minute {0}: a free kick
+1627|Crossed to {0}
+1628|Minute {0}: a counter-attack
+1629|Through ball for {0}
+1630|{0} runs at goal
+1631|Minute {0}: down the wing
+1632|Minute {0}: {1} attack
+1633|Pass to {0}
+1634|{0}'s goal against {1}
+1635|Tactic opened
+1636|This isn't a GoalLive tactic file
+1637|Open a file
+1638|Couldn't make it; try again
+1639|Share the tactic
+1640|Video for a story
+1641|Silent
+1642|Stadium sound
+1643|Stadium and music
+1644|Make the video
+1645|A video needs at least two steps
+1646|This step
+1647|All {0} steps
+1648|For a friend
+1649|Tactic file
+1650|Your friend opens it in GoalLive from My tactics → Open a file, and can change it.
+1651|This match in the studio
+1652|This match's line-ups aren't out yet.
+1653|Both sides as they started the match
+1654|The goals, rebuilt
+1655|Only where each goal was shot from is known; the rest of the scene is laid out roughly.
+1656|GoalLive tactics studio
+1657|My tactic
