@@ -49,6 +49,8 @@ jobs:
         if: failure()
         run: |
           grep -E "^e: |error:|What went wrong" -A2 build.log | head -150
+          # each Kotlin error also as an annotation, readable from the run's page and API
+          grep -E "^e: " build.log | head -30 | sed 's/^e: file:\/\/[^ ]*\/java\///; s/^/::error::/' || true
       - run: cp app/build/outputs/apk/release/app-release.apk goallive.apk
       - uses: actions/upload-artifact@v4
         with:

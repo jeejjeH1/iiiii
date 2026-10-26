@@ -22,6 +22,10 @@ import app.goallive.live.data.objs
 import app.goallive.live.data.path
 import app.goallive.live.data.s
 import org.json.JSONArray
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.exp
+import kotlin.math.sqrt
 import org.json.JSONObject
 
 /*
@@ -77,13 +81,14 @@ class SMark(val kind: String, val pts: List<Offset>, val color: Int, val width: 
  * the ball in the air on the way when [air]; [note] shown under the pitch; [paths] the routes drawn by finger (player key → points).
  */
 class SFrame(val pos: Map<Int, Offset>, val ball: Offset, val air: Boolean = false, val dur: Float = 1.2f, val note: String = "",
-             val paths: Map<Int, List<Offset>> = emptyMap()) {
+             val paths: Map<Int, List<Offset>> = emptyMap(), val ev: SEvent? = null) {
     fun copy(pos: Map<Int, Offset> = this.pos, ball: Offset = this.ball, air: Boolean = this.air, dur: Float = this.dur, note: String = this.note,
-             paths: Map<Int, List<Offset>> = this.paths) = SFrame(pos, ball, air, dur, note, paths)
+             paths: Map<Int, List<Offset>> = this.paths, ev: SEvent? = this.ev) = SFrame(pos, ball, air, dur, note, paths, ev)
     fun json(): JSONObject = JSONObject()
         .put("pos", JSONObject().apply { pos.forEach { (k, o) -> put("$k", JSONArray().put(o.x.toDouble()).put(o.y.toDouble())) } })
         .put("ball", JSONArray().put(ball.x.toDouble()).put(ball.y.toDouble())).put("air", air).put("dur", dur.toDouble()).put("note", note)
         .put("paths", JSONObject().apply { paths.forEach { (k, ps) -> put("$k", JSONArray().apply { ps.forEach { put(it.x.toDouble()); put(it.y.toDouble()) } }) } })
+        .put("ev", ev?.json())
     companion object {
         private fun pt(a: JSONArray?) = Offset(a?.optDouble(0, 0.5)?.toFloat() ?: 0.5f, a?.optDouble(1, 0.5)?.toFloat() ?: 0.5f)
         fun of(j: JSONObject): SFrame {
@@ -94,9 +99,39 @@ class SFrame(val pos: Map<Int, Offset>, val ball: Offset, val air: Boolean = fal
                 val a = o.optJSONArray(k) ?: return@forEach
                 paths[k.toIntOrNull() ?: 0] = (0 until a.length() / 2).map { Offset(a.optDouble(2 * it).toFloat(), a.optDouble(2 * it + 1).toFloat()) }
             } }
-            return SFrame(pos, pt(j.optJSONArray("ball")), j.optBoolean("air"), j.optDouble("dur", 1.2).toFloat(), j.optString("note"), paths)
+            return SFrame(pos, pt(j.optJSONArray("ball")), j.optBoolean("air"), j.optDouble("dur", 1.2).toFloat(), j.optString("note"), paths,
+                j.optJSONObject("ev")?.let { SEvent.of(it) })
         }
     }
+}
+
+/**
+ * What happens as a step is reached: a shot ([kind] "shot", its [outcome] goal / save / post / wide / block, decided by hand,
+ * by the chance of a goal, or by a roll of the dice with that chance), a tackle, an interception or an offside.
+ * [by] is the player who does it (the shooter, the tackler), [xg] the shot's chance of a goal, [seed] the dice.
+ */
+class SEvent(val kind: String, val outcome: String = "", val decide: String = "manual", val by: Int = -1, val xg: Float = 0f, val seed: Long = 0L) {
+    fun json(): JSONObject = JSONObject().put("kind", kind).put("outcome", outcome).put("decide", decide).put("by", by).put("xg", xg.toDouble()).put("seed", seed)
+    companion object {
+        fun of(j: JSONObject) = SEvent(j.optString("kind"), j.optString("outcome"), j.optString("decide", "manual"), j.optInt("by", -1),
+            j.optDouble("xg").toFloat(), j.optLong("seed"))
+    }
+}
+
+val SHOT_OUTCOMES = listOf("goal", "save", "post", "wide", "block")
+
+/**
+ * The chance a shot from [b] goes in, from how far it is from the goal ([goalV] 0 the top one, 1 the bottom one), how much of the
+ * goal mouth it sees, and how many defenders stand in the way: a small model of the kind the expected-goals numbers use.
+ */
+fun shotChance(b: Offset, goalV: Float, blockers: Int): Float {
+    val x = (b.x - 0.5f) * 68f; val y = abs(b.y - goalV) * 105f
+    val d = sqrt(x * x + y * y)
+    // the angle between the two posts as the shooter sees them
+    val a1 = atan2(x - 3.66f, y); val a2 = atan2(x + 3.66f, y)
+    val angle = abs(a2 - a1)
+    val z = 1.6f - 0.24f * d + 2.0f * angle - 0.6f * blockers
+    return (1f / (1f + exp(-z))).coerceIn(0.01f, 0.97f)
 }
 
 /** What can be drawn, in the toolbar's order. */
@@ -297,6 +332,63 @@ class StudioBoard {
 
     fun setFrame(k: Int, f: SFrame) { frames[k] = f; if (k == cur) applyFrame(f); commit() }
 
+    /** Who has the ball as step [k] begins: the player nearest it. */
+    fun holder(k: Int): SPlayer? {
+        val f = frames.getOrNull(k) ?: return null
+        return players.filter { it.side == 0 || showAway }.minByOrNull { p -> (f.pos[p.key]?.let { (it - f.ball).getDistance() }) ?: 9f }
+    }
+
+    /**
+     * Puts [kind] on step [k] (k ≥ 1). A shot is played out: who shoots (whoever had the ball the step before), its chance,
+     * the outcome (by hand, by the chance, or by the dice) and where the ball and the keeper end up.
+     */
+    fun setEvent(k: Int, kind: String?, outcome: String = "goal", decide: String = "manual", reroll: Boolean = false) {
+        if (k < 1 || k >= frames.size) return
+        syncOut()
+        val f = frames[k]
+        if (kind == null) { setFrame(k, f.copy(ev = null)); return }
+        if (kind != "shot") { setFrame(k, f.copy(ev = SEvent(kind, by = nearestTo(f, f.ball)?.key ?: -1))); return }
+        val prev = frames[k - 1]
+        val shooter = holder(k - 1) ?: return
+        val side = shooter.side
+        val goalV = if (side == 0) 0f else 1f
+        val inward = if (side == 0) 1f else -1f
+        val b = prev.ball
+        val them = players.filter { it.side != side }
+        // the defenders in the way: inside the triangle from the ball to the posts
+        val blockers = them.count { p -> prev.pos[p.key]?.let { inTriangle(it, b, Offset(0.4462f, goalV), Offset(0.5538f, goalV)) } ?: false }
+        val xg = shotChance(b, goalV, blockers)
+        val keeper = them.minByOrNull { p -> prev.pos[p.key]?.let { abs(it.y - goalV) + abs(it.x - 0.5f) * 0.5f } ?: 9f }
+        val kp = keeper?.let { prev.pos[it.key] }
+        val seed = if (reroll || f.ev?.seed == null || f.ev.seed == 0L) kotlin.random.Random.nextLong() else f.ev.seed
+        val result = when (decide) {
+            "auto" -> if (xg >= 0.3f) "goal" else if (blockers > 1) "block" else if (kp != null) "save" else "wide"
+            "luck" -> {
+                val r = kotlin.random.Random(seed)
+                if (r.nextFloat() < xg) "goal" else listOf("save", "save", "save", "wide", "wide", "post", "block").let { it[r.nextInt(it.size)] }.let { o -> if (o == "block" && blockers == 0) "save" else o }
+            }
+            else -> outcome
+        }
+        // where the ball goes: away from the keeper for a goal, at him for a save
+        val far = if ((kp?.x ?: 0.5f) < 0.5f) 1f else -1f
+        val pos = f.pos.toMutableMap()
+        val end = when (result) {
+            "goal" -> Offset(0.5f + far * 0.038f, goalV - inward * 0.014f)
+            "save" -> Offset(0.5f + far * 0.026f, goalV + inward * 0.022f)
+            "post" -> Offset(0.5f + far * 0.0538f, goalV)
+            "wide" -> Offset(0.5f + far * 0.085f, goalV - inward * 0.02f)
+            else -> them.minByOrNull { p -> prev.pos[p.key]?.let { segDistance(it, b, Offset(0.5f, goalV)) } ?: 9f }?.let { prev.pos[it.key] } ?: b
+        }
+        // the keeper dives: to the ball for a save, the right way but too late for a goal
+        if (keeper != null && kp != null && result in setOf("goal", "save", "post")) {
+            val dive = Offset(end.x, goalV + inward * 0.02f)
+            pos[keeper.key] = if (result == "save") dive else kp + (dive - kp) * 0.6f
+        }
+        setFrame(k, f.copy(pos = pos, ball = end, air = false, ev = SEvent("shot", result, decide, shooter.key, xg, seed)))
+    }
+
+    private fun nearestTo(f: SFrame, at: Offset) = players.minByOrNull { p -> f.pos[p.key]?.let { (it - at).getDistance() } ?: 9f }
+
     /** Puts [t]'s eleven on [side], replacing what was there. */
     fun setSide(side: Int, t: LoadedTeam) {
         players.removeAll { it.side == side }
@@ -341,6 +433,19 @@ class StudioBoard {
         return if (f2.air) BoardMoment(pos, b1 + (b2 - b1) * f, kotlin.math.sin(Math.PI * f).toFloat() * (0.04f + travel * 0.35f), f * travel)
         else BoardMoment(pos, if (travel < 0.002f) b2 else b1 + (b2 - b1) * eb, 0f, eb * travel)
     }
+}
+
+private fun inTriangle(p: Offset, a: Offset, b: Offset, c: Offset): Boolean {
+    fun s(p1: Offset, p2: Offset, p3: Offset) = (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y)
+    val d1 = s(p, a, b); val d2 = s(p, b, c); val d3 = s(p, c, a)
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))
+}
+
+private fun segDistance(p: Offset, a: Offset, b: Offset): Float {
+    val ab = b - a; val len2 = ab.x * ab.x + ab.y * ab.y
+    if (len2 == 0f) return (p - a).getDistance()
+    val t = (((p - a).x * ab.x + (p - a).y * ab.y) / len2).coerceIn(0f, 1f)
+    return (p - (a + ab * t)).getDistance()
 }
 
 /** Everyone's place at one moment of a move; the ball's [height] above the grass (pitch shares) and how far it has rolled. */

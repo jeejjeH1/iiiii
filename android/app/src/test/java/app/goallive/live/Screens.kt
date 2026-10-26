@@ -240,10 +240,14 @@ class Screens {
             b.addFrame(); b.players.filter { it.side == 0 }.forEach { it.v -= 0.06f }; b.ball = o(0.82f, 0.4f); b.commit()
             b.addFrame(); b.players.filter { it.side == 0 && it.v < 0.6f }.forEach { it.v -= 0.08f }; b.ball = o(0.5f, 0.14f); b.commit()
             b.setFrame(2, b.frames[2].copy(air = true, note = "سانتر از جناح راست"))
+            // then a header at the far post
+            b.addFrame(); b.players.filter { it.side == 0 && it.v < 0.3f }.maxByOrNull { it.u }?.let { it.u = 0.56f; it.v = 0.1f }; b.ball = o(0.56f, 0.1f); b.commit()
+            b.addFrame(); b.setEvent(4, "shot", "goal", "auto")
             app.goallive.live.data.Store.prefs().edit().putString("studio.current", b.json().toString()).commit()
         }.onFailure { System.err.println("SHOT studio board failed: $it") }
         NavHook.nav?.tab("studio"); settle(9000); shot("90-studio")
         app.goallive.live.ui.StudioPrefs.tilt = true; app.goallive.live.ui.StudioPrefs.style = "shirt"; settle(2000); shot("91-studio-tv")
+        app.goallive.live.ui.StudioChrome.full = true; settle(2000); shot("94-studio-full"); app.goallive.live.ui.StudioChrome.full = false; settle(1000)
         app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.style = "disc"; app.goallive.live.ui.StudioPrefs.range = "half"; app.goallive.live.ui.StudioPrefs.grass = "board"
         settle(2000); shot("92-studio-half")
         app.goallive.live.ui.StudioPrefs.style = "photo"; app.goallive.live.ui.StudioPrefs.range = "full"; app.goallive.live.ui.StudioPrefs.grass = "green"

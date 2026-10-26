@@ -1504,3 +1504,26 @@
 1503|Earlier
 1504|Later
 1505|Delete step
+1506|Saved!
+1507|Off the post!
+1508|Wide!
+1509|Blocked!
+1510|Tackle!
+1511|Intercepted!
+1512|Offside!
+1513|Chance of a goal: {0}%
+1514|Decided by the chance
+1515|Decided by the dice
+1516|Set by hand
+1517|Step {0} of {1}
+1518|Step {0}:
+1519|What happens
+1520|Nothing
+1521|Who decides the shot's outcome?
+1522|Me
+1523|The chance of a goal
+1524|The dice
+1525|Chance of a goal: {0}%
+1526|From the distance, how much of the goal is in sight and the defenders in the way
+1527|Outcome: {0}
+1528|Roll again

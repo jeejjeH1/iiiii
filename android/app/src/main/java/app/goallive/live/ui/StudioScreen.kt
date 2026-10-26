@@ -73,26 +73,57 @@ fun StudioScreen() {
         if (saved == null || runCatching { board.load(JSONObject(saved)) }.isFailure || board.players.isEmpty()) board.fresh()
         board.reset(); ready = true
     }
-    // playing the move: time runs through the steps, each at its own length, at the chosen speed
+    // playing the move: time runs through the steps, each at its own length, at the chosen speed; slower into a shot,
+    // and a pause on each event while it shows
     LaunchedEffect(ed.playing) {
         if (!ed.playing) return@LaunchedEffect
         board.syncOut()
         val n = board.frames.size
         if (n < 2) { ed.playing = false; return@LaunchedEffect }
-        if ((ed.playT ?: 0f) >= n - 1.001f) ed.playT = 0f
-        if (ed.playT == null) ed.playT = 0f
+        if (ed.playT == null || (ed.playT ?: 0f) >= n - 1.001f) { ed.playT = 0f; ed.result = null; ed.fx = null }
+        var reached = kotlin.math.floor(ed.playT ?: 0f).toInt()
         var last = withFrameNanos { it }
         while (ed.playing) {
             withFrameNanos { now ->
                 val dt = ((now - last) / 1e9f).coerceAtMost(0.05f); last = now
+                ed.fx = ed.fx?.let { (i, sec) -> if (sec + dt > 2.6f) null else i to sec + dt }
+                if (ed.hold > 0f) { ed.hold -= dt; return@withFrameNanos }
                 val t = ed.playT ?: 0f
+                if (t >= n - 1) {
+                    if (StudioPrefs.loop) { ed.playT = 0f; reached = 0 } else ed.playing = false
+                    return@withFrameNanos
+                }
                 val k = kotlin.math.floor(t).toInt().coerceIn(0, n - 2)
-                var nt = t + dt * StudioPrefs.speed / board.frames[k + 1].dur.coerceAtLeast(0.2f)
-                if (nt >= n - 1) { if (StudioPrefs.loop) nt = 0f else { nt = (n - 1).toFloat(); ed.playing = false } }
-                ed.playT = nt
+                val next = board.frames[k + 1]
+                val slow = if (next.ev?.kind == "shot" && t - k > 0.55f) 0.38f else 1f
+                var nt = t + dt * StudioPrefs.speed * slow / next.dur.coerceAtLeast(0.2f)
+                if (nt >= k + 1 && reached != k + 1) {
+                    reached = k + 1; nt = (k + 1).toFloat()
+                    next.ev?.let { e ->
+                        ed.fx = (k + 1) to 0f
+                        ed.hold = when { e.kind == "shot" && e.outcome == "goal" -> 2.1f; e.kind == "offside" -> 1.2f; e.kind == "shot" -> 1.1f; else -> 0.7f }
+                        if (e.kind == "shot") ed.result = e
+                    }
+                }
+                ed.playT = nt.coerceAtMost((n - 1).toFloat())
             }
         }
     }
+    // full screen: no bars, the pitch alone with the playback controls
+    val full = StudioChrome.full
+    androidx.activity.compose.BackHandler(enabled = full) { StudioChrome.full = false }
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(full) {
+        val win = (view.context as? android.app.Activity)?.window
+        val ctl = win?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        if (full) {
+            ctl?.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            ctl?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { ctl?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+    }
+    DisposableEffect(Unit) { onDispose { StudioChrome.full = false } }
+    if (full) { FullStudio(board, ed, ready); SheetsOf(board, ed, teamSheet, library, viewSheet, { teamSheet = -1 }, { library = false }, { viewSheet = false }); return }
     Column(Modifier.fillMaxSize().padding(bottom = BottomSpace - 14.dp)) {
         // title and the board's actions
         Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 8.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -107,6 +138,10 @@ fun StudioScreen() {
             UndoBtn(false, board.canRedo) { board.redo() }
             Spacer(Modifier.width(6.dp))
             IconBtn(Ic.sliders, L("نما"), C.ink, C.card2, 19.dp) { viewSheet = true }
+            Spacer(Modifier.width(6.dp))
+            Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(C.card2).clickable { StudioChrome.full = true }, contentAlignment = Alignment.Center) {
+                FullGlyph(true, C.ink)
+            }
         }
         // the two sides
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -119,19 +154,7 @@ fun StudioScreen() {
             }
         }
         // the pitch
-        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-            if (ready) StudioPitch(board, ed)
-            // the step's note, like a caption
-            val noteAt = ed.playT?.let { t -> board.frames.getOrNull(kotlin.math.ceil(t).toInt().coerceAtMost(board.frames.size - 1)) } ?: board.frames.getOrNull(board.cur)
-            noteAt?.note?.takeIf { it.isNotBlank() }?.let { n ->
-                Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp, start = 24.dp, end = 24.dp).clip(RoundedCornerShape(14.dp))
-                    .background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 14.dp, vertical = 8.dp)) { T(n, 13, FontWeight.Bold, Color.White, maxLines = 2) }
-            }
-            if (ed.zoom > 1.01f) Box(Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f))
-                .clickable { ed.zoom = 1f; ed.pan = Offset.Zero }.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                T(L("بزرگ‌نمایی {0}×", fa(String.format(java.util.Locale.US, "%.1f", ed.zoom))), 12, FontWeight.Bold, Color.White)
-            }
-        }
+        PitchArea(board, ed, ready, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp))
         Timeline(board, ed)
         ContextBar(board, ed)
         // the tools
@@ -149,15 +172,127 @@ fun StudioScreen() {
             }
         }
     }
-    if (teamSheet >= 0) TeamSheet(board, teamSheet) { teamSheet = -1 }
-    if (library) LibrarySheet(board) { library = false }
-    if (viewSheet) ViewSheet { viewSheet = false }
+    SheetsOf(board, ed, teamSheet, library, viewSheet, { teamSheet = -1 }, { library = false }, { viewSheet = false })
+}
+
+/** The sheets and questions the studio opens. */
+@Composable
+private fun SheetsOf(board: StudioBoard, ed: StudioEditor, teamSheet: Int, library: Boolean, viewSheet: Boolean, closeTeam: () -> Unit, closeLibrary: () -> Unit, closeView: () -> Unit) {
+    if (teamSheet >= 0) TeamSheet(board, teamSheet, closeTeam)
+    if (library) LibrarySheet(board, closeLibrary)
+    if (viewSheet) ViewSheet(closeView)
     ed.editPlayer?.let { p -> PlayerSheet(board, ed, p) { ed.editPlayer = null } }
     if (ed.frameMenu in board.frames.indices) FrameSheet(board, ed, ed.frameMenu) { ed.frameMenu = -1 }
     ed.textAt?.let { at ->
         TextAsk(L("نوشته روی زمین"), "") { s ->
             if (s != null && s.isNotBlank()) { board.marks += SMark("text", listOf(at), ed.pen, ed.width, ed.alpha, s.trim(), ed.layer); board.commit() }
             ed.textAt = null
+        }
+    }
+}
+
+/** Whether the studio is full screen (the app's bars hide). */
+object StudioChrome { var full by mutableStateOf(false) }
+
+/** The pitch with what goes over it: the step's caption, the shot's result, the zoom. */
+@Composable
+private fun PitchArea(board: StudioBoard, ed: StudioEditor, ready: Boolean, modifier: Modifier) {
+    Box(modifier, contentAlignment = Alignment.Center) {
+        if (ready) StudioPitch(board, ed)
+        // the step's note, like a caption
+        val noteAt = ed.playT?.let { t -> board.frames.getOrNull(kotlin.math.ceil(t).toInt().coerceAtMost(board.frames.size - 1)) } ?: board.frames.getOrNull(board.cur)
+        noteAt?.note?.takeIf { it.isNotBlank() }?.let { n ->
+            Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp, start = 24.dp, end = 24.dp).clip(RoundedCornerShape(14.dp))
+                .background(Color.Black.copy(alpha = 0.72f)).padding(horizontal = 14.dp, vertical = 8.dp)) { T(n, 13, FontWeight.Bold, Color.White, maxLines = 2) }
+        }
+        // the last shot: what came of it and its chance
+        ed.result?.takeIf { !ed.playing || ed.fx == null }?.let { r ->
+            val col = when (r.outcome) { "goal" -> Color(0xFFF5C542); "save" -> Color(0xFF35B6FF); "post" -> Color.White; "block" -> Color(0xFFFF9F43); else -> Color(0xFFB0B8C4) }
+            Row(Modifier.align(Alignment.TopCenter).padding(top = 10.dp).clip(RoundedCornerShape(18.dp)).background(Color(0xE60B0F14))
+                .border(1.dp, col.copy(alpha = 0.6f), RoundedCornerShape(18.dp)).clickable { ed.result = null }.padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                T(outcomeName(r.outcome), 18, FontWeight.Black, col)
+                Column {
+                    T(L("احتمال گل این شوت: {0}٪", fa(Math.round(r.xg * 100))), 12, FontWeight.Bold, Color.White)
+                    T(when (r.decide) { "auto" -> L("نتیجه از روی احتمال"); "luck" -> L("نتیجه با تاس"); else -> L("نتیجه‌ی دستی") }, 11, color = Color.White.copy(alpha = 0.65f))
+                }
+            }
+        }
+        if (ed.zoom > 1.01f && !ed.playing) Box(Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f))
+            .clickable { ed.zoom = 1f; ed.pan = Offset.Zero }.padding(horizontal = 12.dp, vertical = 6.dp)) {
+            T(L("بزرگ‌نمایی {0}×", fa(String.format(java.util.Locale.US, "%.1f", ed.zoom))), 12, FontWeight.Bold, Color.White)
+        }
+    }
+}
+
+/** Full screen: the pitch on black, and under it the steps, play, back and forward, and the way out. */
+@Composable
+private fun FullStudio(board: StudioBoard, ed: StudioEditor, ready: Boolean) {
+    val accent = LocalAccent.current
+    Box(Modifier.fillMaxSize().background(Color(0xFF05070A))) {
+        PitchArea(board, ed, ready, Modifier.fillMaxSize().padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 84.dp))
+        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            RoundBtn(Color.White.copy(alpha = 0.12f), { StudioChrome.full = false }) { FullGlyph(false, Color.White) }
+            Spacer(Modifier.weight(1f))
+            val n = board.frames.size
+            RoundBtn(Color.White.copy(alpha = 0.12f), { ed.playing = false; ed.playT = null; board.show(board.cur + (if (app.goallive.live.Lang.en) -1 else 1)) }) { StepGlyph(!app.goallive.live.Lang.en) }
+            Box(Modifier.size(58.dp).glow(accent.copy(alpha = 0.4f), 10.dp, CircleShape).clip(CircleShape).background(if (n >= 2) accent else Color.White.copy(alpha = 0.12f))
+                .clickable(enabled = n >= 2) { if (ed.playing) ed.playing = false else { board.syncOut(); ed.playing = true } }, contentAlignment = Alignment.Center) {
+                PlayGlyph(ed.playing, if (n >= 2) LocalAccentInk.current else Color.White.copy(alpha = 0.4f))
+            }
+            RoundBtn(Color.White.copy(alpha = 0.12f), { ed.playing = false; ed.playT = null; board.show(board.cur + (if (app.goallive.live.Lang.en) 1 else -1)) }) { StepGlyph(app.goallive.live.Lang.en) }
+            Spacer(Modifier.weight(1f))
+            Box(Modifier.height(44.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.12f)).clickable {
+                StudioPrefs.speed = when (StudioPrefs.speed) { 0.5f -> 1f; 1f -> 1.8f; else -> 0.5f }; StudioPrefs.keep()
+            }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                T(fa(when (StudioPrefs.speed) { 0.5f -> "0.5"; 1f -> "1"; else -> "1.8" }) + "×", 14, FontWeight.Black, Color.White)
+            }
+        }
+        // which step, top corner
+        Box(Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp).clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+            val at = ed.playT?.let { kotlin.math.round(it).toInt() } ?: board.cur
+            T(L("مرحله‌ی {0} از {1}", fa(at + 1), fa(board.frames.size)), 12, FontWeight.Bold, Color.White)
+        }
+    }
+}
+
+@Composable
+private fun RoundBtn(bg: Color, onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(Modifier.size(44.dp).clip(CircleShape).background(bg).clickable(onClick = onClick), contentAlignment = Alignment.Center) { content() }
+}
+
+@Composable
+private fun PlayGlyph(playing: Boolean, ink: Color) {
+    Canvas(Modifier.size(22.dp)) {
+        val w = size.width
+        if (playing) { drawRect(ink, Offset(w * 0.18f, w * 0.12f), androidx.compose.ui.geometry.Size(w * 0.22f, w * 0.76f)); drawRect(ink, Offset(w * 0.6f, w * 0.12f), androidx.compose.ui.geometry.Size(w * 0.22f, w * 0.76f)) }
+        else drawPath(Path().apply { moveTo(w * 0.22f, w * 0.1f); lineTo(w * 0.9f, w * 0.5f); lineTo(w * 0.22f, w * 0.9f); close() }, ink)
+    }
+}
+
+/** A step to the left or right: a bar and a triangle. */
+@Composable
+private fun StepGlyph(right: Boolean) {
+    Canvas(Modifier.size(18.dp)) {
+        val w = size.width
+        fun X(x: Float) = if (right) x * w else (1 - x) * w
+        drawPath(Path().apply { moveTo(X(0.15f), w * 0.15f); lineTo(X(0.7f), w * 0.5f); lineTo(X(0.15f), w * 0.85f); close() }, Color.White)
+        drawRect(Color.White, Offset(minOf(X(0.74f), X(0.88f)), w * 0.15f), androidx.compose.ui.geometry.Size(w * 0.14f, w * 0.7f))
+    }
+}
+
+/** Four corners pointing out (to full screen) or in (back). */
+@Composable
+private fun FullGlyph(out: Boolean, ink: Color) {
+    Canvas(Modifier.size(20.dp)) {
+        val w = size.width; val s = Stroke(1.8.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+        val a = 0.12f; val b = 0.4f
+        for ((cx, cy) in listOf(0f to 0f, 1f to 0f, 0f to 1f, 1f to 1f)) {
+            fun P(x: Float, y: Float) = Offset((if (cx == 0f) x else 1 - x) * w, (if (cy == 0f) y else 1 - y) * w)
+            val p = if (out) Path().apply { moveTo(P(a, b).x, P(a, b).y); lineTo(P(a, a).x, P(a, a).y); lineTo(P(b, a).x, P(b, a).y) }
+                else Path().apply { moveTo(P(b, a).x, P(b, a).y); lineTo(P(b, b).x, P(b, b).y); lineTo(P(a, b).x, P(a, b).y) }
+            drawPath(p, ink, style = s)
         }
     }
 }
@@ -283,6 +418,19 @@ private fun ContextBar(board: StudioBoard, ed: StudioEditor) {
             ed.selected.size > 1 -> Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 T(L("{0} بازیکن انتخاب شده؛ با کشیدن یکی، همه جابه‌جا می‌شوند", fa(ed.selected.size)), 12, FontWeight.Bold, C.mute, modifier = Modifier.weight(1f))
                 Pill(L("لغو انتخاب"), PillKind.Plain, onClick = { ed.selected.clear() })
+            }
+            ed.tool == "move" && board.cur > 0 && ed.playT == null -> Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                val ev = board.frames.getOrNull(board.cur)?.ev
+                T(L("اتفاق مرحله‌ی {0}:", fa(board.cur + 1)), 12, FontWeight.Bold, C.mute)
+                for ((kind, label) in listOf("shot" to L("شوت"), "tackle" to L("تکل"), "intercept" to L("قطع توپ"), "offside" to L("آفساید"))) {
+                    val on = ev?.kind == kind
+                    Box(Modifier.height(34.dp).clip(RoundedCornerShape(10.dp)).background(if (on) LocalAccent.current else C.card2)
+                        .clickable { if (on) ed.frameMenu = board.cur else board.setEvent(board.cur, kind) }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+                        T(label, 12, FontWeight.Bold, if (on) LocalAccentInk.current else C.ink)
+                    }
+                }
+                if (ev?.kind == "shot") T(outcomeName(ev.outcome) + " · " + fa(Math.round(ev.xg * 100)) + "٪", 12, FontWeight.Black, LocalAccent.current)
             }
             else -> T(when (ed.tool) {
                 "spot" -> L("روی بازیکن بزن تا نور روی او بیفتد؛ دوباره بزن تا خاموش شود")
@@ -575,6 +723,47 @@ private fun Timeline(board: StudioBoard, ed: StudioEditor) {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp), maxLines = 2)
 }
 
+/** What happens as step [k] is reached: nothing, a shot (and how it ends), a tackle, an interception or an offside. */
+@Composable
+private fun EventControls(board: StudioBoard, k: Int) {
+    val ev = board.frames[k].ev
+    StudioLabel(L("اتفاق این مرحله"))
+    StudioChips(listOf<Pair<String?, String>>(null to L("هیچ"), "shot" to L("شوت"), "tackle" to L("تکل"), "intercept" to L("قطع توپ"), "offside" to L("آفساید")), ev?.kind) {
+        board.setEvent(k, it)
+    }
+    if (ev?.kind == "shot") {
+        StudioLabel(L("نتیجه‌ی شوت را چه کسی تعیین کند؟"))
+        StudioChips(listOf("manual" to L("خودم"), "auto" to L("از روی احتمال گل"), "luck" to L("شانسی")), ev.decide) {
+            board.setEvent(k, "shot", ev.outcome.ifEmpty { "goal" }, it, reroll = it == "luck")
+        }
+        if (ev.decide == "manual") {
+            Spacer(Modifier.height(8.dp))
+            StudioChips(SHOT_OUTCOMES.map { it to outcomeName(it) }, ev.outcome) { board.setEvent(k, "shot", it, "manual") }
+        }
+        Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.card2).padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            // the chance as a ring
+            val accent = LocalAccent.current
+            Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val st = Stroke(5.dp.toPx(), cap = StrokeCap.Round)
+                    drawArc(Color.White.copy(alpha = 0.12f), 0f, 360f, false, style = st)
+                    drawArc(accent, -90f, 360f * ev.xg, false, style = st)
+                }
+                T(fa(Math.round(ev.xg * 100)) + "٪", 13, FontWeight.Black)
+            }
+            Column(Modifier.weight(1f)) {
+                T(L("احتمال گل: {0}٪", fa(Math.round(ev.xg * 100))), 14, FontWeight.ExtraBold)
+                T(L("از روی فاصله، زاویه‌ی دید دروازه و مدافع‌های جلوی توپ"), 11, color = C.mute, maxLines = 2)
+                T(L("نتیجه: {0}", outcomeName(ev.outcome)), 13, FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+        if (ev.decide == "luck") Box(Modifier.padding(horizontal = 16.dp)) {
+            Pill(L("دوباره تاس بریز"), PillKind.Accent, onClick = { board.setEvent(k, "shot", ev.outcome, "luck", reroll = true) })
+        }
+    }
+}
+
 /** A step drawn small: the pitch, each player as a dot in his colour, the ball, and the step's number. */
 @Composable
 private fun FrameThumb(board: StudioBoard, k: Int, on: Boolean, modifier: Modifier) {
@@ -616,6 +805,7 @@ private fun FrameSheet(board: StudioBoard, ed: StudioEditor, k: Int, onClose: ()
             }
             StudioLabel(L("توپ"))
             StudioChips(listOf(false to L("روی زمین"), true to L("هوایی")), f.air) { board.setFrame(k, board.frames[k].copy(air = it)) }
+            EventControls(board, k)
         }
         StudioLabel(L("زیرنویس این مرحله"))
         Field(note, L("مثلاً: هافبک بین خطوط می‌چرخد"), Modifier.padding(horizontal = 16.dp).fillMaxWidth()) { note = it.take(80) }

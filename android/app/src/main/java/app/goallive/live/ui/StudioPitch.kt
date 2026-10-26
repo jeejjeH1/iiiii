@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -120,6 +121,10 @@ class StudioEditor {
     var playT by mutableStateOf<Float?>(null)
     /** The step whose menu is open. */
     var frameMenu by mutableIntStateOf(-1)
+    /** An event being shown: the step it happened on and the seconds since; a pause after it; the last shot's result for the banner. */
+    var fx by mutableStateOf<Pair<Int, Float>?>(null)
+    var hold by mutableFloatStateOf(0f)
+    var result by mutableStateOf<SEvent?>(null)
 }
 
 /* ---------- the canvas ---------- */
@@ -242,8 +247,29 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
                         drawCircle(Color.White.copy(alpha = 0.35f), proj.r(prev.ball.y) * 0.4f, proj.at(prev.ball))
                     }
                 }
-                drawPlayers(board, ed, proj, faces, tf, now?.pos)
-                drawBall(proj, now?.ball ?: board.ball, now?.height ?: 0f, now?.roll ?: 0f)
+                // an event being shown: its frame, its kind and how long ago
+                val fxNow = ed.fx?.let { (i, sec) -> board.frames.getOrNull(i)?.ev?.let { Triple(i, it, sec) } }
+                var shown = now?.pos
+                var ballAt = now?.ball ?: board.ball
+                if (fxNow != null && t != null) {
+                    val (i, ev, sec) = fxNow
+                    val frame = board.frames[i]
+                    // the scorers celebrate: hopping on the spot
+                    if (ev.kind == "shot" && ev.outcome == "goal") {
+                        val side = board.players.firstOrNull { it.key == ev.by }?.side ?: 0
+                        val m = HashMap(shown ?: board.players.associate { it.key to Offset(it.u, it.v) })
+                        board.players.filter { it.side == side }.forEach { p -> m[p.key]?.let { m[p.key] = it - Offset(0f, abs(sin(sec * 9f + p.key)) * 0.012f * (1 - (sec / 2.6f)).coerceAtLeast(0f)) } }
+                        shown = m
+                    }
+                    // off the post: the ball comes back out
+                    if (ev.kind == "shot" && ev.outcome == "post") {
+                        val out = if (frame.ball.y < 0.5f) 1f else -1f
+                        ballAt = frame.ball + Offset((0.5f - frame.ball.x) * 0.6f, out * 0.09f) * easeOutF(min(1f, sec / 0.9f))
+                    }
+                }
+                drawPlayers(board, ed, proj, faces, tf, shown)
+                drawBall(proj, ballAt, now?.height ?: 0f, now?.roll ?: 0f)
+                if (fxNow != null && t != null) drawEvent(proj, board, fxNow.first, fxNow.second, fxNow.third, tf)
                 // the spotlight: everything dimmed but the players it is on
                 val lit = board.players.filter { it.spot && (it.side == 0 || board.showAway) }
                 if (lit.isNotEmpty()) {
@@ -733,3 +759,89 @@ private fun DrawScope.drawBall(proj: Proj, b: Offset, height: Float = 0f, roll: 
 }
 
 @Suppress("unused") private fun keep(a: Float) = hypot(a, a)
+
+
+/* ---------- what happens: goals, saves, tackles, offsides ---------- */
+
+private fun easeOutF(t: Float) = 1 - (1 - t) * (1 - t) * (1 - t)
+private fun popIn(t: Float): Float { val q = (t - 1); return 1 + q * q * (2.7f * q + 1.7f) }
+
+fun outcomeName(o: String) = when (o) {
+    "goal" -> app.goallive.live.L("گل!"); "save" -> app.goallive.live.L("سیو!"); "post" -> app.goallive.live.L("تیرک!")
+    "wide" -> app.goallive.live.L("بیرون!"); "block" -> app.goallive.live.L("مهار شد!"); "tackle" -> app.goallive.live.L("تکل!")
+    "intercept" -> app.goallive.live.L("قطع توپ!"); "offside" -> app.goallive.live.L("آفساید!"); else -> ""
+}
+
+/** The moment of an event, [sec] seconds after it: the net shaking, light and confetti for a goal; a ring for a save or the post; sparks for a tackle; the line for an offside; and its word. */
+private fun DrawScope.drawEvent(proj: Proj, board: StudioBoard, i: Int, ev: SEvent, sec: Float, tf: Typeface) {
+    val f = board.frames[i]
+    val fade = (1f - ((sec - 1.8f) / 0.8f)).coerceIn(0f, 1f)
+    val by = board.players.firstOrNull { it.key == ev.by }
+    val team = if ((by?.side ?: 0) == 0) board.home else board.away
+    val kit = Color(team.color)
+    val gold = Color(0xFFF5C542)
+    val word = outcomeName(if (ev.kind == "shot") ev.outcome else ev.kind)
+    val ball = proj.at(f.ball)
+    when {
+        ev.kind == "shot" && ev.outcome == "goal" -> {
+            val goalV = if (f.ball.y < 0.5f) 0f else 1f
+            val g = proj.at(0.5f, goalV)
+            val r = proj.perMetre(goalV) * 9f
+            // light bursting from the goal
+            drawCircle(Brush.radialGradient(listOf(gold.copy(alpha = 0.55f * fade), kit.copy(alpha = 0.25f * fade), Color.Transparent), g, r * 2.6f), r * 2.6f, g)
+            // the net shaking
+            val back = if (goalV == 0f) -1f else 1f
+            val amp = proj.perMetre(goalV) * 0.9f * kotlin.math.exp(-sec * 2.5f)
+            for (k in 0..8) {
+                val u = 0.4462f + 0.1076f * k / 8
+                val a = proj.at(u, goalV); val z = proj.at(u, goalV + back * 2.2f / 105f)
+                val wob = sin(sec * 38f + k * 1.3f) * amp
+                drawLine(Color.White.copy(alpha = 0.8f * fade), a, z + Offset(wob, wob * 0.5f), 2f)
+            }
+            // confetti from the goal, falling
+            for (k in 0 until 46) {
+                val ang = (k * 137.5f) * (Math.PI.toFloat() / 180f)
+                val sp = r * (1.1f + (k % 7) * 0.22f)
+                val p = g + Offset(cos(ang) * sp * min(sec, 1.2f), sin(ang) * sp * 0.6f * min(sec, 1.2f) + 60f * sec * sec)
+                val c = when (k % 4) { 0 -> gold; 1 -> kit; 2 -> Color.White; else -> lerpC(kit, Color.White, 0.5f) }
+                withTransform({ rotate(sec * 400f + k * 40f, p) }) { drawRect(c.copy(alpha = fade), p - Offset(5f, 3f), Size(10f, 6f)) }
+            }
+            // GOAL!
+            val sz = size.width * 0.2f * popIn(min(1f, sec / 0.45f))
+            val mid = Offset(size.width / 2, size.height * 0.42f)
+            label(word, mid + Offset(0f, 6f), sz, Color.Black.copy(alpha = 0.45f * fade), tf)
+            label(word, mid, sz, gold.copy(alpha = fade), tf)
+        }
+        ev.kind == "shot" -> {
+            val col = when (ev.outcome) { "save" -> Color(0xFF35B6FF); "post" -> Color.White; "block" -> Color(0xFFFF9F43); else -> Color(0xFFB0B8C4) }
+            val rr = proj.r(f.ball.y) * (1f + sec * 3f)
+            drawCircle(col.copy(alpha = (0.9f - sec * 0.6f).coerceIn(0f, 1f)), rr, ball, style = Stroke(4f))
+            label(word, ball + Offset(0f, (if (f.ball.y < 0.5f) 1 else -1) * proj.r(f.ball.y) * 3.2f), proj.r(f.ball.y) * 1.5f * popIn(min(1f, sec / 0.4f)), col.copy(alpha = fade), tf, pill = true)
+        }
+        ev.kind == "tackle" || ev.kind == "intercept" -> {
+            val c = Color(((if ((board.players.firstOrNull { it.key == ev.by }?.side ?: 0) == 0) board.home else board.away).color))
+            val rr = proj.r(f.ball.y)
+            for (k in 0 until 10) {
+                val a = k * 36f * (Math.PI.toFloat() / 180f)
+                val d0 = rr * (0.6f + sec * 2f); val d1 = d0 + rr * 0.8f * (1 - min(1f, sec))
+                drawLine(gold.copy(alpha = fade), ball + Offset(cos(a), sin(a)) * d0, ball + Offset(cos(a), sin(a)) * d1, 3f, cap = StrokeCap.Round)
+            }
+            drawCircle(c.copy(alpha = fade), rr * 0.9f, ball, style = Stroke(4f))
+            label(word, ball - Offset(0f, rr * 2.6f), rr * 1.3f * popIn(min(1f, sec / 0.4f)), Color.White.copy(alpha = fade), tf, pill = true)
+        }
+        ev.kind == "offside" -> {
+            // the line of the last defender but one
+            val attacker = board.holder(i - 1)
+            val defending = board.players.filter { it.side != (attacker?.side ?: 0) }.mapNotNull { f.pos[it.key] }
+            val up = (attacker?.side ?: 0) == 0
+            val v = defending.sortedBy { if (up) it.y else -it.y }.getOrNull(1)?.y ?: 0.3f
+            val c = Color(0xFFF5E142)
+            drawLine(c.copy(alpha = fade), proj.at(-0.02f, v), proj.at(1.02f, v), 4f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(18f, 10f)))
+            // the linesman's flag
+            val fl = proj.at(1.0f, v) + Offset(-6f, 0f)
+            drawLine(Color.White.copy(alpha = fade), fl, fl - Offset(0f, 46f), 3f)
+            drawRect(c.copy(alpha = fade), fl - Offset(26f, 46f), Size(26f, 18f))
+            label(word, proj.at(0.5f, v) - Offset(0f, 34f), proj.r(v) * 1.3f * popIn(min(1f, sec / 0.4f)), c.copy(alpha = fade), tf, pill = true)
+        }
+    }
+}
