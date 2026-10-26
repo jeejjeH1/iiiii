@@ -2,7 +2,7 @@
 name: promo assets
 on:
   push:
-    paths: ['promo/voice.mjs', '.github/workflows/promo-assets.yml']
+    paths: ['promo/voice.mjs', 'promo/photos.txt', '.github/workflows/promo-assets.yml']
   workflow_dispatch:
 permissions:
   contents: write
@@ -32,6 +32,15 @@ jobs:
           grep -oE '"src":"[^"]+"' bz_manifest.json | head || true
           rm -f home.html
           ls -la
+      - name: Player photos and crests listed in promo/photos.txt (for promo posters)
+        run: |
+          mkdir -p promo/out
+          while read -r p; do
+            [ -z "$p" ] && continue
+            n=$(echo "$p" | tr '/' '_')
+            curl -sfL -A "Mozilla/5.0" "https://images.fotmob.com/image_resources/$p" -o "promo/out/img_$n" || echo "missing $p"
+          done < promo/photos.txt
+          ls promo/out | wc -l
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: promo-assets
