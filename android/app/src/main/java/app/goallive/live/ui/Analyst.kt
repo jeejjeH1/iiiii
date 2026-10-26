@@ -129,7 +129,10 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
                 val wx = if (wHome) hXg else aXg; val lx = if (wHome) aXg else hXg
                 when {
                     pw >= 0.6 -> ins += Finding("✅", sofar + L("برتری شایسته"), L("{0} موقعیت‌های بهتری ساخت (xG {1} در برابر {2}). از روی همین موقعیت‌ها، شانس بردش {3} بود.", w, x2(wx), x2(lx), pct(pw)), wHome, 100.0)
-                    pw <= 0.35 -> ins += Finding("🍀", sofar + L("برتری با کمک شانس"), L("{0} موقعیت‌های بهتری داشت (xG {1} در برابر {2})، ولی {3} کارآمدتر بود. شانس جلو افتادن {3} از روی موقعیت‌ها فقط {4} بود.", l, x2(lx), x2(wx), w, pct(pw)), wHome, 100.0)
+                    // only when the loser really made the better chances
+                    lx > wx + 0.25 -> ins += Finding("🍀", sofar + L("برتری با کمک شانس"), L("{0} موقعیت‌های بهتری داشت (xG {1} در برابر {2})، ولی {3} کارآمدتر بود. شانس جلو افتادن {3} از روی موقعیت‌ها فقط {4} بود.", l, x2(lx), x2(wx), w, pct(pw)), wHome, 100.0)
+                    // even chances, but the winner scored far more than they were worth
+                    (if (wHome) hG else aG) - wx >= 1.2 -> ins += Finding("🎯", sofar + L("برتری با تمام‌کنندگی"), L("موقعیت‌های دو تیم نزدیک بود (xG {0} در برابر {1})؛ فرق را دقت {2} جلوی دروازه ساخت. از روی موقعیت‌ها شانس بردش فقط {3} بود.", x2(wx), x2(lx), w, pct(pw)), wHome, 100.0)
                     else -> ins += Finding("⚖️", sofar + L("برتری در بازی نزدیک"), L("موقعیت‌ها نزدیک بود (xG {0} در برابر {1}) و {2} توانست فرق را بسازد. شانس بردش {3} بود.", x2(wx), x2(lx), w, pct(pw)), wHome, 95.0)
                 }
             }
@@ -430,7 +433,8 @@ private fun RealShape(m: MatchData) {
         if (xs.size < 10) return@mapNotNull null
         val outfield = xs.sorted().drop(1)
         val lines = linesOf(outfield)
-        if (lines.size < 3) return@mapNotNull null
+        // a shape football knows: 3 to 5 at the back, 1 to 3 up front, nobody alone in a middle line of a three-line shape
+        if (lines.size < 3 || lines.first() !in 3..5 || lines.last() !in 1..3 || (lines.size == 3 && lines[1] < 2)) return@mapNotNull null
         val back = outfield.take(lines.first()).average()
         val announced = m.content.path("lineup.${if (home) "homeTeam" else "awayTeam"}").s("formation") ?: ""
         Triple(home, lines.joinToString("-"), announced to back)
@@ -439,6 +443,11 @@ private fun RealShape(m: MatchData) {
     Card(pad = PaddingValues(16.dp)) {
         T(L("شکل واقعی تیم‌ها"), 15, FontWeight.ExtraBold)
         T(L("از روی جای میانگین بازیکنان؛ تقریبی"), 12, color = C.mute, modifier = Modifier.padding(bottom = 8.dp))
+        if (rows.size == 2) {
+            val (h, a) = rows[0].third.second to rows[1].third.second
+            if (abs(h - a) >= 5) T(L("خط دفاع {0} حدود {1} متر بالاتر از {2} بود.", teamName(if (h > a) m.homeId else m.awayId, if (h > a) m.homeName else m.awayName),
+                fa(abs(h - a).roundToInt()), teamName(if (h > a) m.awayId else m.homeId, if (h > a) m.awayName else m.homeName)), 13, modifier = Modifier.padding(bottom = 6.dp))
+        }
         rows.forEach { (home, real, rest) ->
             val (announced, back) = rest
             val id = if (home) m.homeId else m.awayId
@@ -446,16 +455,11 @@ private fun RealShape(m: MatchData) {
                 Crest(id, 30.dp)
                 Column(Modifier.weight(1f)) {
                     TeamText(id, if (home) m.homeName else m.awayName, size = 14, w = FontWeight.ExtraBold)
-                    T(when {
-                        back >= 38 -> L("خط دفاع بالا ({0} متر از دروازه)", fa(back.roundToInt()))
-                        back <= 28 -> L("خط دفاع عقب ({0} متر از دروازه)", fa(back.roundToInt()))
-                        else -> L("خط دفاع میانه ({0} متر از دروازه)", fa(back.roundToInt()))
-                    }, 12, color = C.mute)
+                    if (announced.isNotEmpty() && announced != real) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        T(L("اعلام‌شده"), 12, color = C.mute); PitchPill(fa(announced), C.card2, C.mute)
+                    }
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    PitchPill(fa(real), if (home) m.homeColor else m.awayColor)
-                    if (announced.isNotEmpty() && announced != real) T(L("اعلام‌شده {0}", fa(announced)), 11, color = C.mute)
-                }
+                PitchPill(fa(real), if (home) m.homeColor else m.awayColor)
             }
         }
     }

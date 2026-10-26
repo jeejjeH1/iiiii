@@ -138,7 +138,7 @@ class Screens {
             tap("خلاصه", exact = true); settle(1000)
             // the analyst: the fair result, the findings and the turning points
             tap("🧠 تحلیل", exact = true); settle(4000); shot("05a-analysis")
-            repeat(3) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(2500); shot("05b-analysis-down$k") }
+            repeat(5) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.35f, durationMillis = 500) } }; settle(2500); shot("05b-analysis-down$k") }
             runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(8) { swipeDown(durationMillis = 200) } } }; settle(800)
             tap("ترکیب", exact = true); settle(3000); shot("04-match-lineup")
             // the team switch inside the tab (the team's name elsewhere on the page opens the team)
