@@ -17,8 +17,9 @@ jobs:
       - run: node promo/voice.mjs
         continue-on-error: true
       - name: Bazaar logo (the store's own icons)
+        continue-on-error: true
         run: |
-          cd promo/out
+          mkdir -p promo/out && cd promo/out
           curl -sL -A "Mozilla/5.0" https://cafebazaar.ir/ -o home.html || true
           grep -oiE '(href|content)="[^"]+\.(png|svg)[^"]*"' home.html | head -40 || true
           i=0
