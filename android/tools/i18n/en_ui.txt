@@ -1348,3 +1348,27 @@
 1347|Both sides' chances were close (xG {0} to {1}); {2}'s finishing made the difference. On the chances alone their chance of winning was only {3}.
 1348|Announced
 1349|{0}'s back line held about {1} m higher than {2}'s.
+1350|GoalLive's forecast, from the chances both teams have made and allowed this season. See if you can beat GoalLive!
+1351|🧠 GoalLive
+1352|You beat GoalLive 🏆
+1353|GoalLive did better (+{0})
+1354|Level with GoalLive (+{0})
+1355|⚔️ You vs GoalLive
+1356|Over {0} matches you both predicted
+1357|You're ahead! {0} points more than GoalLive.
+1358|GoalLive is {0} points ahead. Your move!
+1359|You're level for now.
+1360|🍀 Luck
+1361|Win chances through the match
+1362|Minute by minute, from the score at the time and the chances each team had made
+1363|Now: {0} win {1} · draw {2} · {3} win {4}
+1364|goal by {0}
+1365|{0} sent off
+1366|Biggest swing: minute {0}{1}; {2}'s win chance went from {3} to {4}.
+1367|No chance data (xG) has been published for this league
+1368|🍀 Luck table
+1369|Each team's real points minus the points its chances (xG) were worth. Positive means it got more than it deserved.
+1370|Luckiest: {0} ({1} points more) · Unluckiest: {2} ({3} points fewer)
+1371|Deserved
+1372|Difference
+1373|GoalLive forecast

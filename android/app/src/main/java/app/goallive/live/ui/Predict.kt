@@ -58,6 +58,9 @@ fun PredictCard(m: MatchData) {
     // the final score settles the pick (and its points) as soon as the match is over
     if (m.finished && pick != null) LaunchedEffect(m.matchId) { Predictions.settle(m.matchId, m.home.i("score") ?: 0, m.away.i("score") ?: 0) }
     val accent = LocalAccent.current
+    val forecast = rememberForecast(m)
+    // a pick made before the forecast had loaded gets it too
+    if (open && pick != null && pick.goalLive == null && forecast != null) LaunchedEffect(m.matchId, forecast) { Predictions.put(pick.copy(goalLive = forecast.score)) }
     Card {
         Box(Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(C.gold.copy(alpha = 0.10f), Color.Transparent)))) {
             Column {
@@ -67,7 +70,8 @@ fun PredictCard(m: MatchData) {
                 if (open) {
                     val h = pick?.home ?: 0; val a = pick?.away ?: 0
                     fun save(nh: Int, na: Int) = Predictions.put(
-                        Pick(m.matchId, nh, na, m.homeId, m.awayId, m.homeName, m.awayName, m.time, m.general.s("leagueName") ?: ""),
+                        Pick(m.matchId, nh, na, m.homeId, m.awayId, m.homeName, m.awayName, m.time, m.general.s("leagueName") ?: "",
+                            goalLive = forecast?.score ?: pick?.goalLive),
                     )
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Stepper(m.homeId, m.homeName, h, Modifier.weight(1f)) { save(it, a) }
@@ -80,7 +84,13 @@ fun PredictCard(m: MatchData) {
                     }
                     T(if (pick == null) L("با زدن + و − پیش‌بینی‌ات ثبت می‌شود. نتیجه دقیق ۳ امتیاز، برنده درست ۱ امتیاز.")
                         else L("✓ ثبت شد؛ تا سوت شروع می‌توانی تغییرش بدهی."), 12, color = if (pick == null) C.mute else C.win,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 14.dp))
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = if (forecast == null) 14.dp else 10.dp))
+                    // GoalLive's own forecast, to play against
+                    if (forecast != null) Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)) {
+                        ForecastLine(forecast, m)
+                        T(L("پیش‌بینی گل‌لایو از روی موقعیت‌هایی که دو تیم این فصل ساخته‌اند و داده‌اند. ببین از گل‌لایو بهتری یا نه!"), 11, color = C.mute,
+                            modifier = Modifier.padding(top = 6.dp))
+                    }
                 } else if (pick != null) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         T(L("پیش‌بینی تو"), 13, FontWeight.Bold, C.mute)
@@ -94,6 +104,21 @@ fun PredictCard(m: MatchData) {
                                 val now = Pick(0, pick.home, pick.away, 0, 0, "", "", 0, "", h to a).points ?: 0
                                 Pill(if (now == 3) L("فعلاً دقیق!") else if (now == 1) L("فعلاً درست") else L("فعلاً نه"), if (now > 0) PillKind.Accent else PillKind.Plain)
                             }
+                        }
+                    }
+                    pick.goalLive?.let { (gh, ga) ->
+                        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            T(L("🧠 گل‌لایو"), 13, FontWeight.Bold, C.mute)
+                            ScoreText(gh, ga, 16, C.mute)
+                            Spacer(Modifier.weight(1f))
+                            val gp = if (m.finished) Predictions.get(m.matchId)?.goalLivePoints else null
+                            val mine = if (m.finished) Predictions.get(m.matchId)?.points else null
+                            if (gp != null && mine != null) T(when {
+                                mine > gp -> L("از گل‌لایو بهتر بودی 🏆")
+                                mine < gp -> L("گل‌لایو بهتر گفت (+{0})", fa(gp))
+                                else -> L("مساوی با گل‌لایو (+{0})", fa(gp))
+                            }, 12, FontWeight.ExtraBold, if (mine > gp) C.win else if (mine < gp) C.loss else C.mute)
                         }
                     }
                     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -165,6 +190,7 @@ fun PredictionsScreen() {
                     Tile(fa(Predictions.streak), L("پیاپی"), Modifier.weight(1f))
                 }
             }
+            if (Predictions.duelGames > 0) Duel()
             T(L("نتیجه دقیق ۳ امتیاز و برنده درست (یا مساوی) ۱ امتیاز. پیش‌بینی‌ها روی همین گوشی ذخیره می‌شود."), 12, color = C.mute,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
         }
@@ -177,6 +203,35 @@ fun PredictionsScreen() {
         if (upcoming.isNotEmpty()) item { Card { upcoming.forEachIndexed { i, pk -> PickRow(pk, i == 0) } } }
         if (done.isNotEmpty()) item { SectionTitle(L("تمام‌شده")) }
         if (done.isNotEmpty()) item { Card { done.forEachIndexed { i, pk -> PickRow(pk, i == 0) } } }
+    }
+}
+
+/** "تو در برابر گل‌لایو": the user's points against GoalLive's forecasts on the same finished matches. */
+@Composable
+private fun Duel() {
+    val (me, gl) = Predictions.duel
+    Card(Modifier.padding(top = 12.dp), pad = PaddingValues(16.dp)) {
+        T(L("⚔️ تو در برابر گل‌لایو"), 15, FontWeight.Black)
+        T(L("در {0} بازی که هر دو پیش‌بینی کردید", fa(Predictions.duelGames)), 12, color = C.mute, modifier = Modifier.padding(top = 2.dp))
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                T(fa(me), 32, FontWeight.Black, if (me >= gl) C.gold else C.ink); T(L("تو"), 12, FontWeight.Bold, C.mute)
+            }
+            T(L("در برابر"), 12, color = C.faint)
+            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                T(fa(gl), 32, FontWeight.Black, if (gl > me) C.gold else C.ink); T(L("🧠 گل‌لایو"), 12, FontWeight.Bold, C.mute)
+            }
+        }
+        val tot = (me + gl).coerceAtLeast(1)
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp).height(8.dp).clip(RoundedCornerShape(4.dp)), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Box(Modifier.weight((me.toFloat() / tot).coerceAtLeast(0.02f)).fillMaxHeight().background(C.gold))
+            Box(Modifier.weight((gl.toFloat() / tot).coerceAtLeast(0.02f)).fillMaxHeight().background(C.line2))
+        }
+        T(when {
+            me > gl -> L("جلوتری! {0} امتیاز بیشتر از گل‌لایو.", fa(me - gl))
+            me < gl -> L("گل‌لایو {0} امتیاز جلوتر است. نوبت توست!", fa(gl - me))
+            else -> L("فعلاً مساوی هستید.")
+        }, 13, FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
     }
 }
 
@@ -202,6 +257,7 @@ private fun PickRow(pk: Pick, first: Boolean) {
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             ScoreText(pk.home, pk.away, 16)
+            pk.goalLive?.let { (gh, ga) -> T(L("🧠 {0}", fa("$gh-$ga")) + (pk.goalLivePoints?.let { " +" + fa(it) } ?: ""), 11, color = C.mute) }
             val p = pk.points
             T(if (p == null) L("منتظر") else "+" + fa(p), 12, FontWeight.ExtraBold,
                 when (p) { 3 -> C.gold; 1 -> C.win; null -> C.mute; else -> C.loss })

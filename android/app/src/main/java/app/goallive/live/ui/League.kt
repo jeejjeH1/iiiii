@@ -164,6 +164,7 @@ private fun LeagueBody(id: Int, d: JSONObject, onSeason: (String) -> Unit) {
     val name = det.s("name") ?: ""
     val tabs = buildList {
         if ((d.a("table")?.length() ?: 0) > 0) add("table" to L("جدول"))
+        if (xgRows(d.a("table")).size >= 4) add("luck" to L("🍀 شانس"))
         if ((d.o("fixtures").a("allMatches")?.length() ?: 0) > 0) add("fixtures" to L("بازی‌ها"))
         if ((d.o("stats").a("players")?.length() ?: 0) > 0 || (d.o("stats").a("teams")?.length() ?: 0) > 0) add("stats" to L("آمار"))
         if ((d.a("seasons")?.length() ?: 0) > 0) add("seasons" to L("قهرمانان"))
@@ -214,6 +215,7 @@ private fun LeagueBody(id: Int, d: JSONObject, onSeason: (String) -> Unit) {
             Box(Modifier.padding(horizontal = 14.dp)) {
                 when (tab) {
                     "table" -> TableView(d.a("table"))
+                    "luck" -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) { LuckTable(d.a("table")) }
                     "fixtures" -> LeagueFixtures(d)
                     "stats" -> Leaders(d.o("stats"))
                     "seasons" -> Winners(d)

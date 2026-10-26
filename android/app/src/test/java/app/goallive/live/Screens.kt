@@ -162,6 +162,10 @@ class Screens {
         settle(2500); shot("41b-big-shots")
         repeat(3) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.45f, durationMillis = 500) } }; settle(1200); shot("41c-big-shots-$k") }
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(4) { swipeDown(durationMillis = 200) } } }; settle(600)
+        // the analyst on the big match, with the win chances minute by minute
+        tap("🧠 تحلیل", exact = true); settle(4000); shot("41d-big-analysis")
+        repeat(2) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.35f, durationMillis = 500) } }; settle(1500); shot("41e-big-analysis-$k") }
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { repeat(6) { swipeDown(durationMillis = 200) } } }; settle(600)
         tap("ترکیب", exact = true); settle(3000); shot("42-big-lineup")
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("42-big-lineup-down")
         tap("ناتینگهام فارست", exact = true); settle(2000); shot("43-big-lineup-away")
@@ -181,6 +185,9 @@ class Screens {
         NavHook.nav?.team(8634); settle(9000); shot("07-team")
         tap("تاریخچه"); settle(2000); shot("08-team-story")
         NavHook.nav?.league(47); settle(9000); shot("09-league")
+        // the luck table: points against the points the chances were worth
+        tap("🍀 شانس", exact = true); settle(2500); shot("09b-league-luck")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("09c-league-luck-down")
         NavHook.nav?.tab("leagues"); settle(7000); shot("10-leagues")
         NavHook.nav?.tab("settings"); settle(1500); shot("11-settings")
         NavHook.nav?.tab("following"); settle(4000); shot("12-following")
@@ -209,6 +216,8 @@ class Screens {
             tap("+", exact = true); settle(300); tap("+", exact = true); settle(300)
             runCatching { rule.onAllNodesWithText("+", substring = false)[0].performSemanticsAction(SemanticsActions.OnClick) }
             settle(1500); shot("26-predict")
+            // GoalLive's own forecast under the pick
+            runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.4f, durationMillis = 500) } }; settle(1500); shot("26b-predict-forecast")
         }
         NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
         NavHook.nav?.rankings(); settle(9000); shot("50-rank-best")

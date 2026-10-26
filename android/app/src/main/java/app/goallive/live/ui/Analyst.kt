@@ -288,6 +288,67 @@ fun analyse(m: MatchData, ratings: Map<Int, PlayerRating>): Analysis {
     return Analysis(hXg, aXg, pH, pD, pA, likely, ins.sortedByDescending { it.weight }.distinctBy { it.title }.take(9), turns.sortedBy { it.minute })
 }
 
+/* ---------- win probability, minute by minute ---------- */
+
+/** The chances of each final result at one minute of the match (home win, draw, away win). */
+class WinPoint(val minute: Int, val h: Double, val d: Double, val a: Double)
+
+private fun poisson(l: Double): DoubleArray {
+    val out = DoubleArray(MAXG + 1); var p = kotlin.math.exp(-l)
+    for (k in 0..MAXG) { out[k] = p; p *= l / (k + 1) }
+    return out
+}
+
+/** Final-result chances from the score now ([dh] − [da] ahead) and the goals each side may still score. */
+internal fun outcome(dh: Int, da: Int, lh: Double, la: Double): Triple<Double, Double, Double> {
+    val ph = poisson(lh); val pa = poisson(la)
+    var h = 0.0; var d = 0.0; var a = 0.0
+    for (i in 0..MAXG) for (j in 0..MAXG) {
+        val p = ph[i] * pa[j]
+        val diff = dh + i - (da + j)
+        when { diff > 0 -> h += p; diff == 0 -> d += p; else -> a += p }
+    }
+    val t = h + d + a
+    return Triple(h / t, d / t, a / t)
+}
+
+/** Goals a side scores in an average game: the starting guess before the match shows its own pace. */
+private const val PRIOR_GOALS = 1.35
+/** How many minutes of play that guess is worth against what the match itself shows. */
+private const val PRIOR_MINUTES = 30.0
+
+/**
+ * The win probability through the match. At each minute: the score so far, plus the goals each side may still score, from
+ * its pace in this match (xG per minute, eased in from an average game's pace early on) times the minutes left; a side down
+ * to ten men is slowed and its opponent sped up. Only what had happened by that minute is used. A finished match ends on its result.
+ */
+fun winTimeline(m: MatchData): List<WinPoint> {
+    val shots = m.shots.filter { !it.b("isPenaltyShootoutEvent") }
+    val goals = m.events.filter { it.s("type") == "Goal" && !it.b("isPenaltyShootoutEvent") }
+    val reds = m.events.filter { it.s("type") == "Card" && (it.s("card") == "Red" || it.s("card") == "YellowRed") }
+    val now = if (m.live) (cleanMinuteInt(m.minute) ?: 0) else max(90, goals.maxOfOrNull(::minuteOf) ?: 90)
+    if (now < 5) return emptyList()
+    val out = ArrayList<WinPoint>()
+    for (t in 0..now) {
+        val hg = goals.count { it.b("isHome") && minuteOf(it) <= t }; val ag = goals.count { !it.b("isHome") && minuteOf(it) <= t }
+        val left = max(0.0, 93.0 - t)   // about three minutes of stoppage time
+        fun pace(home: Boolean): Double {
+            val xg = shots.filter { (it.i("teamId") == m.homeId) == home && shotMin(it) < t }.sumOf { it.d("expectedGoals") ?: 0.0 }
+            var r = (PRIOR_GOALS * PRIOR_MINUTES / 90 + xg) / (PRIOR_MINUTES + t)
+            val mine = reds.count { it.b("isHome") == home && minuteOf(it) <= t }; val theirs = reds.count { it.b("isHome") != home && minuteOf(it) <= t }
+            repeat(mine) { r *= 0.7 }; repeat(theirs) { r *= 1.25 }
+            return r
+        }
+        val (h, d, a) = outcome(hg, ag, pace(true) * left, pace(false) * left)
+        out += WinPoint(t, h, d, a)
+    }
+    if (m.finished) {
+        val hG = m.home.i("score") ?: 0; val aG = m.away.i("score") ?: 0
+        out += WinPoint(now + 1, if (hG > aG) 1.0 else 0.0, if (hG == aG) 1.0 else 0.0, if (aG > hG) 1.0 else 0.0)
+    }
+    return out
+}
+
 private fun cleanMinuteInt(s: String) = Regex("\\d+").findAll(s).map { it.value.toInt() }.toList().takeIf { it.isNotEmpty() }?.sum()
 
 /* ---------- the tab ---------- */
@@ -307,6 +368,7 @@ fun AnalystTab(m: MatchData) {
         }
     }
     FairResult(m, an)
+    WinChart(m)
     an.insights.forEach { InsightCard(it, m) }
     if (an.turns.isNotEmpty()) TurnsCard(an.turns, m)
     RealShape(m)
@@ -360,6 +422,76 @@ private fun FairResult(m: MatchData, an: Analysis) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * "شانس برد در طول بازی": the three outcomes stacked minute by minute (home win at the top in its colour, the draw in the
+ * middle, away win at the bottom), goals and red cards marked, and the moment that swung it most.
+ */
+@Composable
+private fun WinChart(m: MatchData) {
+    val pts = remember(m.d) { runCatching { winTimeline(m) }.getOrDefault(emptyList()) }
+    if (pts.size < 10) return
+    val grow = remember { Animatable(0f) }
+    LaunchedEffect(m.matchId) { grow.animateTo(1f, tween(1200, easing = FastOutSlowInEasing)) }
+    val hc = m.homeColor; val ac = m.awayColor; val dc = C.draw.copy(alpha = 0.55f)
+    val marks = m.events.filter { e -> !e.b("isPenaltyShootoutEvent") && (e.s("type") == "Goal" || (e.s("type") == "Card" && e.s("card") in setOf("Red", "YellowRed"))) }
+    // the biggest jump in the home side's chance from one minute to the next, and what caused it
+    val swing = pts.zipWithNext().filter { (p, q) -> q.minute <= (pts.last().minute - if (m.finished) 1 else 0) }
+        .maxByOrNull { (p, q) -> abs(q.h - p.h) + abs(q.a - p.a) }
+    val last = pts.last()
+    Card(pad = PaddingValues(16.dp)) {
+        T(L("شانس برد در طول بازی"), 15, FontWeight.ExtraBold)
+        T(L("در هر دقیقه، از روی نتیجه تا آن لحظه و موقعیت‌هایی که هر تیم ساخته بود"), 12, color = C.mute, modifier = Modifier.padding(bottom = 10.dp))
+        androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+            Column {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(170.dp).clip(RoundedCornerShape(14.dp))) {
+                    val n = pts.size; val k = grow.value
+                    fun x(i: Int) = size.width * i / (n - 1)
+                    val shown = max(2, (n * k).toInt())
+                    // bands from the top: home win, draw, away win
+                    fun band(top: (WinPoint) -> Double, bottom: (WinPoint) -> Double, col: Color) {
+                        val path = androidx.compose.ui.graphics.Path()
+                        for (i in 0 until shown) { val y = (top(pts[i]) * size.height).toFloat(); if (i == 0) path.moveTo(x(i), y) else path.lineTo(x(i), y) }
+                        for (i in shown - 1 downTo 0) path.lineTo(x(i), (bottom(pts[i]) * size.height).toFloat())
+                        path.close(); drawPath(path, col)
+                    }
+                    band({ 0.0 }, { it.h }, hc)
+                    band({ it.h }, { it.h + it.d }, dc)
+                    band({ it.h + it.d }, { 1.0 }, ac)
+                    // half time and the even line
+                    val half = pts.indexOfFirst { it.minute >= 45 }.takeIf { it > 0 }
+                    half?.let { drawLine(Color.White.copy(alpha = 0.35f), androidx.compose.ui.geometry.Offset(x(it), 0f), androidx.compose.ui.geometry.Offset(x(it), size.height), 2f) }
+                    marks.forEach { e ->
+                        val i = pts.indexOfFirst { it.minute >= minuteOf(e) }.takeIf { it >= 0 && it < shown } ?: return@forEach
+                        val goal = e.s("type") == "Goal"
+                        val cx = x(i); val cy = if (e.b("isHome")) 10.dp.toPx() else size.height - 10.dp.toPx()
+                        drawCircle(Color.White, if (goal) 7.dp.toPx() else 5.dp.toPx(), androidx.compose.ui.geometry.Offset(cx, cy))
+                        drawCircle(if (goal) Color(0xFF111111) else Color(0xFFE5434B), if (goal) 4.dp.toPx() else 3.5.dp.toPx(), androidx.compose.ui.geometry.Offset(cx, cy))
+                    }
+                }
+                Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    listOf("۰′", "۴۵′", "۹۰′").forEachIndexed { k, l -> T(l, 11, color = C.mute, modifier = Modifier.weight(1f), align = when (k) { 0 -> TextAlign.Start; 1 -> TextAlign.Center; else -> TextAlign.End }) }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            for ((col, label) in listOf(hc to L("برد {0}", teamName(m.homeId, m.homeName)), dc to L("مساوی"), ac to L("برد {0}", teamName(m.awayId, m.awayName)))) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(col)); T(label, 11, color = C.mute, maxLines = 1)
+            }
+        }
+        if (m.live) T(L("الان: برد {0} {1} · مساوی {2} · برد {3} {4}", teamName(m.homeId, m.homeName), pct(last.h), pct(last.d), teamName(m.awayId, m.awayName), pct(last.a)), 13, FontWeight.Bold, modifier = Modifier.padding(top = 10.dp))
+        swing?.let { (p, q) ->
+            // what happened in that minute
+            val e = marks.firstOrNull { minuteOf(it) == q.minute } ?: m.events.firstOrNull { it.s("type") == "Goal" && minuteOf(it) == q.minute }
+            val what = e?.let { ev -> if (ev.s("type") == "Goal") L("گل {0}", personName(ev.o("player").s("lastName") ?: ev.s("nameStr") ?: "")) else L("اخراج {0}", personName(ev.o("player").s("lastName") ?: ev.s("nameStr") ?: "")) }
+            // told for the side whose chance moved most
+            val home = abs(q.h - p.h) >= abs(q.a - p.a)
+            T(L("بزرگ‌ترین چرخش: دقیقه‌ی {0}{1}؛ شانس برد {2} از {3} به {4} رسید.", fa(q.minute), what?.let { " (" + it + ")" } ?: "",
+                if (home) teamName(m.homeId, m.homeName) else teamName(m.awayId, m.awayName), pct(if (home) p.h else p.a), pct(if (home) q.h else q.a)),
+                13, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
