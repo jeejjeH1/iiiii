@@ -1656,3 +1656,12 @@
 1655|Only where each goal was shot from is known; the rest of the scene is laid out roughly.
 1656|GoalLive tactics studio
 1657|My tactic
+1658|The new Tactics tab: set up the sides, draw the runs and animate the move like a TV analyst
+1659|Simulate a goal
+1660|Add a shot and decide it yourself, by the chance of a goal or with the dice — with the net shaking and the celebration
+1661|16 ready-made moves and real goals
+1662|Counters, corners, penalties, gegenpressing… and any match's goals rebuilt from its line-up tab
+1663|Team analysis and story video
+1664|Space control, passing lanes, pressing and the offside trap; video out with stadium sound
+1665|A fresh look
+1666|Match headers in both clubs' colours, new sheets and smoother motion throughout
