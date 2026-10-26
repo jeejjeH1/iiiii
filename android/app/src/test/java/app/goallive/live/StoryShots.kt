@@ -16,6 +16,7 @@ import app.goallive.live.ui.MatchData
 import app.goallive.live.ui.Story
 import app.goallive.live.ui.StorySheet
 import app.goallive.live.ui.load
+import app.goallive.live.ui.loadGoal
 import app.goallive.live.ui.scene
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject

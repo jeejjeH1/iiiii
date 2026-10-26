@@ -92,6 +92,7 @@ jobs:
         if: failure()
         run: |
           grep -E "^e: |Exception|Error|FAILED|SHOT" -A3 test.log | head -160
+          grep -E "^e: " test.log | head -30 | sed 's/^e: file:\/\/[^ ]*\/java\///; s/^/::error::/' || true
       - name: Publish screenshots
         if: github.ref_name == 'ccr-addbae8c-95x58c'
         uses: softprops/action-gh-release@v2
