@@ -48,6 +48,7 @@ private fun appVersion(ctx: Context): Int = runCatching {
 private class News(val emoji: String, val title: String, val sub: String, val go: ((Nav) -> Unit)?)
 
 private fun news(): List<News> = listOf(
+    News("📋", L("پوستر ترکیب"), L("ترکیب هر بازی و تیم هفته را مثل پوستر باشگاه‌ها بفرست: ۶ طرح، تعویض‌ها، سرمربی و هر دو تیم روی یک زمین"), null),
     News("🎬", L("استودیو استوری، از نو"), L("۱۲ طرح؛ شش‌تا تازه: شفق، هولوگرام، آتش، یخ، ورزشگاه و کمیک"), null),
     News("🔥", L("پس‌زمینه‌ی متحرک"), L("در ویدیو جرقه‌ها بالا می‌روند، برف می‌بارد و فلاش دوربین‌ها در سکوها می‌زند"), null),
     News("⭐", L("استیکرهای طراحی‌شده"), L("«گل!»، جام، تاج، GOAT، SIUUU و قلبی به رنگ تیمت"), null),
