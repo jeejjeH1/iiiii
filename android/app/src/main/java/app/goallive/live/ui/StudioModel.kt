@@ -297,7 +297,7 @@ class StudioBoard {
 
     /** The board as it stands, as a step (keeping [old]'s timing, note and routes). */
     fun frameNow(old: SFrame?) = SFrame(players.associate { it.key to Offset(it.u, it.v) }, ball, old?.air ?: false, old?.dur ?: 1.2f, old?.note ?: "",
-        old?.paths?.filterKeys { k -> players.any { it.key == k } } ?: emptyMap())
+        old?.paths?.filterKeys { k -> players.any { it.key == k } } ?: emptyMap(), old?.ev)
 
     /** Keeps what is on the board in the current step. */
     fun syncOut() { if (frames.isEmpty()) { frames += frameNow(null); cur = 0 } else frames[cur.coerceIn(0, frames.size - 1)] = frameNow(frames.getOrNull(cur)) }
@@ -349,7 +349,10 @@ class StudioBoard {
         if (kind == null) { setFrame(k, f.copy(ev = null)); return }
         if (kind != "shot") { setFrame(k, f.copy(ev = SEvent(kind, by = nearestTo(f, f.ball)?.key ?: -1))); return }
         val prev = frames[k - 1]
-        val shooter = holder(k - 1) ?: return
+        // the side shooting is the one attacking the goal the ball is nearer; the shooter its player nearest the ball
+        val attacking = if (prev.ball.y < 0.5f) 0 else 1
+        val shooter = players.filter { it.side == attacking && (attacking == 0 || showAway) }
+            .minByOrNull { p -> prev.pos[p.key]?.let { (it - prev.ball).getDistance() } ?: 9f } ?: return
         val side = shooter.side
         val goalV = if (side == 0) 0f else 1f
         val inward = if (side == 0) 1f else -1f
