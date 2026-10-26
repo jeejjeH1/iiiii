@@ -11,6 +11,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,10 +71,14 @@ fun FormationPitch(
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     val w = maxWidth; val h = maxHeight
-                    val tokenW = 84.dp
+                    val spots = remember(players) { tidy(players) }
+                    // narrower tokens on a crowded row, so neighbours' name plates never overlap
+                    val widest = spots.values.maxOfOrNull { it.third } ?: 4
+                    val tokenW = minOf(84.dp, w * 0.94f / widest)
                     for (p in players.sortedBy { it.y }) {
+                        val (x, y) = spots[p.id]?.let { it.first to it.second } ?: (p.x to p.y)
                         Token(p, p.color ?: color, Modifier.align(Alignment.TopStart)
-                            .absoluteOffset(w * p.x - tokenW / 2, h * p.y - 34.dp).width(tokenW)) { onTap(p) }
+                            .absoluteOffset(w * x - tokenW / 2, h * y - 34.dp).width(tokenW)) { onTap(p) }
                     }
                 }
             }
@@ -81,6 +86,23 @@ fun FormationPitch(
         if (footer != null) Box(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) { footer() }
         else Spacer(Modifier.height(8.dp))
     }
+}
+
+/** Each line of the formation on one row: players whose heights are close share the row's height and spread evenly across it.
+ *  Gives (x, y, players on that row) by player id. */
+internal fun tidy(players: List<PitchMan>): Map<Int, Triple<Float, Float, Int>> {
+    val rows = ArrayList<MutableList<PitchMan>>()
+    for (m in players.sortedBy { it.y }) {
+        val last = rows.lastOrNull()
+        if (last != null && m.y - last.last().y < 0.075f) last += m else rows += mutableListOf(m)
+    }
+    val out = HashMap<Int, Triple<Float, Float, Int>>()
+    for (row in rows) {
+        val y = row.map { it.y }.average().toFloat()
+        val n = row.size
+        row.sortedBy { it.x }.forEachIndexed { i, m -> out[m.id] = Triple(if (n == 1) 0.5f else 0.04f + 0.92f * (i + 0.5f) / n, y, n) }
+    }
+    return out
 }
 
 /** The grass and its markings, attack upwards. */
@@ -92,15 +114,15 @@ private fun DrawScope.grass(team: Color) {
     for (k in 0 until bands) if (k % 2 == 0) drawRect(Color.White.copy(alpha = 0.045f), Offset(0f, h * k / bands), Size(w, h / bands))
     // floodlight sheen from the top corner and the team's colour from its own end
     drawRect(Brush.linearGradient(listOf(Color.White.copy(alpha = 0.13f), Color.Transparent), Offset(0f, 0f), Offset(w * 0.7f, h * 0.45f)))
-    drawRect(Brush.radialGradient(listOf(team.copy(alpha = 0.28f), Color.Transparent), Offset(w / 2, h * 1.05f), w * 0.9f))
+    drawRect(Brush.radialGradient(listOf(team.copy(alpha = 0.42f), team.copy(alpha = 0.12f), Color.Transparent), Offset(w / 2, h * 1.05f), w))
     // markings: 68 m across, 105 m long
     val mx = w * 0.05f; val my = h * 0.035f
     val pw = w - 2 * mx; val ph = h - 2 * my
     val sx = pw / 68f; val sy = ph / 105f
     fun X(m: Float) = mx + m * sx
     fun Y(m: Float) = my + m * sy
-    val glow = Color.White.copy(alpha = 0.07f); val line = Color.White.copy(alpha = 0.62f)
-    val lw = 1.6.dp.toPx()
+    val glow = Color.White.copy(alpha = 0.06f); val line = Color.White.copy(alpha = 0.5f)
+    val lw = 1.2.dp.toPx()
     for ((c, wd) in listOf(glow to lw * 4, line to lw)) {
         val st = Stroke(wd)
         drawRoundRect(c, Offset(mx, my), Size(pw, ph), CornerRadius(3.dp.toPx()), style = st)

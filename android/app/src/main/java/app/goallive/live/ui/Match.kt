@@ -64,6 +64,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -256,10 +257,15 @@ private fun Hero(m: MatchData) {
 
     Box(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 30.dp, bottomEnd = 30.dp)).drawBehind {
-            cssLinear(242f, 0f to c1, 0.48f to c1, 0.52f to c2, 1f to c2)
-            if (pattern != null) drawPattern(pattern, 0.16f)
-            drawRect(Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.15f), Color.Black.copy(alpha = 0.72f)), Offset(size.width / 2, size.height * 0.45f), size.width * 0.75f))
-            drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.25f), Color.Black.copy(alpha = 0.6f))))
+            // each half in its own club's colour, the home side where its crest stands; a soft light where they meet
+            val home = heroTone(c1); val away = heroTone(c2)
+            val left = if (app.goallive.live.Lang.en) home else away; val right = if (app.goallive.live.Lang.en) away else home
+            drawRect(Brush.horizontalGradient(0f to left, 0.38f to left, 0.62f to right, 1f to right))
+            if (pattern != null) drawPattern(pattern, 0.1f)
+            drawRect(Brush.radialGradient(listOf(Color.White.copy(alpha = 0.2f), Color.White.copy(alpha = 0.06f), Color.Transparent),
+                Offset(size.width / 2, size.height * 0.42f), size.width * 0.45f))
+            drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.38f)), Offset(size.width / 2, size.height * 0.4f), size.width * 0.95f))
+            drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.22f), Color.Black.copy(alpha = 0.12f), Color.Black.copy(alpha = 0.6f))))
             pitchLines(this)
         }.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 20.dp),
     ) {
@@ -293,7 +299,7 @@ private fun Hero(m: MatchData) {
                 Column(Modifier.scale(boardIn.value), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val board = Modifier.clip(RoundedCornerShape(18.dp)).background(Color.Black.copy(alpha = 0.42f)).border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(18.dp))
                     if (m.started && !m.cancelled) {
-                        Box(board.padding(horizontal = 14.dp, vertical = 2.dp)) { ScoreText(m.home.i("score"), m.away.i("score"), 38, Color.White, sepColor = Color.White.copy(alpha = 0.4f)) }
+                        Box(board.padding(horizontal = 18.dp, vertical = 0.dp)) { ScoreText(m.home.i("score"), m.away.i("score"), 52, Color.White, sepColor = Color.White.copy(alpha = 0.4f)) }
                         when {
                             m.live && m.minute.substringBefore('+').toIntOrNull() != null -> MinuteRing(m.minute)
                             m.live -> Pill(if (m.minute == "HT") L("بین دو نیمه") else m.minute, PillKind.Live, dot = true)
@@ -304,7 +310,7 @@ private fun Hero(m: MatchData) {
                             }
                         }
                     } else {
-                        Box(board.padding(horizontal = 16.dp, vertical = 8.dp)) { Text(if (m.cancelled) "–" else timeOf(m.time), color = Color.White, style = vz(30.sp, FontWeight.Black)) }
+                        Box(board.padding(horizontal = 18.dp, vertical = 6.dp)) { Text(if (m.cancelled) "–" else timeOf(m.time), color = Color.White, style = num(36.sp)) }
                         DarkPill(if (m.cancelled) tr(m.status.o("reason").s("short") ?: "Canc") else countdown(m.time))
                     }
                     T(persianDate(m.time, "EEEE d MMMM"), 12, FontWeight.Bold, Color.White.copy(alpha = 0.85f))
@@ -316,7 +322,7 @@ private fun Hero(m: MatchData) {
             if (goals.isNotEmpty() || reds.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth().padding(top = 14.dp)) {
                     Scorers(goals.filter { it.b("isHome") }, reds.filter { it.b("isHome") }, Modifier.weight(1f))
-                    Box(Modifier.width(22.dp), contentAlignment = Alignment.TopCenter) { if (goals.isNotEmpty()) Icon(Ic.ball, null, Modifier.size(14.dp), tint = Color.White.copy(alpha = 0.7f)) }
+                    Box(Modifier.padding(horizontal = 6.dp).width(1.dp).height(((goals.size + reds.size).coerceAtMost(6) * 12).dp).background(Color.White.copy(alpha = 0.18f)))
                     Scorers(goals.filter { !it.b("isHome") }, reds.filter { !it.b("isHome") }, Modifier.weight(1f))
                 }
             }
@@ -367,7 +373,7 @@ private fun MinuteRing(minute: String) {
             drawArc(Color.White.copy(alpha = 0.15f), 0f, 360f, false, Offset(inset, inset), Size(size.width - 2 * inset, size.height - 2 * inset), style = st)
             drawArc(C.live, -90f, 360f * min(mins.toFloat(), full) / full, false, Offset(inset, inset), Size(size.width - 2 * inset, size.height - 2 * inset), style = st)
         }
-        Ltr("$minute'".replace("''", "'"), style = vz(13.sp, FontWeight.ExtraBold), color = Color.White)
+        Ltr("$minute'".replace("''", "'"), style = num(14.sp), color = Color.White)
     }
 }
 
@@ -383,25 +389,38 @@ private fun HeroTeam(id: Int, name: String, faName: String?, modifier: Modifier,
 
 @Composable
 private fun Scorers(goals: List<JSONObject>, reds: List<JSONObject>, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(5.dp)) {
         goals.groupBy { it.o("player").i("id") ?: it.s("nameStr") }.values.forEach { gs ->
             val p = gs.first()
             val name = p.o("player").s("lastName") ?: p.s("nameStr") ?: p.o("player").s("name") ?: ""
-            val mins = gs.joinToString(L("، ")) { minuteText(it) + "'" + if (it.b("ownGoal")) L(" (گل به خودی)") else if (isPen(it)) L(" (پ)") else "" }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Ltr(name, style = vz(12.sp, FontWeight.Medium), color = Color.White.copy(alpha = 0.95f))
-                Ltr(mins, style = vz(12.sp), color = Color.White.copy(alpha = 0.95f))
+            val own = gs.all { it.b("ownGoal") }
+            // a small ball, the name, then each goal's minute in its own chip
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Icon(Ic.ball, null, Modifier.size(13.dp), tint = if (own) Color(0xFFFF8A8A) else Color.White)
+                Ltr(name, style = vz(12.sp, FontWeight.Bold), color = Color.White)
+                gs.forEach { g -> MinuteChip(minuteText(g) + "'" + if (g.b("ownGoal")) L(" (گل به خودی)") else if (isPen(g)) L(" (پ)") else "") }
             }
         }
         reds.forEach { r ->
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(Modifier.size(8.dp, 11.dp).clip(RoundedCornerShape(2.dp)).background(C.live))
-                Ltr((r.o("player").s("lastName") ?: r.s("nameStr") ?: "") + " " + minuteText(r) + "'", style = vz(12.sp), color = Color.White.copy(alpha = 0.95f))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Box(Modifier.size(9.dp, 12.dp).clip(RoundedCornerShape(2.dp)).background(C.live))
+                Ltr(r.o("player").s("lastName") ?: r.s("nameStr") ?: "", style = vz(12.sp, FontWeight.Bold), color = Color.White)
+                MinuteChip(minuteText(r) + "'")
             }
         }
     }
 }
 
+/** A minute in a small dark chip, as under the score. */
+@Composable
+private fun MinuteChip(s: String) {
+    Box(Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.32f)).padding(horizontal = 6.dp)) {
+        Ltr(s, style = num(11.sp, FontWeight.Bold), color = Color.White.copy(alpha = 0.92f))
+    }
+}
+
+/** A club colour that white writing still reads on: a white or very pale kit is toned down to slate. */
+private fun heroTone(c: Color): Color = if (c.luminance() > 0.6f) androidx.compose.ui.graphics.lerp(c, Color(0xFF3A4252), 0.55f) else c
 
 @Composable
 private fun WatchDialog(m: MatchData, onClose: () -> Unit) {
@@ -1045,30 +1064,49 @@ private fun StatRow(st: JSONObject, homeColor: Color, awayColor: Color) {
         return
     }
     val tot = (abs(h) + abs(a)).takeIf { it > 0 } ?: 1.0
+    val grow = rememberGrow(st.s("key") ?: st.s("title") ?: "")
     Column(Modifier.padding(vertical = 5.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatValue(v[0], hi == "home", homeColor)
+            StatValue(v[0], hi == "home", homeColor, grow)
             T(tr(st.s("title")), 12, FontWeight.SemiBold, modifier = Modifier.weight(1f), align = TextAlign.Center)
-            StatValue(v[1], hi == "away", awayColor)
+            StatValue(v[1], hi == "away", awayColor, grow)
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             // each bar is anchored on its own outer edge, like the site
             Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(4.dp)).background(C.card2), contentAlignment = Alignment.CenterStart) {
-                Box(Modifier.fillMaxWidth((h / tot).toFloat().coerceIn(0f, 1f)).fillMaxSize().clip(RoundedCornerShape(6.dp)).background(homeColor))
+                Box(Modifier.fillMaxWidth((h / tot).toFloat().coerceIn(0f, 1f) * grow).fillMaxSize().clip(RoundedCornerShape(6.dp)).background(homeColor))
             }
             Box(Modifier.weight(1f).height(4.dp).clip(RoundedCornerShape(4.dp)).background(C.card2), contentAlignment = Alignment.CenterEnd) {
-                Box(Modifier.fillMaxWidth((a / tot).toFloat().coerceIn(0f, 1f)).fillMaxSize().clip(RoundedCornerShape(6.dp)).background(awayColor))
+                Box(Modifier.fillMaxWidth((a / tot).toFloat().coerceIn(0f, 1f) * grow).fillMaxSize().clip(RoundedCornerShape(6.dp)).background(awayColor))
             }
         }
     }
 }
 
 @Composable
-private fun StatValue(v: String, hi: Boolean, color: Color) {
+private fun StatValue(v: String, hi: Boolean, color: Color, grow: Float = 1f) {
     Box(Modifier.widthIn(min = 34.dp).clip(RoundedCornerShape(10.dp)).background(if (hi) color else Color.Transparent).padding(horizontal = 7.dp, vertical = 2.dp),
         contentAlignment = Alignment.Center) {
-        Ltr(fa(v), style = vz(13.sp, FontWeight.Black), color = if (hi) inkOn(color) else C.ink)
+        Ltr(fa(countingUp(v, grow)), style = num(13.sp), color = if (hi) inkOn(color) else C.ink)
     }
+}
+
+/** 0 → 1 over a moment, once per [key]: stat numbers count up and their bars grow when they come into view. */
+@Composable
+private fun rememberGrow(key: Any): Float {
+    val a = remember(key) { Animatable(0f) }
+    LaunchedEffect(key) { a.animateTo(1f, androidx.compose.animation.core.tween(900, easing = androidx.compose.animation.core.FastOutSlowInEasing)) }
+    return a.value
+}
+
+/** [v]'s leading number at [p] of its value, the rest ("(45%)", "%") kept as it is. */
+private fun countingUp(v: String, p: Float): String {
+    if (p >= 1f) return v
+    val m = Regex("^(\\d+)(\\.(\\d+))?(.*)$").find(v) ?: return v
+    val n = (m.groupValues[1] + m.groupValues[2]).toDoubleOrNull() ?: return v
+    val dec = m.groupValues[3].length
+    val shown = n * p
+    return (if (dec == 0) Math.round(shown).toString() else String.format(java.util.Locale.US, "%.${dec}f", shown)) + m.groupValues[4]
 }
 
 

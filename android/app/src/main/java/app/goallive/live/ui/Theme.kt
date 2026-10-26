@@ -92,6 +92,8 @@ val Barlow = FontFamily(
 /** Body text: Vazir in Persian (it draws Persian digits); the phone's own font in English, so numbers stay Latin. */
 fun vz(size: TextUnit, w: FontWeight = FontWeight.Normal) =
     TextStyle(fontFamily = if (app.goallive.live.Lang.en) FontFamily.Default else Vazir, fontSize = size, fontWeight = w, lineHeight = size * 1.5f)
+/** Figures: the text face with even-width digits, so scores, minutes and ratings line up the same everywhere. */
+fun num(size: TextUnit, w: FontWeight = FontWeight.Black) = vz(size, w).copy(fontFeatureSettings = "tnum", lineHeight = size * 1.25f)
 fun lat(size: TextUnit, w: FontWeight = FontWeight.Bold) = TextStyle(fontFamily = Barlow, fontSize = size, fontWeight = w, lineHeight = size * 1.2f, letterSpacing = 0.2.sp)
 
 private val Type = Typography(

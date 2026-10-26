@@ -95,7 +95,7 @@ private fun TeamBody(id: Int, d: JSONObject) {
     if (tabs.none { it.first == tab }) tab = "overview"
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
         item {
-            PageHero(color, club?.pattern) {
+            PageHero(color, club?.pattern, watermark = id) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     Crest(id, 76.dp, large = true)
                     Column(Modifier.weight(1f)) {
@@ -163,7 +163,7 @@ private fun Overview(id: Int, d: JSONObject) {
         }
     }
     ov.a("teamForm")?.takeIf { it.length() > 0 }?.let { f ->
-        Card { ListRow(first = true) { T(L("فرم اخیر"), 14, FontWeight.Bold, modifier = Modifier.weight(1f)); FormChips(f) } }
+        Card { CardTitle(L("فرم اخیر")); FormCards(id, f) }
     }
     val tp = ov.o("topPlayers")
     for ((key, title) in listOf("byRating" to L("بهترین نمره"), "byGoals" to L("گلزنان"), "byAssists" to L("پاس گل"))) {
@@ -328,6 +328,36 @@ private fun Trophies(d: JSONObject) {
                     }
                     if ((t.i("runnerup") ?: 0) > 0) T(L("نایب‌قهرمان {0}", t.i("runnerup")), 12, color = C.mute)
                 }
+            }
+        }
+    }
+}
+
+
+/** The last five results as small cards: a bar in the result's colour, the opponent's crest and the score. */
+@Composable
+private fun FormCards(id: Int, arr: org.json.JSONArray) {
+    val nav = LocalNav.current
+    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        arr.objs().take(5).forEach { f ->
+            val r = f.s("resultString") ?: when (f.i("result")) { 1 -> "W"; 0 -> "D"; -1 -> "L"; else -> "" }
+            val c = when (r) { "W" -> C.win; "L" -> C.loss; else -> C.draw }
+            val tip = f.o("tooltipText")
+            val homeId = f.o("home").i("id") ?: tip.i("homeTeamId"); val awayId = f.o("away").i("id") ?: tip.i("awayTeamId")
+            val weHome = f.o("home").b("isOurTeam") || homeId == id
+            val opp = if (weHome) awayId else homeId
+            val score = f.s("score") ?: listOfNotNull(tip.s("homeScore"), tip.s("awayScore")).takeIf { it.size == 2 }?.joinToString("-")
+            val matchId = f.s("linkToMatch")?.substringAfterLast('#')?.filter(Char::isDigit)?.toIntOrNull()
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(C.card2).border(1.dp, C.line, RoundedCornerShape(12.dp))
+                .then(if (matchId != null) Modifier.clickable { nav.match(matchId) } else Modifier),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.fillMaxWidth().height(4.dp).background(c))
+                Box(Modifier.padding(top = 8.dp).size(26.dp), contentAlignment = Alignment.Center) {
+                    if (opp != null && opp > 0) Crest(opp, 24.dp)
+                    else T(when (r) { "W" -> L("ب"); "L" -> L("ش"); else -> L("م") }, 13, FontWeight.Black, c)
+                }
+                score?.let { Ltr(fa(it.replace(" ", "").replace("-", " - ")), Modifier.padding(top = 4.dp), style = num(12.sp), color = C.ink) }
+                T(when (r) { "W" -> L("برد"); "L" -> L("باخت"); else -> L("مساوی") }, 10, FontWeight.ExtraBold, c, modifier = Modifier.padding(top = 1.dp, bottom = 7.dp))
             }
         }
     }

@@ -12,6 +12,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.Text
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -69,10 +74,14 @@ fun PredictCard(m: MatchData) {
                 }
                 if (open) {
                     val h = pick?.home ?: 0; val a = pick?.away ?: 0
-                    fun save(nh: Int, na: Int) = Predictions.put(
-                        Pick(m.matchId, nh, na, m.homeId, m.awayId, m.homeName, m.awayName, m.time, m.general.s("leagueName") ?: "",
-                            goalLive = forecast?.score ?: pick?.goalLive),
-                    )
+                    var saved by remember { mutableIntStateOf(0) }
+                    fun save(nh: Int, na: Int) {
+                        Predictions.put(
+                            Pick(m.matchId, nh, na, m.homeId, m.awayId, m.homeName, m.awayName, m.time, m.general.s("leagueName") ?: "",
+                                goalLive = forecast?.score ?: pick?.goalLive),
+                        )
+                        saved++
+                    }
                     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                         Stepper(m.homeId, m.homeName, h, Modifier.weight(1f)) { save(it, a) }
                         T("-", 26, FontWeight.Black, C.faint)
@@ -82,9 +91,9 @@ fun PredictCard(m: MatchData) {
                     if (pick == null) Box(Modifier.fillMaxWidth().padding(top = 10.dp), contentAlignment = Alignment.Center) {
                         Pill(L("ثبت {0}", fa("0-0")), PillKind.Accent, onClick = { save(0, 0) })
                     }
-                    T(if (pick == null) L("با زدن + و − پیش‌بینی‌ات ثبت می‌شود. نتیجه دقیق ۳ امتیاز، برنده درست ۱ امتیاز.")
-                        else L("✓ ثبت شد؛ تا سوت شروع می‌توانی تغییرش بدهی."), 12, color = if (pick == null) C.mute else C.win,
-                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = if (forecast == null) 14.dp else 10.dp))
+                    val pad = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = if (forecast == null) 14.dp else 10.dp)
+                    if (pick == null) T(L("با زدن + و − پیش‌بینی‌ات ثبت می‌شود. نتیجه دقیق ۳ امتیاز، برنده درست ۱ امتیاز."), 12, color = C.mute, modifier = pad)
+                    else SavedTick(saved, pad)
                     // GoalLive's own forecast, to play against
                     if (forecast != null) Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)) {
                         ForecastLine(forecast, m)
@@ -134,21 +143,56 @@ fun PredictCard(m: MatchData) {
 @Composable
 private fun Stepper(teamId: Int, name: String, value: Int, modifier: Modifier, onChange: (Int) -> Unit) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Crest(teamId, 34.dp)
+        Crest(teamId, 38.dp)
         TeamText(teamId, name, size = 13, maxLines = 1, align = TextAlign.Center)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StepBtn("−", value > 0) { onChange(value - 1) }
-            T(fa(value), 30, FontWeight.Black)
+            // the number rolls up or down with the tap
+            androidx.compose.animation.AnimatedContent(value, Modifier.widthIn(min = 30.dp), transitionSpec = {
+                val up = targetState > initialState
+                (androidx.compose.animation.slideInVertically { if (up) it else -it } + androidx.compose.animation.fadeIn()) togetherWith
+                    (androidx.compose.animation.slideOutVertically { if (up) -it else it } + androidx.compose.animation.fadeOut())
+            }, contentAlignment = Alignment.Center, label = "goals") { v ->
+                Text(fa(v), style = num(34.sp), color = C.ink, textAlign = TextAlign.Center)
+            }
             StepBtn("+", value < 9) { onChange(value + 1) }
         }
     }
 }
 
+/** A round + or − that shrinks under the finger and ticks the phone; + is filled in the accent. */
 @Composable
 private fun StepBtn(sign: String, enabled: Boolean, onClick: () -> Unit) {
-    Box(Modifier.size(36.dp).clip(CircleShape).background(if (enabled) C.card2 else Color.Transparent).border(1.dp, C.line, CircleShape)
-        .clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
-        T(sign, 20, FontWeight.Black, if (enabled) C.ink else C.faint)
+    val accent = LocalAccent.current
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val src = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val pressed by src.collectIsPressedAsState()
+    val sc by androidx.compose.animation.core.animateFloatAsState(if (pressed) 0.84f else 1f, label = "press")
+    val plus = sign == "+"
+    Box(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(46.dp)
+        .then(if (plus && enabled) Modifier.glow(accent.copy(alpha = 0.35f), 8.dp, CircleShape) else Modifier)
+        .clip(CircleShape).background(if (!enabled) Color.Transparent else if (plus) accent else C.card2)
+        .border(1.dp, if (plus && enabled) Color.Transparent else C.line, CircleShape)
+        .clickable(src, androidx.compose.foundation.LocalIndication.current, enabled = enabled) {
+            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove); onClick()
+        }, contentAlignment = Alignment.Center) {
+        T(sign, 22, FontWeight.Black, if (!enabled) C.faint else if (plus) LocalAccentInk.current else C.ink)
+    }
+}
+
+/** "Saved": a green tick that pops in with a glow each time the pick changes. */
+@Composable
+private fun SavedTick(key: Int, modifier: Modifier) {
+    val s = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(key) {
+        if (key > 0) { s.snapTo(0.3f); s.animateTo(1f, androidx.compose.animation.core.spring(0.38f, 420f)) }
+    }
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Box(Modifier.graphicsLayer { scaleX = s.value; scaleY = s.value }.size(22.dp).glow(C.win.copy(alpha = 0.5f), 8.dp, CircleShape)
+            .clip(CircleShape).background(C.win), contentAlignment = Alignment.Center) {
+            EmojiIcons.of("✓")?.let { androidx.compose.material3.Icon(it, null, Modifier.size(14.dp), tint = Color.White) }
+        }
+        T(L("ثبت شد؛ تا سوت شروع می‌توانی تغییرش بدهی."), 12, FontWeight.Bold, C.win)
     }
 }
 
