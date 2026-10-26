@@ -1527,3 +1527,20 @@
 1526|From the distance, how much of the goal is in sight and the defenders in the way
 1527|Outcome: {0}
 1528|Roll again
+1529|Width {0} · depth {1} m
+1530|Analysis
+1531|Team analysis
+1532|Show on the pitch
+1533|Space control
+1534|Open and closed passes
+1535|Team block
+1536|Space control: each patch of grass in the colour of the side whose player is nearer. Passes: green is open, red has an opponent in the way.
+1537|Shape
+1538|Teams shift with the ball
+1539|Team moves
+1540|On a new step (to animate)
+1541|Press the man on the ball
+1542|{0} back line
+1543|5 m higher
+1544|5 m deeper
+1545|Offside trap

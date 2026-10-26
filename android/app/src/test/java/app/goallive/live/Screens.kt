@@ -248,6 +248,9 @@ class Screens {
         NavHook.nav?.tab("studio"); settle(9000); shot("90-studio")
         app.goallive.live.ui.StudioPrefs.tilt = true; app.goallive.live.ui.StudioPrefs.style = "shirt"; settle(2000); shot("91-studio-tv")
         app.goallive.live.ui.StudioChrome.full = true; settle(2000); shot("94-studio-full"); app.goallive.live.ui.StudioChrome.full = false; settle(1000)
+        app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.space = true; app.goallive.live.ui.StudioPrefs.lanes = true; app.goallive.live.ui.StudioPrefs.block = true
+        settle(2000); shot("95-studio-analysis")
+        app.goallive.live.ui.StudioPrefs.space = false; app.goallive.live.ui.StudioPrefs.lanes = false; app.goallive.live.ui.StudioPrefs.block = false
         app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.style = "disc"; app.goallive.live.ui.StudioPrefs.range = "half"; app.goallive.live.ui.StudioPrefs.grass = "board"
         settle(2000); shot("92-studio-half")
         app.goallive.live.ui.StudioPrefs.style = "photo"; app.goallive.live.ui.StudioPrefs.range = "full"; app.goallive.live.ui.StudioPrefs.grass = "green"

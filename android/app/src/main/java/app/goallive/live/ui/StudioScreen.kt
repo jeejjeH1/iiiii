@@ -51,10 +51,10 @@ val StudioIcon: ImageVector by lazy {
 private fun toolName(t: String) = when (t) {
     "move" -> L("جابه‌جایی"); "pass" -> L("پاس"); "run" -> L("حرکت"); "dribble" -> L("دریبل"); "curve" -> L("منحنی"); "lob" -> L("پاس بلند")
     "both" -> L("دوطرفه"); "zone" -> L("ناحیه"); "rect" -> L("مستطیل"); "circle" -> L("دایره"); "dist" -> L("فاصله"); "hline" -> L("خط دفاع")
-    "spot" -> L("ذره‌بین"); "route" -> L("مسیر"); else -> L("متن")
+    "spot" -> L("ذره‌بین"); "route" -> L("مسیر"); "analyze" -> L("تحلیل"); else -> L("متن")
 }
 
-private val TOOLS = listOf("move", "route", "pass", "run", "dribble", "curve", "lob", "both", "zone", "rect", "circle", "dist", "hline", "spot", "text")
+private val TOOLS = listOf("move", "analyze", "route", "pass", "run", "dribble", "curve", "lob", "both", "zone", "rect", "circle", "dist", "hline", "spot", "text")
 
 /**
  * "استودیو تاکتیک": two sides on a pitch (real clubs with their last line-up and squad, or made up), moved by hand,
@@ -165,7 +165,7 @@ fun StudioScreen() {
                 val accent = LocalAccent.current
                 Column(Modifier.width(62.dp).clip(RoundedCornerShape(16.dp)).background(if (on) accent.copy(alpha = 0.18f) else C.card2)
                     .border(if (on) 1.5.dp else 1.dp, if (on) accent else C.line2, RoundedCornerShape(16.dp))
-                    .clickable { ed.tool = t; ed.selMark = -1 }.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    .clickable { if (t == "analyze") ed.analysis = true else { ed.tool = t; ed.selMark = -1 } }.padding(vertical = 7.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     ToolGlyph(t, if (on) accent else C.ink)
                     T(toolName(t), 10, FontWeight.Bold, if (on) accent else C.mute, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
                 }
@@ -183,6 +183,7 @@ private fun SheetsOf(board: StudioBoard, ed: StudioEditor, teamSheet: Int, libra
     if (viewSheet) ViewSheet(closeView)
     ed.editPlayer?.let { p -> PlayerSheet(board, ed, p) { ed.editPlayer = null } }
     if (ed.frameMenu in board.frames.indices) FrameSheet(board, ed, ed.frameMenu) { ed.frameMenu = -1 }
+    if (ed.analysis) AnalysisSheet(board) { ed.analysis = false }
     ed.textAt?.let { at ->
         TextAsk(L("نوشته روی زمین"), "") { s ->
             if (s != null && s.isNotBlank()) { board.marks += SMark("text", listOf(at), ed.pen, ed.width, ed.alpha, s.trim(), ed.layer); board.commit() }
@@ -355,6 +356,14 @@ private fun ToolGlyph(t: String, ink: Color) {
                     val r = Math.toRadians(a.toDouble()); val x = w / 2 + w * 0.42f * kotlin.math.cos(r).toFloat(); val y = w / 2 + w * 0.42f * kotlin.math.sin(r).toFloat()
                     head(x, y, a)
                 }
+            }
+            "analyze" -> {
+                // a pitch cut into two sides' spaces, with a pass between two men
+                drawRect(ink.copy(alpha = 0.22f), Offset(w * 0.1f, w * 0.15f), androidx.compose.ui.geometry.Size(w * 0.45f, w * 0.7f))
+                drawRect(ink, Offset(w * 0.1f, w * 0.15f), androidx.compose.ui.geometry.Size(w * 0.8f, w * 0.7f), style = s)
+                drawLine(ink, Offset(w * 0.55f, w * 0.15f), Offset(w * 0.5f, w * 0.85f), s.width)
+                drawCircle(ink, w * 0.07f, Offset(w * 0.3f, w * 0.62f)); drawCircle(ink, w * 0.07f, Offset(w * 0.72f, w * 0.36f))
+                drawLine(ink, Offset(w * 0.3f, w * 0.62f), Offset(w * 0.72f, w * 0.36f), s.width * 0.7f, StrokeCap.Round, PathEffect.dashPathEffect(floatArrayOf(4f, 4f)))
             }
             "route" -> {
                 drawCircle(ink, w * 0.12f, Offset(w * 0.2f, w * 0.78f))
@@ -815,5 +824,43 @@ private fun FrameSheet(board: StudioBoard, ed: StudioEditor, k: Int, onClose: ()
             if (k < board.frames.size - 1) Pill(L("یکی جلوتر"), PillKind.Plain, onClick = { board.moveFrame(k, 1); onClose() })
             if (board.frames.size > 1) Pill(L("حذف مرحله"), PillKind.Plain, onClick = { board.deleteFrame(k); onClose() })
         }
+    }
+}
+
+
+/** The analysis panel: overlays to switch on, and team moves (press, the back line, the offside trap) made on a new step. */
+@Composable
+private fun AnalysisSheet(board: StudioBoard, onClose: () -> Unit) {
+    var newStep by remember { mutableStateOf(true) }
+    Sheet({ StudioPrefs.keep(); onClose() }) {
+        T(L("تحلیل تیمی"), 18, FontWeight.Black, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        StudioLabel(L("روی زمین نشان بده"))
+        Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Toggle(L("کنترل فضا"), StudioPrefs.space) { StudioPrefs.space = it }
+            Toggle(L("خطوط پاس باز و بسته"), StudioPrefs.lanes) { StudioPrefs.lanes = it }
+            Toggle(L("بلوک و فشردگی تیم"), StudioPrefs.block) { StudioPrefs.block = it }
+        }
+        T(L("کنترل فضا: هر تکه از زمین به رنگ تیمی که بازیکنش به آن نزدیک‌تر است. خطوط پاس: سبز یعنی پاس باز، قرمز یعنی حریف جلوی آن است."),
+            11, color = C.mute, modifier = Modifier.padding(horizontal = 18.dp, vertical = 6.dp))
+        StudioLabel(L("جاگیری"))
+        Row(Modifier.padding(horizontal = 16.dp)) { Toggle(L("تیم‌ها با حرکت توپ جابه‌جا شوند"), StudioPrefs.auto) { StudioPrefs.auto = it } }
+        StudioLabel(L("حرکت‌های تیمی"))
+        Row(Modifier.padding(horizontal = 16.dp)) { Toggle(L("در یک مرحله‌ی تازه (برای انیمیشن)"), newStep) { newStep = it } }
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.padding(horizontal = 16.dp)) { Pill(L("پرس روی صاحب توپ"), PillKind.Accent, onClick = { board.press(newStep); onClose() }) }
+        for (side in listOf(0, 1)) {
+            if (side == 1 && !board.showAway) continue
+            val t = if (side == 0) board.home else board.away
+            Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (t.teamId > 0) Crest(t.teamId, 20.dp) else Box(Modifier.size(14.dp).clip(CircleShape).background(Color(t.color)))
+                T(L("خط دفاع {0}", t.name), 14, FontWeight.Bold, maxLines = 1)
+            }
+            Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Pill(L("۵ متر بالاتر"), PillKind.Plain, onClick = { board.shiftLine(side, 5f, newStep); onClose() })
+                Pill(L("۵ متر عقب‌تر"), PillKind.Plain, onClick = { board.shiftLine(side, -5f, newStep); onClose() })
+                Pill(L("تله‌ی آفساید"), PillKind.Plain, onClick = { board.offsideTrap(side, newStep); onClose() })
+            }
+        }
+        Spacer(Modifier.height(10.dp))
     }
 }

@@ -125,6 +125,8 @@ class StudioEditor {
     var fx by mutableStateOf<Pair<Int, Float>?>(null)
     var hold by mutableFloatStateOf(0f)
     var result by mutableStateOf<SEvent?>(null)
+    /** The analysis panel is open. */
+    var analysis by mutableStateOf(false)
 }
 
 /* ---------- the canvas ---------- */
@@ -247,6 +249,8 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
                         drawCircle(Color.White.copy(alpha = 0.35f), proj.r(prev.ball.y) * 0.4f, proj.at(prev.ball))
                     }
                 }
+                // the analyst's overlays, live as the move plays
+                if (StudioPrefs.space || StudioPrefs.lanes || StudioPrefs.block) drawAnalysis(board, proj, ::where, now?.ball ?: board.ball, tf)
                 // an event being shown: its frame, its kind and how long ago
                 val fxNow = ed.fx?.let { (i, sec) -> board.frames.getOrNull(i)?.ev?.let { Triple(i, it, sec) } }
                 var shown = now?.pos
@@ -304,6 +308,7 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
     private var player: SPlayer? = null
     private var handle = -1
     private var markAt = -1
+    private var ballFrom = Offset.Zero
 
     private fun hitPlayer(c: Offset): SPlayer? = board.players.filter { it.side == 0 || board.showAway }
         .minByOrNull { (proj.at(it.u, it.v) - c).getDistance() }?.takeIf { (proj.at(it.u, it.v) - c).getDistance() < proj.r(it.v) * 1.7f }
@@ -327,7 +332,7 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
                 handle = sel?.let { m -> handles(m).indexOfFirst { (proj.at(it) - c).getDistance() < 40f } } ?: -1
                 when {
                     handle >= 0 -> what = "handle"
-                    (proj.at(board.ball) - c).getDistance() < proj.r(board.ball.y) * 1.2f -> what = "ball"
+                    (proj.at(board.ball) - c).getDistance() < proj.r(board.ball.y) * 1.2f -> { what = "ball"; ballFrom = board.ball }
                     hitPlayer(c) != null -> {
                         player = hitPlayer(c); what = "player"
                         if (player!!.key !in ed.selected) { ed.selected.clear(); ed.selected += player!!.key }
@@ -382,7 +387,8 @@ private class Gesture(val board: StudioBoard, val ed: StudioEditor, val proj: Pr
                     board.commit()
                 }
             }
-            "ball", "mark", "handle" -> if (!tap) board.commit()
+            "ball" -> if (!tap) { if (StudioPrefs.auto) board.followBall(board.ball - ballFrom); board.commit() }
+            "mark", "handle" -> if (!tap) board.commit()
             "lasso" -> {
                 val (a, b) = ed.lasso ?: (startP to startP)
                 ed.lasso = null
@@ -844,4 +850,76 @@ private fun DrawScope.drawEvent(proj: Proj, board: StudioBoard, i: Int, ev: SEve
             label(word, proj.at(0.5f, v) - Offset(0f, 34f), proj.r(v) * 1.3f * popIn(min(1f, sec / 0.4f)), c.copy(alpha = fade), tf, pill = true)
         }
     }
+}
+
+
+/* ---------- the analyst's overlays ---------- */
+
+/**
+ * Who controls which space (each patch of grass in the colour of the side whose player is nearest), the passes open and closed
+ * from the man on the ball (closed when an opponent stands within a couple of metres of the line), and each side's block
+ * (its outfield players' outline with its width and depth in metres).
+ */
+private fun DrawScope.drawAnalysis(board: StudioBoard, proj: Proj, where: (SPlayer) -> Offset, ball: Offset, tf: Typeface) {
+    val on = board.players.filter { it.side == 0 || board.showAway }
+    val at = on.associateWith { where(it) }
+    fun metres(a: Offset, b: Offset) = sqrt(((a.x - b.x) * 68f).pow(2) + ((a.y - b.y) * 105f).pow(2))
+    if (StudioPrefs.space && on.isNotEmpty()) {
+        val cols = 34; val rows = 52
+        val home = Color(board.home.color); val away = Color(board.away.color)
+        for (j in 0 until rows) for (i in 0 until cols) {
+            val u0 = i / cols.toFloat(); val v0 = j / rows.toFloat(); val u1 = (i + 1) / cols.toFloat(); val v1 = (j + 1) / rows.toFloat()
+            val c = Offset((u0 + u1) / 2, (v0 + v1) / 2)
+            val near = on.minByOrNull { metres(at[it]!!, c) } ?: continue
+            val col = if (near.side == 0) home else away
+            val a = proj.at(u0, v0); val b = proj.at(u1, v0); val cc = proj.at(u1, v1); val d = proj.at(u0, v1)
+            drawPath(Path().apply { moveTo(a.x, a.y); lineTo(b.x, b.y); lineTo(cc.x, cc.y); lineTo(d.x, d.y); close() }, col.copy(alpha = 0.2f))
+        }
+    }
+    if (StudioPrefs.block) for (side in 0..1) {
+        if (side == 1 && !board.showAway) continue
+        val keeper = board.keeperOf(side)
+        val pts = on.filter { it.side == side && it != keeper }.map { at[it]!! }
+        if (pts.size < 3) continue
+        val hull = convexHull(pts).map { proj.at(it) }
+        val team = Color((if (side == 0) board.home else board.away).color)
+        val path = Path().apply { hull.forEachIndexed { i, q -> if (i == 0) moveTo(q.x, q.y) else lineTo(q.x, q.y) }; close() }
+        drawPath(path, team.copy(alpha = 0.14f))
+        drawPath(path, team.copy(alpha = 0.9f), style = Stroke(2.5f, join = StrokeJoin.Round, pathEffect = PathEffect.dashPathEffect(floatArrayOf(14f, 8f))))
+        val wM = (pts.maxOf { it.x } - pts.minOf { it.x }) * 68f; val dM = (pts.maxOf { it.y } - pts.minOf { it.y }) * 105f
+        val top = hull.minByOrNull { it.y }!!
+        label(app.goallive.live.L("عرض {0} · عمق {1} متر", fa(wM.roundToInt()), fa(dM.roundToInt())), top - Offset(0f, 16f), proj.r(0.5f) * 0.75f, Color.White, tf, pill = true)
+    }
+    if (StudioPrefs.lanes) {
+        val holder = on.minByOrNull { metres(at[it]!!, ball) } ?: return
+        if (metres(at[holder]!!, ball) > 4f) return
+        val from = at[holder]!!
+        val rivals = on.filter { it.side != holder.side }.map { at[it]!! }
+        for (m in on.filter { it.side == holder.side && it != holder }) {
+            val to = at[m]!!
+            // closed when a rival stands within 2.2 m of the pass, away from both ends
+            val closed = rivals.any { r ->
+                val ab = to - from; val len2 = ab.x * ab.x * 68f * 68f + ab.y * ab.y * 105f * 105f
+                val t = if (len2 == 0f) 0f else (((r - from).x * ab.x * 68f * 68f + (r - from).y * ab.y * 105f * 105f) / len2)
+                t in 0.08f..0.95f && metres(r, from + ab * t) < 2.2f
+            }
+            val a = proj.at(from); val b = proj.at(to)
+            if (closed) drawLine(Color(0xFFFF5A6E).copy(alpha = 0.7f), a, b, 3f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 10f)), cap = StrokeCap.Round)
+            else {
+                drawLine(Color(0xFF39D98A).copy(alpha = 0.35f), a, b, 9f, cap = StrokeCap.Round)
+                drawLine(Color(0xFF39D98A), a, b, 3.5f, cap = StrokeCap.Round)
+            }
+            drawCircle(if (closed) Color(0xFFFF5A6E) else Color(0xFF39D98A), 6f, b)
+        }
+    }
+}
+
+/** The outline round [p]: its convex hull, in order. */
+private fun convexHull(p: List<Offset>): List<Offset> {
+    val pts = p.distinct().sortedWith(compareBy<Offset> { it.x }.thenBy { it.y })
+    if (pts.size < 3) return pts
+    fun cross(o: Offset, a: Offset, b: Offset) = (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x)
+    val lower = ArrayList<Offset>(); for (q in pts) { while (lower.size >= 2 && cross(lower[lower.size - 2], lower.last(), q) <= 0) lower.removeAt(lower.size - 1); lower += q }
+    val upper = ArrayList<Offset>(); for (q in pts.reversed()) { while (upper.size >= 2 && cross(upper[upper.size - 2], upper.last(), q) <= 0) upper.removeAt(upper.size - 1); upper += q }
+    return lower.dropLast(1) + upper.dropLast(1)
 }

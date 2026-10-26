@@ -392,6 +392,93 @@ class StudioBoard {
 
     private fun nearestTo(f: SFrame, at: Offset) = players.minByOrNull { p -> f.pos[p.key]?.let { (it - at).getDistance() } ?: 9f }
 
+    /* ---------- team moves: press, the back line, the offside trap, shifting with the ball ---------- */
+
+    /** The player with the ball now (the nearest to it). */
+    fun holderNow(): SPlayer? = players.filter { it.side == 0 || showAway }.minByOrNull { (Offset(it.u, it.v) - ball).getDistance() }
+
+    /** [side]'s keeper: the one nearest its own goal. */
+    fun keeperOf(side: Int): SPlayer? = players.filter { it.side == side }.minByOrNull { abs(it.v - (if (side == 0) 1f else 0f)) + abs(it.u - 0.5f) * 0.4f }
+
+    /** Which way is forward for [side] in v: up the pitch for the home side. */
+    private fun fwd(side: Int) = if (side == 0) -1f else 1f
+
+    /**
+     * The side without the ball presses: the nearest man goes at the ball between it and his goal, the next two close the
+     * passes to the nearest team-mates, the rest step up a little. On a new step when [newStep], so it plays as a move.
+     */
+    fun press(newStep: Boolean) {
+        val h = holderNow() ?: return
+        val def = 1 - h.side
+        if (def == 1 && !showAway) return
+        if (newStep) addFrame()
+        val hp = Offset(h.u, h.v)
+        val ownGoal = Offset(0.5f, if (def == 0) 1f else 0f)
+        val keeper = keeperOf(def)
+        val them = players.filter { it.side == def && it != keeper }.sortedBy { (Offset(it.u, it.v) - hp).getDistance() }
+        val mates = players.filter { it.side == h.side && it != h }.sortedBy { (Offset(it.u, it.v) - hp).getDistance() }
+        them.getOrNull(0)?.let { p ->
+            val toGoal = ownGoal - hp; val len = toGoal.getDistance().coerceAtLeast(0.001f)
+            val at = hp + toGoal / len * 0.03f
+            p.u = at.x; p.v = at.y
+        }
+        for (i in 1..2) {
+            val p = them.getOrNull(i) ?: break
+            val m = mates.getOrNull(i - 1) ?: break
+            val lane = hp + (Offset(m.u, m.v) - hp) * 0.55f
+            val now = Offset(p.u, p.v); val at = now + (lane - now) * 0.75f
+            p.u = at.x; p.v = at.y
+        }
+        // everyone else squeezes towards the ball
+        them.drop(3).forEach { p -> val now = Offset(p.u, p.v); val at = now + (hp - now) * 0.12f; p.u = at.x; p.v = at.y }
+        commit()
+    }
+
+    /** [side]'s back line: its four deepest outfield players (or fewer). */
+    fun backLine(side: Int): List<SPlayer> {
+        val keeper = keeperOf(side)
+        return players.filter { it.side == side && it != keeper }.sortedBy { if (side == 0) -it.v else it.v }.take(4)
+    }
+
+    /** Moves [side]'s back line together by [metres] (forward when positive), the keeper a little with it. */
+    fun shiftLine(side: Int, metres: Float, newStep: Boolean) {
+        if (newStep) addFrame()
+        val dv = fwd(side) * metres / 105f
+        val line = backLine(side)
+        // squared off: all at the line's average height, then moved
+        val v = line.map { it.v }.average().toFloat() + dv
+        line.forEach { it.v = v.coerceIn(0.02f, 0.98f) }
+        keeperOf(side)?.let { k -> k.v = (k.v + dv * 0.35f).coerceIn(0f, 1f) }
+        commit()
+    }
+
+    /** The offside trap: [side]'s back line steps up together to just past the deepest attacker. */
+    fun offsideTrap(side: Int, newStep: Boolean) {
+        val att = players.filter { it.side != side }
+        val keeper = keeperOf(side)
+        // the deepest attacker, from the defenders' point of view
+        val deepest = att.filter { it != keeperOf(1 - side) }.maxByOrNull { if (side == 0) it.v else -it.v } ?: return
+        if (newStep) addFrame()
+        // past him means further up the pitch than him, as the defenders see it
+        val target = deepest.v + fwd(side) * 0.02f
+        backLine(side).forEach { it.v = target.coerceIn(0.02f, 0.98f) }
+        keeper?.let { k -> k.v = (k.v + fwd(side) * 0.03f).coerceIn(0f, 1f) }
+        commit()
+    }
+
+    /** The whole shape follows the ball when it moves by [d]: across more than up and down, keepers least. */
+    fun followBall(d: Offset) {
+        if (d.getDistance() < 0.005f) return
+        for (side in 0..1) {
+            val keeper = keeperOf(side)
+            players.filter { it.side == side }.forEach { p ->
+                val k = if (p == keeper) 0.12f else 0.4f
+                p.u = (p.u + d.x * k).coerceIn(0.02f, 0.98f)
+                p.v = (p.v + d.y * k * 0.6f).coerceIn(0.02f, 0.98f)
+            }
+        }
+    }
+
     /** Puts [t]'s eleven on [side], replacing what was there. */
     fun setSide(side: Int, t: LoadedTeam) {
         players.removeAll { it.side == side }
@@ -506,11 +593,17 @@ object StudioPrefs {
     var trails by mutableStateOf(Store.prefs().getBoolean("studio.trails", true))
     var follow by mutableStateOf(Store.prefs().getBoolean("studio.follow", false))
     var onion by mutableStateOf(Store.prefs().getBoolean("studio.onion", true))
+    /** The analyst's overlays: who controls which space, open and closed passes from the ball, each side's block; and the shape following the ball. */
+    var space by mutableStateOf(Store.prefs().getBoolean("studio.space", false))
+    var lanes by mutableStateOf(Store.prefs().getBoolean("studio.lanes", false))
+    var block by mutableStateOf(Store.prefs().getBoolean("studio.block", false))
+    var auto by mutableStateOf(Store.prefs().getBoolean("studio.auto", false))
     val hidden = mutableStateListOf<String>()
     fun keep() = Store.prefs().edit().putBoolean("studio.tilt", tilt).putString("studio.range", range).putString("studio.style", style)
         .putBoolean("studio.names", names).putBoolean("studio.snap", snap).putString("studio.grass", grass)
         .putFloat("studio.speed", speed).putBoolean("studio.loop", loop).putBoolean("studio.trails", trails).putBoolean("studio.follow", follow)
-        .putBoolean("studio.onion", onion).apply()
+        .putBoolean("studio.onion", onion).putBoolean("studio.space", space).putBoolean("studio.lanes", lanes).putBoolean("studio.block", block)
+        .putBoolean("studio.auto", auto).apply()
 }
 
 @Suppress("unused") private fun keepImports(j: JSONObject) = j.b("x") || j.d("x") != null
