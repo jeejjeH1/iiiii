@@ -318,18 +318,36 @@ private fun man(c: Canvas, m: PitchMan, cx: Float, top: Float, d: Float, lk: Pos
 }
 
 /** The eleven in a box: [PitchMan]'s x / y (as the in-app pitch has them) spread over it, forwards at the top, or at the bottom when [flip]. */
-private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, d: Float, lk: PosterLook, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
+private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, dMax: Float, lk: PosterLook, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
                      tf: Typeface, clk: Clock, start: Float, flip: Boolean = false) {
+    if (men.isEmpty()) return
+    // the lines of the formation: players whose heights are close stand on one row, forwards first
+    val rows = ArrayList<MutableList<PitchMan>>()
+    for (m in men.sortedBy { it.y }) {
+        val last = rows.lastOrNull()
+        if (last != null && m.y - last.last().y < 0.075f) last += m else rows += mutableListOf(m)
+    }
+    val r = rows.size
+    // a photo size that leaves every plate, diamond and mark clear of its neighbours, across and down
+    val widest = rows.maxOf { it.size }
+    val cell = (box.width() - 40) / widest
+    val d = minOf(dMax, cell * 0.7f, if (r > 1) box.height() / (1.24f * (r - 1) + 1.18f) else dMax)
     val ph = Math.round(d * 0.3f); val block = d + ph * 0.6f
     val best = men.firstOrNull { it.star }
-    val order = men.sortedByDescending { if (flip) -it.y else it.y }.withIndex().associate { (i, m) -> m.id to i }
-    for (m in men.sortedBy { if (flip) -it.y else it.y }) {
-        val u = ((m.x - 0.11f) / 0.78f).coerceIn(0f, 1f)
-        val k = ((m.y - 0.12f) / 0.74f).coerceIn(0f, 1f)
-        val cx = box.left + 40 + (if (flip) 1 - u else u) * (box.width() - 80)
+    var n = 0
+    // the keeper's row first, so the team builds up from the back
+    for ((ri, row) in rows.withIndex().reversed()) {
+        val k = if (r > 1) ri / (r - 1f) else 0.5f
         val top = box.top + (if (flip) 1 - k else k) * (box.height() - block)
-        c.pop(clk.at(start + (order[m.id] ?: 0) * 0.1f, 0.45f), cx, top + d / 2) {
-            man(c, m, cx, top, d, lk, m === best, faces[m.id], m.crest?.let { crests[it] }, tf)
+        val across = (box.width() - 40) / row.size
+        row.sortedBy { it.x }.forEachIndexed { i, m ->
+            val u = (i + 0.5f) * across
+            // and never past the panel's edge: the marks on the left of the photo, the diamond on the right of the plate
+            val lo = box.left + d * 0.72f + 12; val hi = box.right - (d + 34) / 2 - d * 0.16f - 14
+            val cx = (box.left + 20 + if (flip) box.width() - 40 - u else u).coerceIn(lo, maxOf(lo, hi))
+            c.pop(clk.at(start + n++ * 0.1f, 0.45f), cx, top + d / 2) {
+                man(c, m, cx, top, d, lk, m === best, faces[m.id], m.crest?.let { crests[it] }, tf)
+            }
         }
     }
 }
