@@ -101,4 +101,6 @@ jobs:
           name: Android screenshots (build check)
           body: Automatic screenshots of the Android app from the latest build, used to compare its look with the website.
           prerelease: true
-          files: android/app/build/screens/*.png
+          files: |
+            android/app/build/screens/*.png
+            android/app/build/screens/*.zip
