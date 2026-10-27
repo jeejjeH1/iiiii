@@ -135,8 +135,7 @@ fun Root(openMatch: MutableIntState) {
             Box(Modifier.fillMaxSize()) {
                 Stadium(accent)
                 Column(Modifier.fillMaxSize().statusBarsPadding()) {
-                    // the tactics studio is a workbench: its own slim header, and the whole screen for the pitch
-                    if (route != "studio") TopBar(canBack = route != null && TABS.none { it.first == route }, nav)
+                    if (!StudioChrome.full) TopBar(canBack = route != null && TABS.none { it.first == route }, nav)
                     SharedTransitionLayout(Modifier.fillMaxSize()) {
                     CompositionLocalProvider(LocalShared provides this) {
                     NavHost(
@@ -180,7 +179,7 @@ fun Root(openMatch: MutableIntState) {
                     }
                 }
                 // the streaming browser and the assistant's chat use the bottom of the screen themselves
-                if (route != "assistant" && route != "studio") BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
+                if (route != "assistant" && !StudioChrome.full) BottomNav(route, nav, Modifier.align(Alignment.BottomCenter))
             }
             // first launch: the welcome steps (team, leagues, alerts) instead of separate pop-ups
             var welcome by remember { mutableStateOf(!Store.onboarded) }

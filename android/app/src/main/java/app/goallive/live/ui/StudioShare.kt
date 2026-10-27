@@ -75,6 +75,22 @@ class StudioPlan(private val board: StudioBoard, speed: Float = 1f) {
         return t to fx
     }
 
+    /** When the sounds go: the whistle, each shot, the roar of a goal, the end. */
+    fun sounds(): List<Pair<Float, StoryAudio.Fx>> {
+        val out = arrayListOf(0.2f to StoryAudio.Fx.WHISTLE)
+        for (p in pieces) {
+            val e = board.frames.getOrNull(p.k)?.ev ?: continue
+            if (!p.hold || p.start <= 0f) continue
+            when {
+                e.kind == "shot" && e.outcome == "goal" -> { out += (p.start - 0.15f) to StoryAudio.Fx.BOOM; out += p.start to StoryAudio.Fx.ROAR; out += (p.start + 0.4f) to StoryAudio.Fx.CHEER }
+                e.kind == "shot" -> { out += (p.start - 0.15f) to StoryAudio.Fx.BOOM; out += p.start to StoryAudio.Fx.WHOOSH }
+                e.kind == "offside" -> out += p.start to StoryAudio.Fx.WHISTLE_HALF
+                else -> out += p.start to StoryAudio.Fx.WHOOSH
+            }
+        }
+        out += (seconds - 0.8f) to StoryAudio.Fx.WHISTLE_END
+        return out
+    }
 }
 
 /** What a picture or a video frame needs: the fonts, the logo and the players' photos. */
@@ -137,6 +153,19 @@ fun drawStudioStory(c: android.graphics.Canvas, board: StudioBoard, art: StudioA
 
 private fun shareDir(ctx: Context) = File(ctx.cacheDir, "share").apply { mkdirs() }
 
+/** The move as an MP4 for a story, with the stadium (and music) when [sound] is "crowd" or "music". */
+fun studioVideo(ctx: Context, board: StudioBoard, art: StudioArt, sound: String, progress: (Float) -> Unit, keepGoing: () -> Boolean): File? = runCatching {
+    board.syncOut()
+    val plan = StudioPlan(board, StudioPrefs.speed)
+    val f = File(shareDir(ctx), "goallive-tactic.mp4")
+    val audio = if (sound.isEmpty()) null else StoryAudio.make(ctx, plan.seconds, if (sound == "music") R.raw.story_energy else null, 0.45f, true, plan.sounds())
+    val ok = StoryVideo.make(ctx, f, 720, 1280, plan.seconds, null, progress, keepGoing, audio = audio) { c, s ->
+        val (t, fx) = plan.at(s)
+        drawStudioStory(c, board, art, t, fx)
+    }
+    if (ok) f else null
+}.getOrNull()
+
 /** Pictures of the steps: the current one, or every one. */
 fun studioPictures(ctx: Context, board: StudioBoard, art: StudioArt, all: Boolean): List<File> = runCatching {
     board.syncOut()
@@ -147,6 +176,21 @@ fun studioPictures(ctx: Context, board: StudioBoard, art: StudioArt, all: Boolea
         File(shareDir(ctx), "goallive-tactic-${k + 1}.png").also { out -> out.outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }; bmp.recycle() }
     }
 }.getOrDefault(emptyList())
+
+/** The tactic as a small file a friend opens in GoalLive. */
+fun studioFile(ctx: Context, board: StudioBoard): File {
+    board.syncOut()
+    val name = board.title.ifBlank { "tactic" }.replace(Regex("[^\\p{L}\\p{N}]+"), "-").trim('-').ifEmpty { "tactic" }
+    return File(shareDir(ctx), "$name.goallive.json").also { it.writeText(JSONObject().put("goallive", "tactic").put("v", 1).put("board", board.json()).toString()) }
+}
+
+/** Reads a tactic file chosen on the phone; false when it is not one. */
+fun importStudioFile(ctx: Context, uri: Uri, board: StudioBoard): Boolean = runCatching {
+    val text = ctx.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: return false
+    val j = JSONObject(text)
+    val b = j.optJSONObject("board") ?: j.takeIf { it.has("players") } ?: return false
+    board.load(b); board.commit(); true
+}.getOrDefault(false)
 
 /** Hands [files] to the system's share sheet with a line about the app. */
 fun shareStudio(ctx: Context, files: List<File>, mime: String) {

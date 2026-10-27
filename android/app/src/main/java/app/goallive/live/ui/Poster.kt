@@ -501,11 +501,7 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
             val tx = W / 2f + (if (badge != null) (if (Lang.en) 1 else -1) * (cs + 20) / 2 else 0f)
             badge?.let { b ->
                 val bx = if (Lang.en) W / 2f - row / 2 else W / 2f + row / 2 - cs
-                // on a white disc, so a dark logo (the Premier League's purple lion) still shows on a dark poster
-                val cy = y + ts * 0.55f
-                c.drawCircle(bx + cs / 2, cy, cs / 2, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt(); setShadowLayer(14f, 0f, 4f, 0x66000000) })
-                val ins = cs * 0.17f
-                c.drawBitmap(b, null, RectF(bx + ins, cy - cs / 2 + ins, bx + cs - ins, cy + cs / 2 - ins), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+                c.drawBitmap(b, null, RectF(bx, y + (ts * 1.1f - cs) / 2, bx + cs, y + (ts * 1.1f + cs) / 2), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
             }
             line(c, l.title, tx, y + ts * 0.55f, ts, lk.ink, tf, tw + 2)
             y += ts * 1.1f + (if (post) 4f else 10f)

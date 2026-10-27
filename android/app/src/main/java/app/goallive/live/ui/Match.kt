@@ -1640,6 +1640,9 @@ private fun Pitch(m: MatchData, team: JSONObject, rival: JSONObject, home: Boole
             TeamText(id, team.s("name") ?: "", size = 15, w = FontWeight.ExtraBold, maxLines = 1, color = Color.White)
             team.o("coach")?.s("name")?.let { T(L("سرمربی: {0}", personName(it)), 11, color = Color.White.copy(alpha = 0.7f), maxLines = 1) }
         }
+        // the match in the tactics studio: both line-ups, or its goals rebuilt
+        Box(Modifier.size(34.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable { StudioOpen.match = m.matchId; nav.tab("studio") },
+            contentAlignment = Alignment.Center) { Icon(StudioIcon, L("استودیو تاکتیک"), Modifier.size(17.dp), tint = Color.White) }
         PitchPill(fa(team.s("formation") ?: ""), color)
         Rating(teamRating(ratings, home))
         // the line-up as a story picture

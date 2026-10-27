@@ -118,7 +118,21 @@ class SEvent(val kind: String, val outcome: String = "", val decide: String = "m
     }
 }
 
+val SHOT_OUTCOMES = listOf("goal", "save", "post", "wide", "block")
 
+/**
+ * The chance a shot from [b] goes in, from how far it is from the goal ([goalV] 0 the top one, 1 the bottom one), how much of the
+ * goal mouth it sees, and how many defenders stand in the way: a small model of the kind the expected-goals numbers use.
+ */
+fun shotChance(b: Offset, goalV: Float, blockers: Int): Float {
+    val x = (b.x - 0.5f) * 68f; val y = abs(b.y - goalV) * 105f
+    val d = sqrt(x * x + y * y)
+    // the angle between the two posts as the shooter sees them
+    val a1 = atan2(x - 3.66f, y); val a2 = atan2(x + 3.66f, y)
+    val angle = abs(a2 - a1)
+    val z = 1.6f - 0.24f * d + 2.0f * angle - 0.6f * blockers
+    return (1f / (1f + exp(-z))).coerceIn(0.01f, 0.97f)
+}
 
 /** What can be drawn, in the toolbar's order. */
 val MARK_KINDS = listOf("pass", "run", "dribble", "curve", "lob", "both", "zone", "rect", "circle", "dist", "hline", "text")
@@ -324,6 +338,147 @@ class StudioBoard {
         return players.filter { it.side == 0 || showAway }.minByOrNull { p -> (f.pos[p.key]?.let { (it - f.ball).getDistance() }) ?: 9f }
     }
 
+    /**
+     * Puts [kind] on step [k] (k ≥ 1). A shot is played out: who shoots (whoever had the ball the step before), its chance,
+     * the outcome (by hand, by the chance, or by the dice) and where the ball and the keeper end up.
+     */
+    fun setEvent(k: Int, kind: String?, outcome: String = "goal", decide: String = "manual", reroll: Boolean = false) {
+        if (k < 1 || k >= frames.size) return
+        syncOut()
+        val f = frames[k]
+        if (kind == null) { setFrame(k, f.copy(ev = null)); return }
+        if (kind != "shot") { setFrame(k, f.copy(ev = SEvent(kind, by = nearestTo(f, f.ball)?.key ?: -1))); return }
+        val prev = frames[k - 1]
+        // the side shooting is the one attacking the goal the ball is nearer; the shooter its player nearest the ball
+        val attacking = if (prev.ball.y < 0.5f) 0 else 1
+        val shooter = players.filter { it.side == attacking && (attacking == 0 || showAway) }
+            .minByOrNull { p -> prev.pos[p.key]?.let { (it - prev.ball).getDistance() } ?: 9f } ?: return
+        val side = shooter.side
+        val goalV = if (side == 0) 0f else 1f
+        val inward = if (side == 0) 1f else -1f
+        val b = prev.ball
+        val them = players.filter { it.side != side }
+        // the defenders in the way: inside the triangle from the ball to the posts
+        val blockers = them.count { p -> prev.pos[p.key]?.let { inTriangle(it, b, Offset(0.4462f, goalV), Offset(0.5538f, goalV)) } ?: false }
+        val xg = shotChance(b, goalV, blockers)
+        val keeper = them.minByOrNull { p -> prev.pos[p.key]?.let { abs(it.y - goalV) + abs(it.x - 0.5f) * 0.5f } ?: 9f }
+        val kp = keeper?.let { prev.pos[it.key] }
+        val seed = if (reroll || f.ev?.seed == null || f.ev.seed == 0L) kotlin.random.Random.nextLong() else f.ev.seed
+        val result = when (decide) {
+            "auto" -> if (xg >= 0.3f) "goal" else if (blockers > 1) "block" else if (kp != null) "save" else "wide"
+            "luck" -> {
+                val r = kotlin.random.Random(seed)
+                if (r.nextFloat() < xg) "goal" else listOf("save", "save", "save", "wide", "wide", "post", "block").let { it[r.nextInt(it.size)] }.let { o -> if (o == "block" && blockers == 0) "save" else o }
+            }
+            else -> outcome
+        }
+        // where the ball goes: away from the keeper for a goal, at him for a save
+        val far = if ((kp?.x ?: 0.5f) < 0.5f) 1f else -1f
+        val pos = f.pos.toMutableMap()
+        val end = when (result) {
+            "goal" -> Offset(0.5f + far * 0.038f, goalV - inward * 0.014f)
+            "save" -> Offset(0.5f + far * 0.026f, goalV + inward * 0.022f)
+            "post" -> Offset(0.5f + far * 0.0538f, goalV)
+            "wide" -> Offset(0.5f + far * 0.085f, goalV - inward * 0.02f)
+            else -> them.minByOrNull { p -> prev.pos[p.key]?.let { segDistance(it, b, Offset(0.5f, goalV)) } ?: 9f }?.let { prev.pos[it.key] } ?: b
+        }
+        // the keeper dives: to the ball for a save, the right way but too late for a goal
+        if (keeper != null && kp != null && result in setOf("goal", "save", "post")) {
+            val dive = Offset(end.x, goalV + inward * 0.02f)
+            pos[keeper.key] = if (result == "save") dive else kp + (dive - kp) * 0.6f
+        }
+        setFrame(k, f.copy(pos = pos, ball = end, air = false, ev = SEvent("shot", result, decide, shooter.key, xg, seed)))
+    }
+
+    private fun nearestTo(f: SFrame, at: Offset) = players.minByOrNull { p -> f.pos[p.key]?.let { (it - at).getDistance() } ?: 9f }
+
+    /* ---------- team moves: press, the back line, the offside trap, shifting with the ball ---------- */
+
+    /** The player with the ball now (the nearest to it). */
+    fun holderNow(): SPlayer? = players.filter { it.side == 0 || showAway }.minByOrNull { (Offset(it.u, it.v) - ball).getDistance() }
+
+    /** [side]'s keeper: the one nearest its own goal. */
+    fun keeperOf(side: Int): SPlayer? = players.filter { it.side == side }.minByOrNull { abs(it.v - (if (side == 0) 1f else 0f)) + abs(it.u - 0.5f) * 0.4f }
+
+    /** Which way is forward for [side] in v: up the pitch for the home side. */
+    private fun fwd(side: Int) = if (side == 0) -1f else 1f
+
+    /**
+     * The side without the ball presses: the nearest man goes at the ball between it and his goal, the next two close the
+     * passes to the nearest team-mates, the rest step up a little. On a new step when [newStep], so it plays as a move.
+     */
+    fun press(newStep: Boolean) {
+        val h = holderNow() ?: return
+        val def = 1 - h.side
+        if (def == 1 && !showAway) return
+        if (newStep) addFrame()
+        val hp = Offset(h.u, h.v)
+        val ownGoal = Offset(0.5f, if (def == 0) 1f else 0f)
+        val keeper = keeperOf(def)
+        val them = players.filter { it.side == def && it != keeper }.sortedBy { (Offset(it.u, it.v) - hp).getDistance() }
+        val mates = players.filter { it.side == h.side && it != h }.sortedBy { (Offset(it.u, it.v) - hp).getDistance() }
+        them.getOrNull(0)?.let { p ->
+            val toGoal = ownGoal - hp; val len = toGoal.getDistance().coerceAtLeast(0.001f)
+            val at = hp + toGoal / len * 0.03f
+            p.u = at.x; p.v = at.y
+        }
+        for (i in 1..2) {
+            val p = them.getOrNull(i) ?: break
+            val m = mates.getOrNull(i - 1) ?: break
+            val lane = hp + (Offset(m.u, m.v) - hp) * 0.55f
+            val now = Offset(p.u, p.v); val at = now + (lane - now) * 0.75f
+            p.u = at.x; p.v = at.y
+        }
+        // everyone else squeezes towards the ball
+        them.drop(3).forEach { p -> val now = Offset(p.u, p.v); val at = now + (hp - now) * 0.12f; p.u = at.x; p.v = at.y }
+        commit()
+    }
+
+    /** [side]'s back line: its four deepest outfield players (or fewer). */
+    fun backLine(side: Int): List<SPlayer> {
+        val keeper = keeperOf(side)
+        return players.filter { it.side == side && it != keeper }.sortedBy { if (side == 0) -it.v else it.v }.take(4)
+    }
+
+    /** Moves [side]'s back line together by [metres] (forward when positive), the keeper a little with it. */
+    fun shiftLine(side: Int, metres: Float, newStep: Boolean) {
+        if (newStep) addFrame()
+        val dv = fwd(side) * metres / 105f
+        val line = backLine(side)
+        // squared off: all at the line's average height, then moved
+        val v = line.map { it.v }.average().toFloat() + dv
+        line.forEach { it.v = v.coerceIn(0.02f, 0.98f) }
+        keeperOf(side)?.let { k -> k.v = (k.v + dv * 0.35f).coerceIn(0f, 1f) }
+        commit()
+    }
+
+    /** The offside trap: [side]'s back line steps up together to just past the deepest attacker. */
+    fun offsideTrap(side: Int, newStep: Boolean) {
+        val att = players.filter { it.side != side }
+        val keeper = keeperOf(side)
+        // the deepest attacker, from the defenders' point of view
+        val deepest = att.filter { it != keeperOf(1 - side) }.maxByOrNull { if (side == 0) it.v else -it.v } ?: return
+        if (newStep) addFrame()
+        // past him means further up the pitch than him, as the defenders see it
+        val target = deepest.v + fwd(side) * 0.02f
+        backLine(side).forEach { it.v = target.coerceIn(0.02f, 0.98f) }
+        keeper?.let { k -> k.v = (k.v + fwd(side) * 0.03f).coerceIn(0f, 1f) }
+        commit()
+    }
+
+    /** The whole shape follows the ball when it moves by [d]: across more than up and down, keepers least. */
+    fun followBall(d: Offset) {
+        if (d.getDistance() < 0.005f) return
+        for (side in 0..1) {
+            val keeper = keeperOf(side)
+            players.filter { it.side == side }.forEach { p ->
+                val k = if (p == keeper) 0.12f else 0.4f
+                p.u = (p.u + d.x * k).coerceIn(0.02f, 0.98f)
+                p.v = (p.v + d.y * k * 0.6f).coerceIn(0.02f, 0.98f)
+            }
+        }
+    }
+
     /** Puts [t]'s eleven on [side], replacing what was there. */
     fun setSide(side: Int, t: LoadedTeam) {
         players.removeAll { it.side == side }
@@ -341,43 +496,6 @@ class StudioBoard {
         ordered.forEachIndexed { k, p -> spots.getOrNull(k)?.let { p.u = it.x; p.v = it.y } }
         if (side == 0) home = STeam(home.name, home.color, home.ink, home.teamId, formation) else away = STeam(away.name, away.color, away.ink, away.teamId, formation)
     }
-
-    /* ---------- many at once ---------- */
-
-    /**
-     * Moves the players [keys] (and the ball when [ball], every drawing when [marks]) by [f] on this step, or on every step when [all];
-     * [f] is made for each step from that step, so it can work around where the group stands there.
-     */
-    fun transform(keys: Set<Int>, all: Boolean, ball: Boolean = false, marks: Boolean = false, f: (SFrame) -> (Offset) -> Offset) {
-        syncOut()
-        fun clamp(o: Offset) = Offset(o.x.coerceIn(-0.03f, 1.03f), o.y.coerceIn(-0.03f, 1.03f))
-        for (k in if (all) frames.indices else listOf(cur)) {
-            val fr = frames[k]; val g = f(fr)
-            frames[k] = fr.copy(pos = fr.pos.mapValues { (key, o) -> if (key in keys) clamp(g(o)) else o },
-                ball = if (ball) clamp(g(fr.ball)) else fr.ball,
-                paths = fr.paths.mapValues { (key, ps) -> if (key in keys) ps.map { clamp(g(it)) } else ps })
-        }
-        if (marks) { val g = f(frames[cur]); for (i in this.marks.indices) this.marks[i] = this.marks[i].let { m -> m.copy(pts = m.pts.map(g)) } }
-        applyFrame(frames[cur]); commit()
-    }
-
-    /** Where [keys] stand on average in [f]. */
-    fun middleOf(f: SFrame, keys: Set<Int>): Offset {
-        val ps = keys.mapNotNull { f.pos[it] }
-        return if (ps.isEmpty()) Offset(0.5f, 0.5f) else Offset(ps.map { it.x }.average().toFloat(), ps.map { it.y }.average().toFloat())
-    }
-
-    /** The two sides change places: colours, names and players swap, and everything turns round so each still attacks its way. */
-    fun swapSides() {
-        syncOut()
-        val swapped = players.map { SPlayer(it.key, 1 - it.side, it.u, it.v, it.num, it.name, it.pid, it.spot) }
-        players.clear(); players += swapped
-        val h = home; home = away; away = h; showAway = true
-        transform(players.map { it.key }.toSet(), all = true, ball = true, marks = true) { { o -> Offset(1 - o.x, 1 - o.y) } }
-    }
-
-    /** Every step changed by [f] (its length, its routes, its event, its note). */
-    fun everyFrame(f: (SFrame) -> SFrame) { syncOut(); for (k in frames.indices) frames[k] = f(frames[k]); applyFrame(frames[cur]); commit() }
 
     /* ---------- the move between steps ---------- */
 
@@ -475,13 +593,17 @@ object StudioPrefs {
     var trails by mutableStateOf(Store.prefs().getBoolean("studio.trails", true))
     var follow by mutableStateOf(Store.prefs().getBoolean("studio.follow", false))
     var onion by mutableStateOf(Store.prefs().getBoolean("studio.onion", true))
-    /** Where the tools sit: a row under the pitch ("bar") or a round button floating on it ("float"). */
-    var dock by mutableStateOf(Store.prefs().getString("studio.dock", "bar") ?: "bar")
+    /** The analyst's overlays: who controls which space, open and closed passes from the ball, each side's block; and the shape following the ball. */
+    var space by mutableStateOf(Store.prefs().getBoolean("studio.space", false))
+    var lanes by mutableStateOf(Store.prefs().getBoolean("studio.lanes", false))
+    var block by mutableStateOf(Store.prefs().getBoolean("studio.block", false))
+    var auto by mutableStateOf(Store.prefs().getBoolean("studio.auto", false))
     val hidden = mutableStateListOf<String>()
     fun keep() = Store.prefs().edit().putBoolean("studio.tilt", tilt).putString("studio.range", range).putString("studio.style", style)
         .putBoolean("studio.names", names).putBoolean("studio.snap", snap).putString("studio.grass", grass)
         .putFloat("studio.speed", speed).putBoolean("studio.loop", loop).putBoolean("studio.trails", trails).putBoolean("studio.follow", follow)
-        .putBoolean("studio.onion", onion).putString("studio.dock", dock).apply()
+        .putBoolean("studio.onion", onion).putBoolean("studio.space", space).putBoolean("studio.lanes", lanes).putBoolean("studio.block", block)
+        .putBoolean("studio.auto", auto).apply()
 }
 
 @Suppress("unused") private fun keepImports(j: JSONObject) = j.b("x") || j.d("x") != null

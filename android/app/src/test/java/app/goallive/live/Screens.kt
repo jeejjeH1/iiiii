@@ -117,8 +117,6 @@ class Screens {
         rule.setContent { Root(mutableIntStateOf(0)) }
         settle(2500); shot("00-intro")
         settle(9000); shot("01-home")
-        // the match list further down, row by row
-        repeat(2) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("01b-home-list$k") }
         if (match != null) {
             NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")
             // further down the summary: the match story and the attack map
@@ -244,31 +242,25 @@ class Screens {
             b.setFrame(2, b.frames[2].copy(air = true, note = "سانتر از جناح راست"))
             // then a header at the far post
             b.addFrame(); b.players.filter { it.side == 0 && it.v < 0.3f }.maxByOrNull { it.u }?.let { it.u = 0.56f; it.v = 0.1f }; b.ball = o(0.56f, 0.1f); b.commit()
+            b.addFrame(); b.setEvent(4, "shot", "goal", "auto")
             app.goallive.live.data.Store.prefs().edit().putString("studio.current", b.json().toString()).commit()
         }.onFailure { System.err.println("SHOT studio board failed: $it") }
         NavHook.nav?.tab("studio"); settle(9000); shot("90-studio")
         app.goallive.live.ui.StudioPrefs.tilt = true; app.goallive.live.ui.StudioPrefs.style = "shirt"; settle(2000); shot("91-studio-tv")
-        app.goallive.live.ui.StudioPrefs.tilt = false
-        // the menu, saved boards, a move playing
-        runCatching { rule.onAllNodesWithContentDescription("بیشتر")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500); shot("96a-studio-menu")
-        tap("تاکتیک‌های من", exact = true); settle(1500); shot("96-studio-library")
-        runCatching { rule.onAllNodesWithContentDescription("بستن")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1200)
-        runCatching { rule.onAllNodesWithContentDescription("پخش")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1800); shot("97-studio-playing")
-        // the tools floating on the pitch, open
-        app.goallive.live.ui.StudioPrefs.dock = "float"; settle(1500); shot("98-studio-float")
-        runCatching { rule.onAllNodesWithContentDescription("ابزارها")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1200); shot("99-studio-float-open")
-        app.goallive.live.ui.StudioPrefs.dock = "bar"; settle(1000)
-        // the picture to share
-        runCatching { rule.onAllNodesWithContentDescription("بیشتر")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500)
-        tap("عکس تاکتیک", exact = true); settle(1500); shot("95-studio-share")
-        runCatching { rule.onAllNodesWithContentDescription("بستن")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1200)
+        app.goallive.live.ui.StudioChrome.full = true; settle(2000); shot("94-studio-full"); app.goallive.live.ui.StudioChrome.full = false; settle(1000)
+        app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.space = true; app.goallive.live.ui.StudioPrefs.lanes = true; app.goallive.live.ui.StudioPrefs.block = true
+        settle(2000); shot("95-studio-analysis")
+        app.goallive.live.ui.StudioPrefs.space = false; app.goallive.live.ui.StudioPrefs.lanes = false; app.goallive.live.ui.StudioPrefs.block = false
+        // the library of ready-made moves, one played: part way, then at its goal
+        runCatching { rule.onAllNodesWithContentDescription("تاکتیک‌های من")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500); shot("96-studio-library")
+        tap("ضدحمله‌ی سریع و گل", exact = true); settle(2200); shot("97-studio-playing"); settle(5200); shot("98-studio-goal")
+        // full screen on its side
+        app.goallive.live.ui.StudioChrome.full = true; app.goallive.live.ui.StudioChrome.landscape = true; settle(2500); shot("99-studio-landscape")
+        app.goallive.live.ui.StudioChrome.full = false; app.goallive.live.ui.StudioChrome.landscape = false; settle(1000)
         app.goallive.live.ui.StudioPrefs.tilt = false; app.goallive.live.ui.StudioPrefs.style = "disc"; app.goallive.live.ui.StudioPrefs.range = "half"; app.goallive.live.ui.StudioPrefs.grass = "board"
         settle(2000); shot("92-studio-half")
         app.goallive.live.ui.StudioPrefs.style = "photo"; app.goallive.live.ui.StudioPrefs.range = "full"; app.goallive.live.ui.StudioPrefs.grass = "green"
-        runCatching { rule.onAllNodesWithContentDescription("بیشتر")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500)
-        tap("تغییر گروهی", exact = true); settle(1500); shot("93b-studio-bulk")
-        tap("قرینه‌ی چپ و راست", exact = true); settle(1200); shot("93c-studio-bulk-done")
-        runCatching { rule.onAllNodesWithContentDescription("بستن")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500); shot("93d-studio-after")
+        runCatching { rule.onAllNodesWithContentDescription("نما")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500); shot("93-studio-view")
         NavHook.nav?.rankings(); settle(9000); shot("50-rank-best")
         // the team of the week: one league, further down, its story
         tap("لالیگا", exact = true); settle(4000); shot("50c-week-laliga")

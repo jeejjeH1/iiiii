@@ -16,6 +16,10 @@ import app.goallive.live.ui.MatchData
 import app.goallive.live.ui.Story
 import app.goallive.live.ui.StorySheet
 import app.goallive.live.ui.load
+import app.goallive.live.ui.loadGoal
+import app.goallive.live.ui.loadLineups
+import app.goallive.live.ui.loadScenario
+import app.goallive.live.ui.drawBoardScene
 import app.goallive.live.ui.scene
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
@@ -165,7 +169,7 @@ class StoryShots {
                 }
                 val strip = listOf(47, 87, 55, 54, 53).mapNotNull { lg -> objs(wk.optJSONObject("leagues")?.optJSONArray(lg.toString())).maxByOrNull { it.optDouble("rating") }?.let { b ->
                     app.goallive.live.ui.BenchMan(b.optInt("id"), b.optString("name").split(" ").last(), rating = b.optDouble("rating"), crest = b.optInt("team"), note = "لیگ $lg") } }
-                val l = Story.Lineup("تیم منتخب هفته", "۵ لیگ معتبر · ۲۷ مهر – ۳ آبان", 0xFFB8860B.toInt(), men, null, null, "۴-۳-۳", null, "x",
+                val l = Story.Lineup("بهترین ۱۱ هفته", "۵ لیگ معتبر · ۲۷ مهر – ۳ آبان", 0xFFB8860B.toInt(), men, null, null, "۴-۳-۳", null, "x",
                     kicker = "تیم هفته‌ی گل‌لایو", bench = strip, benchLabel = "بهترین بازیکن هر لیگ", accent = 0xFFC6FF3D.toInt())
                 val a = runBlocking { l.load(ctx) }
                 for (t in app.goallive.live.ui.POSTER_THEMES) out += "78-totw-$t" to l.scene(CardOptions(theme = t), a).still(0.5f)
@@ -174,6 +178,60 @@ class StoryShots {
         }.orEmpty()
         for ((name, b) in posters) png(name, b)
         System.err.println("SHOT posters: ${posters.size}")
+        // the tactics studio's export: a goal of El Clásico rebuilt, drawn as the video's frames and a step picture
+        val tactic = off {
+            val out = mutableListOf<Pair<String, Bitmap>>()
+            val sm = runBlocking { app.goallive.live.ui.loadStudioMatch(5868105) }
+            if (sm != null) {
+                sm.goals.forEachIndexed { gi, g ->
+                    val b = app.goallive.live.ui.StudioBoard(); b.fresh(); b.loadGoal(sm, g)
+                    val art = runBlocking { app.goallive.live.ui.studioArt(ctx, b) }
+                    val plan = app.goallive.live.ui.StudioPlan(b)
+                    val times = if (gi == 0) listOf(0.4f, plan.seconds * 0.45f, plan.seconds - 2.4f, plan.seconds - 1.6f) else listOf(plan.seconds - 2.2f)
+                    times.forEachIndexed { k, sec ->
+                        val (t, fx) = plan.at(sec)
+                        val bmp = Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888)
+                        val c = Canvas(bmp); c.scale(0.5f, 0.5f)
+                        app.goallive.live.ui.drawStudioStory(c, b, art, t, fx)
+                        out += "79-tactic-goal$gi-$k" to bmp
+                    }
+                }
+            } else System.err.println("SHOT tactic: no match")
+            out
+        }.orEmpty()
+        for ((name, b) in tactic) png(name, b)
+        // the studio's moves frame by frame (30 a second), zipped, for the update's motion graphic
+        off {
+            val sm = runBlocking { app.goallive.live.ui.loadStudioMatch(5868105) } ?: return@off
+            java.io.File("build/screens").mkdirs()
+            val zip = java.util.zip.ZipOutputStream(java.io.FileOutputStream("build/screens/motion-frames.zip"))
+            fun clip(name: String, b: app.goallive.live.ui.StudioBoard, tilt: Boolean, space: Boolean = false) {
+                val art = runBlocking { app.goallive.live.ui.studioArt(ctx, b) }
+                val plan = app.goallive.live.ui.StudioPlan(b)
+                app.goallive.live.ui.StudioPrefs.space = space; app.goallive.live.ui.StudioPrefs.lanes = space; app.goallive.live.ui.StudioPrefs.block = space
+                val w = 600f; val h = w * app.goallive.live.ui.pitchAspect("full", tilt)
+                for (i in 0 until (plan.seconds * 30).toInt()) {
+                    val (t, fx) = plan.at(i / 30f)
+                    val bmp = Bitmap.createBitmap(w.toInt(), h.toInt(), Bitmap.Config.ARGB_8888)
+                    androidx.compose.ui.graphics.drawscope.CanvasDrawScope().draw(androidx.compose.ui.unit.Density(1.6f), androidx.compose.ui.unit.LayoutDirection.Ltr,
+                        androidx.compose.ui.graphics.Canvas(Canvas(bmp)), androidx.compose.ui.geometry.Size(w, h)) {
+                        drawBoardScene(b, app.goallive.live.ui.StudioEditor().apply { playT = t; this.fx = fx }, app.goallive.live.ui.Proj(w, h, 0f, 1f, tilt), art.faces, art.black)
+                    }
+                    zip.putNextEntry(java.util.zip.ZipEntry("$name/%04d.jpg".format(i)))
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 86, zip); zip.closeEntry(); bmp.recycle()
+                }
+                app.goallive.live.ui.StudioPrefs.space = false; app.goallive.live.ui.StudioPrefs.lanes = false; app.goallive.live.ui.StudioPrefs.block = false
+            }
+            val counter = app.goallive.live.ui.StudioBoard(); counter.fresh(); counter.loadLineups(sm); counter.loadScenario(app.goallive.live.ui.SCENARIOS[1])
+            clip("counter", counter, false)
+            val goal = app.goallive.live.ui.StudioBoard(); goal.fresh(); goal.loadGoal(sm, sm.goals.first())
+            clip("realgoal", goal, true)
+            val build = app.goallive.live.ui.StudioBoard(); build.fresh(); build.loadLineups(sm); build.loadScenario(app.goallive.live.ui.SCENARIOS[0])
+            clip("analysis", build, false, space = true)
+            zip.close()
+            System.err.println("SHOT motion frames zipped")
+        }
+        System.err.println("SHOT tactic frames: ${tactic.size}")
         // every sticker on one sheet, on dark and on light
         off {
             val tf = android.graphics.Typeface.DEFAULT_BOLD
