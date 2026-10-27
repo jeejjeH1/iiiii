@@ -1,6 +1,11 @@
 {
  "ballonDor": [
   {
+   "year": 2026,
+   "name": "Harry Kane",
+   "team": "Bayern Munich"
+  },
+  {
    "year": 2025,
    "name": "Ousmane Dembélé",
    "team": "Paris Saint-Germain"

@@ -260,7 +260,7 @@ object StoryStudio {
 /** Pictures and fonts a story needs, fetched once. */
 class Art(val logo: Bitmap?, val black: Typeface, val bold: Typeface, val faces: Map<Int, Bitmap?> = emptyMap(), val crests: Map<Int, Bitmap?> = emptyMap(),
           val leagues: Map<Int, Bitmap?> = emptyMap(), val card: CardAssets? = null, val best: PlayerRating? = null,
-          /** The posters' display face (Kufam) and the face for their figures (Barlow). */
+          /** A display face and a face for figures, when a story wants its own (else [black]). */
           val display: Typeface? = null, val digits: Typeface? = null)
 
 
@@ -288,10 +288,10 @@ internal suspend fun Story.load(ctx: Context): Art {
             crests(listOf(a.o("primaryTeam").i("teamId") ?: 0, b.o("primaryTeam").i("teamId") ?: 0)))
         is Story.Lineup -> {
             val all = listOfNotNull(this, rival)
+            // the posters are written in the app's own face, like the rest of GoalLive
             Art(logo, black, bold, faces(all.flatMap { t -> t.men.map { it.id } + t.bench.map { it.id } }, 220),
                 crests(all.flatMap { t -> t.men.mapNotNull { it.crest } + t.bench.mapNotNull { it.crest } + listOfNotNull(t.crest) } + listOfNotNull(score?.homeId, score?.awayId)),
-                league?.let { mapOf(it to image(ctx, badgeUrl(it), 160)) } ?: emptyMap(),
-                display = ResourcesCompat.getFont(ctx, R.font.kufam_black), digits = ResourcesCompat.getFont(ctx, R.font.barlow_extrabold))
+                league?.let { mapOf(it to image(ctx, badgeUrl(it), 160)) } ?: emptyMap())
         }
     }
 }

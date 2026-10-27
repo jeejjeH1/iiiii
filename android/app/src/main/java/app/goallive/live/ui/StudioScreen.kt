@@ -532,7 +532,7 @@ private fun LibrarySheet(board: StudioBoard, ed: StudioEditor, onClose: () -> Un
     }
 }
 
-/** How the board looks: camera, how much pitch, the players' style, names, snapping, the grass and which layers show. */
+/** How the board looks: camera, how much pitch, the players' style, names, snapping and which layers show. */
 @Composable
 private fun ViewSheet(onClose: () -> Unit) {
     Sheet({ StudioPrefs.keep(); onClose() }) {
@@ -543,8 +543,6 @@ private fun ViewSheet(onClose: () -> Unit) {
         StudioChips(listOf("full" to L("کل زمین"), "half" to L("نیمه‌ی حریف"), "third" to L("یک‌سوم پایانی")), StudioPrefs.range) { StudioPrefs.range = it }
         StudioLabel(L("شکل بازیکن‌ها"))
         StudioChips(listOf("photo" to L("عکس"), "shirt" to L("پیراهن"), "disc" to L("دایره")), StudioPrefs.style) { StudioPrefs.style = it }
-        StudioLabel(L("زمین"))
-        StudioChips(listOf("green" to L("چمن"), "dark" to L("تیره"), "board" to L("تخته‌ی سفید")), StudioPrefs.grass) { StudioPrefs.grass = it }
         StudioLabel(L("بیشتر"))
         Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Toggle(L("نام بازیکن‌ها"), StudioPrefs.names) { StudioPrefs.names = it }

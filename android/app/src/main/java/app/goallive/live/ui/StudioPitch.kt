@@ -222,7 +222,8 @@ fun StudioPitch(board: StudioBoard, ed: StudioEditor, modifier: Modifier = Modif
 
 /** Everything on the board at the editor's moment: grass, drawings, the analyst's layers, players, ball, spotlight and the event being shown. */
 fun DrawScope.drawBoardScene(board: StudioBoard, ed: StudioEditor, proj: Proj, faces: Map<Int, ImageBitmap>, tf: Typeface) {
-    drawGrass(proj, StudioPrefs.grass)
+    // always green grass, whatever was picked in earlier versions
+    drawGrass(proj, "green")
     // the drawings, layer by layer, under the players
     board.marks.forEachIndexed { i, m -> if (m.layer !in StudioPrefs.hidden) drawMark(proj, m, i == ed.selMark, tf) }
     ed.draft?.let { drawMark(proj, it, false, tf) }
