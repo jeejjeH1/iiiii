@@ -78,6 +78,20 @@ class StoryShots {
             if (rows.isNotEmpty()) stories += "table" to Story.Table(47, t?.optString("leagueName") ?: "Premier League", rows, legend, rows.getOrNull(12)?.optInt("id") ?: 0)
         }
         if (pick.isNotEmpty()) stories += "ballon" to Story.Ballon(season?.optInt("ballonYear") ?: 2027, pick, false)
+        // the 2026 Ballon d'Or as announced: Harry Kane first, then GoalLive's own order for that season
+        val last = rankings?.optJSONObject("seasons")?.optJSONObject(rankings.optString("last"))
+        val lastPick = last?.optJSONArray("ballonDor")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
+        val world = last?.optJSONArray("world")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
+        fun named(n: String) = (lastPick + world).firstOrNull { it.optString("name").contains(n) }
+        val kane = named("Kane") ?: JSONObject().put("id", 194165).put("name", "Harry Kane").put("team", 9823).put("teamName", "Bayern München")
+        stories += "ballon2026" to Story.Ballon(2026, listOf(kane) + lastPick.filter { it.optInt("id") != kane.optInt("id") }, true)
+        // the faces and crests the winner's motion graphic needs, straight from the image server
+        off {
+            val want = listOfNotNull(kane, named("Mbapp"), named("Yamal")).map { "80-face-" + it.optString("name").split(" ").last().lowercase() to "https://images.fotmob.com/image_resources/playerimages/${it.optInt("id")}.png" } +
+                listOf("80-crest-bayern" to "https://images.fotmob.com/image_resources/logo/teamlogo/9823.png", "80-crest-england" to "https://images.fotmob.com/image_resources/logo/teamlogo/8491.png",
+                    "80-crest-real" to "https://images.fotmob.com/image_resources/logo/teamlogo/8633.png", "80-crest-barca" to "https://images.fotmob.com/image_resources/logo/teamlogo/8634.png")
+            for ((n, u) in want) runCatching { java.net.URL(u).openStream().use { android.graphics.BitmapFactory.decodeStream(it) } }.getOrNull()?.let { png(n, it) }
+        }
         if (p1 != null && p2 != null) stories += "duel" to Story.Duel(p1, p2)
         val drawn = off {
             stories.map { (name, s) ->
@@ -90,6 +104,22 @@ class StoryShots {
                 Triple(name, sc.still(0.6f), frames)
             }
         }.orEmpty()
+        // the 2026 winner's story frame by frame (30 a second), zipped, for his motion graphic
+        off {
+            stories.firstOrNull { it.first == "ballon2026" }?.second?.let { s ->
+                val a = runBlocking { s.load(ctx) }
+                val sc = s.scene(CardOptions(theme = s.theme), a)
+                java.io.File("build/screens").mkdirs()
+                java.util.zip.ZipOutputStream(java.io.FileOutputStream("build/screens/ballon-2026-frames.zip")).use { zip ->
+                    for (i in 0 until ((sc.seconds + 1f) * 30).toInt()) {
+                        val b = Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888)
+                        val c = Canvas(b); c.scale(0.5f, 0.5f); sc.frame(c, (i / 30f).coerceAtMost(sc.seconds))
+                        zip.putNextEntry(java.util.zip.ZipEntry("%04d.jpg".format(i))); b.compress(Bitmap.CompressFormat.JPEG, 88, zip); zip.closeEntry(); b.recycle()
+                    }
+                }
+                System.err.println("SHOT ballon frames: ${sc.seconds}s")
+            }
+        }
         for ((name, still, frames) in drawn) {
             png("70-story-$name", still)
             for ((t, b) in frames) png("71-story-$name-t${(t * 10).toInt()}", b)
