@@ -165,7 +165,7 @@ class StoryShots {
                 }
                 val strip = listOf(47, 87, 55, 54, 53).mapNotNull { lg -> objs(wk.optJSONObject("leagues")?.optJSONArray(lg.toString())).maxByOrNull { it.optDouble("rating") }?.let { b ->
                     app.goallive.live.ui.BenchMan(b.optInt("id"), b.optString("name").split(" ").last(), rating = b.optDouble("rating"), crest = b.optInt("team"), note = "لیگ $lg") } }
-                val l = Story.Lineup("تیم منتخب هفته", "۵ لیگ معتبر · ۲۷ مهر – ۳ آبان", 0xFFB8860B.toInt(), men, null, null, "۴-۳-۳", null, "x",
+                val l = Story.Lineup("بهترین ۱۱ هفته", "۵ لیگ معتبر · ۲۷ مهر – ۳ آبان", 0xFFB8860B.toInt(), men, null, null, "۴-۳-۳", null, "x",
                     kicker = "تیم هفته‌ی گل‌لایو", bench = strip, benchLabel = "بهترین بازیکن هر لیگ", accent = 0xFFC6FF3D.toInt())
                 val a = runBlocking { l.load(ctx) }
                 for (t in app.goallive.live.ui.POSTER_THEMES) out += "78-totw-$t" to l.scene(CardOptions(theme = t), a).still(0.5f)
