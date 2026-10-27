@@ -49,11 +49,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.foundation.layout.absoluteOffset
-import kotlin.math.roundToInt
-import androidx.compose.ui.unit.toSize
-import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -365,32 +360,18 @@ fun Seg(options: List<Pair<String, String>>, selected: String, modifier: Modifie
 @Composable
 fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
     val accent = LocalAccent.current
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    // where each tab sits in the row, so the accent pill can slide from one to the next
-    val spots = remember { androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>() }
-    val at = spots[selected]
-    val spring = androidx.compose.animation.core.spring<Float>(0.82f, 420f)
-    val x by androidx.compose.animation.core.animateFloatAsState(at?.left ?: 0f, spring, label = "tabX")
-    val w by androidx.compose.animation.core.animateFloatAsState(at?.width ?: 0f, spring, label = "tabW")
-    // the pill and the row share one box the row's own size, so a tab's place in the row is its place for the pill too
-    // (a wider box would set the row at its start, the right edge in Persian, and the pill would land on the wrong tab)
-    Box(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) { Box {
-        if (at != null) Box(Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft)
-            .absoluteOffset { androidx.compose.ui.unit.IntOffset(x.roundToInt(), at.top.roundToInt()) }
-            .size(with(density) { w.toDp() }, with(density) { at.height.toDp() })
-            .glow(accent.copy(alpha = 0.4f), 8.dp).clip(RoundedCornerShape(14.dp)).background(accent))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            for ((k, label) in options) {
-                val on = k == selected
-                val ink by androidx.compose.animation.animateColorAsState(if (on) LocalAccentInk.current else C.mute, label = "tabInk")
-                Box(
-                    Modifier.onGloballyPositioned { spots[k] = androidx.compose.ui.geometry.Rect(it.positionInParent(), it.size.toSize()) }
-                        .clip(RoundedCornerShape(14.dp)).background(if (on && at == null) accent else Color.Transparent)
-                        .clickable { onSelect(k) }.padding(horizontal = 14.dp, vertical = 8.dp),
-                ) { T(label, 13, FontWeight.ExtraBold, ink, maxLines = 1) }
-            }
+    Row(
+        modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        for ((k, label) in options) {
+            val on = k == selected
+            Box(
+                Modifier.then(if (on) Modifier.glow(accent.copy(alpha = 0.4f), 8.dp) else Modifier).clip(RoundedCornerShape(14.dp))
+                    .background(if (on) accent else Color.Transparent).clickable { onSelect(k) }.padding(horizontal = 14.dp, vertical = 8.dp),
+            ) { T(label, 13, FontWeight.ExtraBold, if (on) LocalAccentInk.current else C.mute, maxLines = 1) }
         }
-    } }
+    }
 }
 
 /** ".rate": the coloured player rating badge. */
@@ -405,7 +386,7 @@ fun Rating(r: Double?, modifier: Modifier = Modifier, small: Boolean = false) {
         else -> Color(0xFFE5434B)
     }
     Box(modifier.clip(RoundedCornerShape(6.dp)).background(c).padding(horizontal = if (small) 5.dp else 6.dp, vertical = 1.dp)) {
-        Text(dec(r, 1), color = Color.White, style = num(if (small) 10.sp else 11.sp))
+        Text(dec(r, 1), color = Color.White, style = vz(if (small) 10.sp else 11.sp, FontWeight.Black))
     }
 }
 
@@ -596,9 +577,9 @@ fun <T> LoadBox(l: Loader<T>, skeletonRows: Int = 6, content: @Composable (T) ->
 @Composable
 fun ScoreText(h: Int?, a: Int?, size: Int = 16, color: Color = C.ink, weight: FontWeight = FontWeight.Black, sepColor: Color = C.faint) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((size / 3).dp)) {
-        Text("${h ?: "-"}", color = color, style = num(size.sp, weight))
+        Text("${h ?: "-"}", color = color, style = vz(size.sp, weight))
         Text("-", color = sepColor, style = vz(size.sp, FontWeight.Light))
-        Text("${a ?: "-"}", color = color, style = num(size.sp, weight))
+        Text("${a ?: "-"}", color = color, style = vz(size.sp, weight))
     }
 }
 
@@ -627,9 +608,25 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
         })
         .semantics { contentDescription = desc }) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 12.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 18.dp else 10.dp),
+            Modifier.fillMaxWidth().heightIn(min = 60.dp).padding(start = 10.dp, end = 6.dp, top = 10.dp, bottom = if (sub != null) 18.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
+            // status
+            Box(Modifier.width(if (datePlace) 50.dp else 44.dp).clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
+                val st = statusText(m).replace(L("بین دو نیمه"), L("نیمه"))
+                when {
+                    m.live -> Row(verticalAlignment = Alignment.CenterVertically) {
+                        LiveDot(size = 6.dp); Spacer(Modifier.width(3.dp))
+                        Ltr(st, style = vz(12.sp, FontWeight.ExtraBold), color = C.live)
+                    }
+                    // another day: weekday over the date, so "which day?" needs no thinking
+                    datePlace -> Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        T(persianDate(m.time, "EEEE"), 12, FontWeight.ExtraBold, if (m.finished) C.mute else C.ink, maxLines = 1)
+                        T(persianDate(m.time, "d MMM"), 12, FontWeight.Medium, C.mute, maxLines = 1)
+                    }
+                    st.isNotEmpty() -> T(st, 12, FontWeight.ExtraBold, C.mute, maxLines = 2, align = TextAlign.Center)
+                }
+            }
             val homeLose = m.finished && (m.home.score ?: 0) < (m.away.score ?: 0)
             val awayLose = m.finished && (m.away.score ?: 0) < (m.home.score ?: 0)
             // home (right)
@@ -637,35 +634,16 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
                 Crest(m.home.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-h" else null)
                 TeamText(m.home.id, m.home.name, Modifier.weight(1f, false), 14, if (homeLose) FontWeight.SemiBold else FontWeight.Bold, if (homeLose) C.mute else C.ink, maxLines = 2)
             }
-            // the score or the kick-off, and under it the minute, "full time" or another day's date: no column of its own,
-            // so the names get the room
-            Column(Modifier.clearAndSetSemantics {}, horizontalAlignment = Alignment.CenterHorizontally) {
-                ScoreBox(m)
-                val st = statusText(m).replace(L("بین دو نیمه"), L("نیمه"))
-                when {
-                    m.live -> Row(Modifier.padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                        LiveDot(size = 5.dp); Spacer(Modifier.width(3.dp))
-                        Ltr(st, style = vz(11.sp, FontWeight.ExtraBold), color = C.live)
-                    }
-                    datePlace -> T(persianDate(m.time, "EEEE d MMM"), 10, FontWeight.Bold, C.mute, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
-                    st.isNotEmpty() -> T(st, 10, FontWeight.Bold, C.mute, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
-                }
-            }
+            Box(Modifier.clearAndSetSemantics {}) { ScoreBox(m) }
             // away (left): crest on the outer edge
             Row(Modifier.weight(1f).clearAndSetSemantics {}, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.End)) {
-                // a name on two lines keeps to its crest's side
-                TeamText(m.away.id, m.away.name, Modifier.weight(1f, false), 14, if (awayLose) FontWeight.SemiBold else FontWeight.Bold, if (awayLose) C.mute else C.ink, maxLines = 2, align = TextAlign.End)
+                TeamText(m.away.id, m.away.name, Modifier.weight(1f, false), 14, if (awayLose) FontWeight.SemiBold else FontWeight.Bold, if (awayLose) C.mute else C.ink, maxLines = 2)
                 Crest(m.away.id, 21.dp, shareKey = if (crestFly) "crest-${m.id}-a" else null)
             }
             if (star) StarButton(Store.follows(m), { Store.toggleMatch(m.id) }, 16.dp, box = 26.dp) else Spacer(Modifier.width(26.dp))
         }
-        // the two clubs' colours in a thin strip at the row's start edge (home above, away below)
-        val hc = app.goallive.live.data.Clubs.get(m.home.id)?.let { Color(it.c1) }
-        val ac = app.goallive.live.data.Clubs.get(m.away.id)?.let { Color(it.c1) }
-        if (hc != null || ac != null) Box(Modifier.align(Alignment.CenterStart).padding(start = 3.dp).width(3.dp).height(34.dp).clip(RoundedCornerShape(2.dp))
-            .background(Brush.verticalGradient(listOf(hc ?: C.line2, hc ?: C.line2, ac ?: C.line2, ac ?: C.line2))))
         if (sub != null) T(personName(sub), 12, color = C.faint, maxLines = 1, align = TextAlign.Center,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 1.dp, start = 34.dp, end = 34.dp).clearAndSetSemantics {})
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 1.dp, start = 50.dp, end = 34.dp).clearAndSetSemantics {})
         // live minute progress along the bottom edge
         val min = m.minute.substringBefore('+').filter(Char::isDigit).toIntOrNull()
         if (m.live && min != null && min > 0) Box(
@@ -679,10 +657,8 @@ fun MatchRow(m: MatchItem, onClick: () -> Unit, showDate: Boolean = false, sub: 
 fun ScoreBox(m: MatchItem) {
     val shape = RoundedCornerShape(10.dp)
     val bg = when { m.live -> C.live; m.finished -> Color.Transparent; else -> C.card2 }
-    // a live score breathes: its red glow swells and settles
-    val beat = if (m.live) rememberInfiniteTransition(label = "live").animateFloat(0.18f, 0.6f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "glow").value else 0f
     Box(
-        Modifier.width(64.dp).height(34.dp).then(if (m.live) Modifier.glow(C.live.copy(alpha = beat), 9.dp, shape) else Modifier)
+        Modifier.width(64.dp).height(34.dp).then(if (m.live) Modifier.glow(C.live.copy(alpha = 0.3f), 6.dp, shape) else Modifier)
             .clip(shape).background(bg).border(1.dp, if (m.live) Color.Transparent else C.line, shape),
         contentAlignment = Alignment.Center,
     ) {

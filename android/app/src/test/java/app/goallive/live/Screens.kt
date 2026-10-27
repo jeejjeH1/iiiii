@@ -117,6 +117,8 @@ class Screens {
         rule.setContent { Root(mutableIntStateOf(0)) }
         settle(2500); shot("00-intro")
         settle(9000); shot("01-home")
+        // the match list further down, row by row
+        repeat(2) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 500) } }; settle(1500); shot("01b-home-list$k") }
         if (match != null) {
             NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")
             // further down the summary: the match story and the attack map
