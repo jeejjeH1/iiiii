@@ -196,7 +196,7 @@ object StoryAudio {
     class Sample(val data: ByteArray, val timeUs: Long, val flags: Int)
     class Encoded(val format: MediaFormat, val samples: List<Sample>)
 
-    enum class Fx { WHISTLE, WHISTLE_HALF, WHISTLE_END, ROAR, WHOOSH, BOOM, CHEER }
+    enum class Fx { WHISTLE, WHISTLE_HALF, WHISTLE_END, ROAR, WHOOSH, BOOM, CHEER, RISER, SHIMMER }
 
     /** [seconds] of sound: [music] (a raw resource, or null for none) at [musicGain], [fx] at their times, a stadium murmur under it all when [crowd]. */
     fun make(ctx: Context, seconds: Float, music: Int?, musicGain: Float, crowd: Boolean, fx: List<Pair<Float, Fx>>): Encoded? = runCatching {
@@ -229,6 +229,8 @@ object StoryAudio {
                 Fx.CHEER -> roar(rnd, 2.6f, 0.6f)
                 Fx.WHOOSH -> whoosh(rnd, 0.45f)
                 Fx.BOOM -> boom(1.4f)
+                Fx.RISER -> riser(rnd, 1.04f)
+                Fx.SHIMMER -> shimmer(1.6f)
             }
             val i0 = (at * RATE).toInt()
             for (j in sig.indices) { val i = i0 + j; if (i in 0 until n) { l[i] += sig[j]; r[i] += sig[j] } }
@@ -306,6 +308,34 @@ object StoryAudio {
             val t = j / RATE.toFloat()
             ph += 2 * PI_F * (36f + 70f * kotlin.math.exp(-t * 9f)) / RATE
             out[j] = kotlin.math.sin(ph) * kotlin.math.exp(-t * 3f) * 0.7f
+        }
+        return out
+    }
+
+    /** Noise and a tone climbing together into the hit. */
+    private fun riser(rnd: java.util.Random, len: Float): FloatArray {
+        val m = (len * RATE).toInt(); val out = FloatArray(m)
+        var a = 0f; var ph = 0f
+        for (j in 0 until m) {
+            val p = j / m.toFloat()
+            a += (0.02f + 0.5f * p * p) * ((rnd.nextFloat() * 2 - 1) - a)
+            ph += 2 * PI_F * (220f * Math.pow(18.0, (p * p).toDouble()).toFloat()) / RATE
+            out[j] = (a * 0.5f + kotlin.math.sin(ph) * 0.18f) * p * p
+        }
+        return out
+    }
+
+    /** Bells running up: a bright sparkle on the hit. */
+    private fun shimmer(len: Float): FloatArray {
+        val m = (len * RATE).toInt(); val out = FloatArray(m)
+        val notes = floatArrayOf(1046.5f, 1318.5f, 1568f, 2093f, 2637f)
+        for ((k, f) in notes.withIndex()) {
+            val i0 = (k * 0.05f * RATE).toInt()
+            for (j in i0 until m) {
+                val t = (j - i0) / RATE.toFloat()
+                val mod = kotlin.math.sin(2 * PI_F * f * 3.5f * t) * 1.2f * kotlin.math.exp(-t * 4f)
+                out[j] += kotlin.math.sin(2 * PI_F * f * t + mod) * kotlin.math.exp(-t * 2.6f) * 0.07f
+            }
         }
         return out
     }

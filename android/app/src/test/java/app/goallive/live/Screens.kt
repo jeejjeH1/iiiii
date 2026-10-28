@@ -295,6 +295,11 @@ class Screens {
         tap("۵ لیگ معتبر", exact = true); settle(3000)
         runCatching { rule.onAllNodesWithContentDescription("اشتراک‌گذاری").let { n -> n[n.fetchSemanticsNodes().size - 1].performSemanticsAction(SemanticsActions.OnClick) } }
         settle(12000); shot("50e-week-studio")
+        // the studio's other groups: video with its tracks, and the words
+        runCatching { rule.onAllNodesWithContentDescription("ویدیو")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(3000)
+        tap("صدا", exact = true); settle(1500); shot("50f-studio-sound")
+        tap("نوشته", exact = true); settle(1200); shot("50g-studio-text")
+        runCatching { rule.onAllNodesWithContentDescription("عکس")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1500)
         app.goallive.live.ui.StoryStudio.story = null; settle(800)
         tap("برترین‌ها", exact = true); settle(1500)
         tap("توپ طلا", exact = true); settle(1500); shot("51-rank-ballon")

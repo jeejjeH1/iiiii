@@ -50,7 +50,7 @@ private fun palette(tone: Int, accent: Int?): Palette {
 }
 
 /** What a design paints with. */
-private class PosterLook(
+private data class PosterLook(
     val ink: Int, val sub: Int,
     val plateTop: Int, val plateBottom: Int, val plateInk: Int, val plateEdge: Int,
     val badge: Int, val badgeInk: Int, val badgeEdge: Int,
@@ -64,6 +64,28 @@ private fun ca(c: Int, a: Float) = (c and 0x00FFFFFF) or ((a * 255).toInt().coer
 private const val WHITE = 0xFFFFFFFF.toInt()
 private const val GOLD = 0xFFF5C542.toInt()
 
+/** [c] lightened until it reads as a line on a dark page. */
+private fun lift(c: Int, min: Double = 0.16): Int {
+    var x = c or 0xFF000000.toInt(); var k = 0
+    while (ColorUtils.calculateLuminance(x) < min && k++ < 10) x = ColorUtils.blendARGB(x, WHITE, 0.14f)
+    return x
+}
+
+/** Text on [c]: white on a dark colour, near-black on a light one. */
+private fun inkFor(c: Int) = if (ColorUtils.calculateLuminance(c or 0xFF000000.toInt()) > 0.45) 0xFF0B0F14.toInt() else WHITE
+
+/**
+ * The name plates in the team's own colour (a soft sheen from top to bottom, its highlight along the foot), the number
+ * diamond white with the team's colour, and, when [rings], the rings round the photos and the panel in the team's colour too.
+ */
+private fun teamPlates(lk: PosterLook, pl: Palette, rings: Boolean): PosterLook {
+    val m = pl.main or 0xFF000000.toInt()
+    val top = ColorUtils.blendARGB(m, WHITE, 0.16f); val bottom = ColorUtils.blendARGB(m, 0xFF000000.toInt(), 0.22f)
+    return lk.copy(plateTop = top, plateBottom = bottom, plateInk = inkFor(ColorUtils.blendARGB(top, bottom, 0.5f)), plateEdge = pl.accent,
+        badge = WHITE, badgeInk = if (ColorUtils.calculateLuminance(m) > 0.6) pl.deep else m, badgeEdge = pl.accent,
+        ring = if (rings) lift(m, 0.2) else lk.ring)
+}
+
 private fun posterLook(theme: String, pl: Palette): PosterLook {
     val d = pl.deep; val m = pl.main; val a = pl.accent
     val dark = PosterLook(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
@@ -76,12 +98,12 @@ private fun posterLook(theme: String, pl: Palette): PosterLook {
             0xFFE9C46A.toInt(), 0xFF0B0F14.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, 0x80E9C46A.toInt())
         "light" -> PosterLook(d, ca(0xFF14181E.toInt(), 0.6f), m, d, WHITE, a, WHITE, d, d, m, WHITE, 0xFFDFE4EC.toInt(), d, 15, ca(0xFF0B1430.toInt(), 0.18f),
             d, WHITE, ca(0xFF0B1430.toInt(), 0.06f), d, WHITE, ca(0xFF0B1430.toInt(), 0.1f), 0x1F000000, formInk = ca(d, 0.85f))
-        "pitch" -> PosterLook(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, WHITE, m, d, WHITE, 0, 0xBFFFFFFF.toInt(),
-            WHITE, 0xFF0B2614.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, 0x66000000)
+        "pitch" -> teamPlates(PosterLook(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, WHITE, m, d, WHITE, 0, 0xBFFFFFFF.toInt(),
+            WHITE, 0xFF0B2614.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, 0x66000000), pl, rings = false)
         "minimal" -> PosterLook(WHITE, 0xA6FFFFFF.toInt(), 0xF51E1F23.toInt(), 0xF51E1F23.toInt(), WHITE, a, 0xFF0E0F11.toInt(), a, 0x40FFFFFF, 0xD9FFFFFF.toInt(),
             0xFF2A2C31.toInt(), 0xFF141518.toInt(), WHITE, 0, 0x1FFFFFFF, WHITE, 0xFF0E0F11.toInt(), 0x14FFFFFF, WHITE, 0x0FFFFFFF, 0x1FFFFFFF, 0, minimal = true)
-        else -> if (pl.pale) PosterLook(d, ca(d, 0.65f), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
-            a, 0xFF0B0F14.toInt(), ca(d, 0.08f), d, ca(d, 0.06f), ca(d, 0.14f), ca(a, 0.5f)) else dark
+        else -> teamPlates(if (pl.pale) PosterLook(d, ca(d, 0.65f), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
+            a, 0xFF0B0F14.toInt(), ca(d, 0.08f), d, ca(d, 0.06f), ca(d, 0.14f), ca(a, 0.5f)) else dark, pl, rings = true)
     }
 }
 
@@ -178,10 +200,17 @@ private fun panel(c: Canvas, theme: String, pl: Palette, lk: PosterLook, r: Rect
     }
     p.style = Paint.Style.FILL
     c.restore()
-    // the edge
+    // the edge: one team's colour, or the two clubs' colours meeting at halfway
     p.style = Paint.Style.STROKE
-    if (lk.minimal) { p.strokeWidth = 1.5f; p.color = 0x2EFFFFFF } else { p.strokeWidth = 4f; p.color = lk.ring }
-    c.drawPath(clip, p)
+    if (lk.minimal) { p.strokeWidth = 1.5f; p.color = 0x2EFFFFFF }
+    else {
+        p.strokeWidth = 5f; p.color = lk.ring
+        if (theme == "team" && lower != null) {
+            val a = lift(pl.main, 0.2); val b = lift(lower.main, 0.2)
+            p.shader = LinearGradient(0f, r.top, 0f, r.bottom, intArrayOf(a, a, b, b), floatArrayOf(0f, 0.44f, 0.56f, 1f), Shader.TileMode.CLAMP)
+        }
+    }
+    c.drawPath(clip, p); p.shader = null
 }
 
 /* ---------- small drawing helpers ---------- */
@@ -550,6 +579,8 @@ private fun bothPoster(l: Story.Lineup, r: Story.Lineup, theme: String, o: CardO
     val home = if (l.home) l else r; val away = if (l.home) r else l
     val ph = palette(home.tone, null); val pa = palette(away.tone, null)
     val lk = posterLook(theme, if (theme == "team") pa.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else pa)
+    // each half's plates, diamonds and rings in its own club's colours
+    val lkHome = posterLook(theme, if (theme == "team") ph.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else ph)
     val cap = o.caption.isNotBlank()
     val pr = RectF(40f, 290f, 1040f, if (cap) 1752f else 1830f)
     val bg = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
@@ -588,7 +619,7 @@ private fun bothPoster(l: Story.Lineup, r: Story.Lineup, theme: String, o: CardO
             formationText(c, home.formation, pr.left + 22, pr.top + 14, 30f, lk.formInk, a.digits ?: tf)
             formationText(c, away.formation, pr.left + 22, pr.bottom - 50, 30f, lk.formInk, a.digits ?: tf)
         }
-        placeAll(c, home.men, RectF(pr.left, pr.top + 14, pr.right, pr.top + half - 38), 108f, lk, a.faces, a.crests, tf, clk, 0.6f, flip = true)
+        placeAll(c, home.men, RectF(pr.left, pr.top + 14, pr.right, pr.top + half - 38), 108f, lkHome, a.faces, a.crests, tf, clk, 0.6f, flip = true)
         placeAll(c, away.men, RectF(pr.left, pr.top + half + 38, pr.right, pr.bottom - 14), 108f, lk, a.faces, a.crests, tf, clk, 1.8f)
         if (cap) c.enter(clk.at(2.8f), pr.bottom, pr.bottom + 80) { captionLine(c, o.caption, pr.bottom + 16, if (theme == "light") lk.ink else GOLD, tf, W) }
         posterBrand(c, clk, W / 2f, 1848f, lk, tf, a.bold, a.logo)

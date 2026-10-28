@@ -1897,3 +1897,39 @@
 1896|Other leagues
 1897|A team in every league
 1898|Have a team in every league at once; each league has its own tables and friends’ leagues
+1899|Text
+1900|Studio
+1901|A 7-second video with music and effects
+1902|A picture ready for stories and posts
+1903|Both teams together come in story size only
+1904|A line on the picture… e.g. Game of the season!
+1905|Game of the season!
+1906|Champions!
+1907|With you to the end
+1908|The derby is ours
+1909|A night to remember
+1910|GoalLive called it
+1911|Video to Instagram
+1912|Instagram story
+1913|Save
+1914|Video
+1915|Making the picture
+1916|Making the video and sound
+1917|Finishing touches
+1918|Electronic with a heavy drop
+1919|Drums, choir and brass
+1920|Stadium
+1921|Stomps, claps and the crowd
+1922|Trap
+1923|Heavy bass, fast hi-hats
+1924|Phonk
+1925|Cowbell and distorted bass
+1926|Warm keys, lo-fi feel
+1927|Effects only
+1928|No music: whooshes and hits
+1929|A new studio
+1930|A big preview in a frame of light, with designs, sound, size and text in their own tabs
+1931|6 new tracks for videos
+1932|Epic, stadium, trap, phonk, energy and chill: on the animation’s beat, and heard before you make it
+1933|Line-ups in team colours
+1934|Name plates, photo rings and the pitch frame in the team’s own colours

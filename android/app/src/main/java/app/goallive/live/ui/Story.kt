@@ -33,6 +33,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
@@ -944,8 +946,10 @@ private fun colorClose(x: Int, y: Int): Boolean {
 
 /* ---------- the studio ---------- */
 
-private val MUSIC = listOf("" to "بدون صدا", "energy" to "پرانرژی", "epic" to "حماسی", "chill" to "آرام")
-private fun musicRes(k: String) = when (k) { "energy" -> R.raw.story_energy; "epic" -> R.raw.story_epic; "chill" -> R.raw.story_chill; else -> null }
+private fun musicRes(k: String) = when (k) {
+    "energy" -> R.raw.story_energy; "epic" -> R.raw.story_epic; "chill" -> R.raw.story_chill
+    "trap" -> R.raw.story_trap; "phonk" -> R.raw.story_phonk; "anthem" -> R.raw.story_anthem; else -> null
+}
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -958,7 +962,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
     var o by remember { mutableStateOf(if (match != null) loadOptions() else CardOptions(theme = story.theme)) }
     var video by remember { mutableStateOf(reel || Store.prefs().getBoolean("story.video", false)) }
     var reelSound by remember { mutableStateOf(Store.prefs().getString("reel.sound", "full") ?: "full") }
-    var music by remember { mutableStateOf(Store.prefs().getString("story.music", "energy") ?: "energy") }
+    var music by remember { mutableStateOf(Store.prefs().getString("story.music", "epic") ?: "epic") }
     var art by remember { mutableStateOf<Art?>(null) }
     LaunchedEffect(story) { art = withContext(Dispatchers.IO) { story.load(ctx) } }
     // a video is always story size
@@ -970,7 +974,10 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
         if (match != null) saveOptions(o)
     }
     var preview by remember { mutableStateOf<Bitmap?>(null) }
-    LaunchedEffect(scene, video) {
+    // a track picked to hear restarts the animation with it; each time the animation goes round, the track starts over too
+    var restart by remember { mutableIntStateOf(0) }
+    val loopHook = remember { mutableStateOf<() -> Unit>({}) }
+    LaunchedEffect(scene, video, restart) {
         val sc = scene ?: return@LaunchedEffect
         if (!video) { preview = withContext(Dispatchers.Default) { sc.still(0.42f) }; return@LaunchedEffect }
         // the animation, played over and over in the preview (small, so it keeps up)
@@ -978,8 +985,12 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
         val bufs = Array(2) { Bitmap.createBitmap((sc.W * k).toInt(), (sc.H * k).toInt(), Bitmap.Config.ARGB_8888) }
         var n = 0
         val start = System.nanoTime()
+        var round = 0
         while (isActive) {
-            val t = ((System.nanoTime() - start) / 1e9f) % (sc.seconds + 0.8f)
+            val all = (System.nanoTime() - start) / 1e9f
+            val r = (all / (sc.seconds + 0.8f)).toInt()
+            if (r != round) { round = r; loopHook.value() }
+            val t = all % (sc.seconds + 0.8f)
             val b = bufs[n % 2]; n++
             withContext(Dispatchers.Default) {
                 b.eraseColor(0xFF000000.toInt())
@@ -1013,8 +1024,9 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                         // the match reel gets its own sound: music, the crowd and the whistle at each moment
                         val rs = sc as? ReelScene
                         val audio = rs?.takeIf { reelSound.isNotEmpty() }?.let { StoryAudio.make(ctx, it.seconds, if (reelSound == "full") R.raw.reel_music else null, 0.5f, true, it.fx) }
+                        val fxOnly = if (rs == null && music == "fx") StoryAudio.make(ctx, sc.seconds, null, 0f, false, STORY_FX) else null
                         val ok = StoryVideo.make(ctx, f, 720, 1280, sc.seconds, if (rs != null) null else musicRes(music), { making = it }, { alive.get() },
-                            bitrate = if (rs != null) 4_000_000 else 7_000_000, audio = audio) { c, t -> sc.frame(c, t) }
+                            bitrate = if (rs != null) 4_000_000 else 7_000_000, audio = audio ?: fxOnly) { c, t -> sc.frame(c, t) }
                         if (ok) f to "video/mp4" else null
                     }
                 }.getOrNull()
@@ -1058,156 +1070,368 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
         }
     }
 
+    // the music under the preview: a tap on a track plays it from the start with the animation, so they can be judged together
+    val player = remember { mutableStateOf<android.media.MediaPlayer?>(null) }
+    var playing by remember { mutableStateOf("") }
+    fun stopMusic() { runCatching { player.value?.release() }; player.value = null; playing = "" }
+    DisposableEffect(Unit) { onDispose { runCatching { player.value?.release() } } }
+    fun playMusic(key: String) {
+        stopMusic()
+        val id = musicRes(key) ?: return
+        player.value = runCatching { android.media.MediaPlayer.create(ctx, id)?.apply { start(); setOnCompletionListener { } } }.getOrNull()
+        if (player.value != null) { playing = key; restart++ }
+    }
+    LaunchedEffect(video) { if (!video) stopMusic() }
+    loopHook.value = { player.value?.let { p -> runCatching { p.seekTo(0); p.start() } } }
+    // a moment's word when a file is ready
+    var done by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(done) { if (done != null) { kotlinx.coroutines.delay(2400); done = null } }
+
+    // the controls, one group at a time
+    val tabs = buildList {
+        if (themed) add("look" to L("طرح"))
+        if (reel || video) add("sound" to L("صدا"))
+        if (lineup?.rival != null) add("teams" to L("تیم‌ها"))
+        if (!video && (lineup != null || match != null)) add("size" to L("اندازه"))
+        if (story !is Story.Lineup && !reel) add("sticker" to L("استیکر"))
+        if (!reel) add("text" to L("نوشته"))
+        if (match != null) add("more" to L("جزئیات"))
+    }
+    var tab by remember { mutableStateOf(tabs.first().first) }
+    if (tabs.none { it.first == tab }) tab = tabs.first().first
+    val glow = Color(brighten(tint))
+    val ready = scene != null && making == null
+
     val state = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onClose, sheetState = state, containerColor = C.bg,
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = { stopMusic(); onClose() }, sheetState = state, containerColor = Color(0xFF06080C),
         shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp), dragHandle = null) {
-        Box(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+        Box(Modifier.fillMaxSize()) {
+            // behind everything: the story itself, blown up and blurred, and the story's colour breathing under it
             ambient?.let { amb ->
-                Image(amb.asImageBitmap(), null, Modifier.fillMaxWidth().height(660.dp).let { if (Build.VERSION.SDK_INT >= 31) it.blur(30.dp) else it }.alpha(0.8f),
+                Image(amb.asImageBitmap(), null, Modifier.fillMaxSize().let { if (Build.VERSION.SDK_INT >= 31) it.blur(40.dp) else it }.alpha(0.55f),
                     contentScale = ContentScale.Crop, filterQuality = FilterQuality.High)
             }
-            Box(Modifier.fillMaxWidth().height(660.dp).background(Brush.verticalGradient(0f to C.bg.copy(alpha = 0.2f), 0.55f to C.bg.copy(alpha = 0.55f), 1f to C.bg)))
-            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(bottom = 18.dp)) {
-                Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 10.dp, bottom = 4.dp).width(44.dp).height(5.dp).clip(RoundedCornerShape(5.dp)).background(C.ink.copy(alpha = 0.3f)))
-                // title and close
-                Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 8.dp, top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        T(if (reel) L("بازی در یک دقیقه") else L("استودیو استوری"), 22, FontWeight.Black)
-                        T(if (reel) scene?.let { L("ویدیوی {0} ثانیه‌ای با گل‌ها، آمار و بهترین بازیکن", fa(it.seconds.roundToInt())) } ?: "" else L("طرح، استیکر و نوشته‌ات را انتخاب کن و بفرست"),
-                            12, color = C.mute, modifier = Modifier.padding(top = 2.dp))
+            val inf = androidx.compose.animation.core.rememberInfiniteTransition(label = "studio")
+            val drift by inf.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(9000),
+                androidx.compose.animation.core.RepeatMode.Reverse), label = "drift")
+            Box(Modifier.fillMaxSize().drawBehind {
+                drawRect(Brush.radialGradient(listOf(glow.copy(alpha = 0.30f), Color.Transparent), Offset(size.width * (0.2f + 0.6f * drift), size.height * 0.28f), size.width * 0.9f))
+                drawRect(Brush.verticalGradient(0f to Color(0x6606080C), 0.55f to Color(0xB306080C), 1f to Color(0xFF06080C)))
+            })
+            Column(Modifier.fillMaxSize().navigationBarsPadding()) {
+                // the top: close, the title, picture or video
+                Row(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.10f)).border(1.dp, Color.White.copy(alpha = 0.14f), CircleShape)
+                        .clickable { stopMusic(); onClose() }, contentAlignment = Alignment.Center) {
+                        androidx.compose.material3.Icon(Ic.x, L("بستن"), Modifier.size(18.dp), tint = Color.White)
                     }
-                    IconBtn(Ic.x, L("بستن"), C.ink, C.ink.copy(alpha = 0.08f), 18.dp) { onClose() }
-                }
-                // picture or video
-                if (!reel) Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).fillMaxWidth().clip(RoundedCornerShape(50)).background(C.card2.copy(alpha = 0.75f))
-                    .border(1.dp, C.line2, RoundedCornerShape(50)).padding(4.dp)) {
-                    for ((v, label) in listOf(false to L("عکس"), true to L("ویدیوی متحرک"))) {
-                        val on = video == v
-                        Box(Modifier.weight(1f).clip(RoundedCornerShape(50)).background(if (on) accent else Color.Transparent)
-                            .clickable { video = v; Store.prefs().edit().putBoolean("story.video", v).apply() }.padding(vertical = 11.dp), contentAlignment = Alignment.Center) {
-                            T(label, 14, FontWeight.ExtraBold, if (on) LocalAccentInk.current else C.ink)
-                        }
+                    Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                        T(if (reel) L("بازی در یک دقیقه") else L("استودیو"), 20, FontWeight.Black, Color.White)
+                        T(if (reel) scene?.let { L("ویدیوی {0} ثانیه‌ای با گل‌ها، آمار و بهترین بازیکن", fa(it.seconds.roundToInt())) } ?: ""
+                            else if (video) L("ویدیوی ۷ ثانیه‌ای با آهنگ و افکت") else L("عکس آماده‌ی استوری و پست"), 12, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
                     }
+                    if (!reel) StudioMode(video, accent) { v -> video = v; Store.prefs().edit().putBoolean("story.video", v).apply() }
                 }
-                // as it will be sent, glowing in the story's colour
-                val glow = Color(brighten(tint))
-                Box(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 14.dp), contentAlignment = Alignment.Center) {
+                // the story as it will be sent, in a frame of moving light in its own colour
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                     val ratio = shape.format.w.toFloat() / shape.format.h
-                    val r = RoundedCornerShape(26.dp)
-                    Box(Modifier.height(if (shape.format == CardFormat.STORY) 500.dp else 400.dp).aspectRatio(ratio)
-                        .shadow(30.dp, r, ambientColor = glow, spotColor = glow).clip(r).background(C.card2).border(1.dp, Color.White.copy(alpha = 0.14f), r),
-                        contentAlignment = Alignment.Center) {
-                        preview?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), filterQuality = FilterQuality.High) } ?: T(L("در حال ساختن…"), 13, color = C.mute)
-                        making?.let { pr ->
-                            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)), contentAlignment = Alignment.Center) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    T(if (video) L("ساختن ویدیو… {0}٪", fa((pr * 100).toInt())) else L("صبر کنید…"), 15, FontWeight.ExtraBold, Color.White)
-                                    Box(Modifier.padding(top = 10.dp).width(160.dp).height(6.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.25f))) {
-                                        Box(Modifier.fillMaxHeight().fillMaxWidth(pr.coerceIn(0.02f, 1f)).background(accent))
+                    val h = minOf(maxHeight, maxWidth / ratio)
+                    StudioFrame(Modifier.height(h).width(h * ratio), glow, Color(tint), making != null || video) {
+                        preview?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), filterQuality = FilterQuality.High) }
+                            ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { T(L("در حال ساختن…"), 13, color = C.mute) }
+                        if (video && making == null) Row(Modifier.align(Alignment.TopStart).padding(10.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f))
+                            .padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(Color(0xFFFF4D4D))); Spacer(Modifier.width(6.dp))
+                            T(scene?.let { L("{0} ثانیه", fa(it.seconds.roundToInt())) } ?: "", 11, FontWeight.Bold, Color.White)
+                            if (playing.isNotEmpty()) { Spacer(Modifier.width(8.dp)); EqBars(Color.White, true) }
+                        }
+                        making?.let { pr -> MakingOverlay(pr, video, accent) }
+                        androidx.compose.animation.AnimatedVisibility(done != null, Modifier.align(Alignment.TopCenter).padding(top = 14.dp),
+                            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.7f),
+                            exit = androidx.compose.animation.fadeOut()) {
+                            Row(Modifier.clip(RoundedCornerShape(50)).background(Color(0xFF16C784)).padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                T("✓", 14, FontWeight.Black, Color.White); Spacer(Modifier.width(6.dp)); T(done ?: "", 13, FontWeight.ExtraBold, Color.White)
+                            }
+                        }
+                    }
+                }
+                // the groups of controls
+                StudioTabs(tabs, tab, accent) { tab = it }
+                Box(Modifier.fillMaxWidth().height(if (tab == "look") 196.dp else 150.dp)) {
+                    androidx.compose.animation.Crossfade(tab, label = "tab") { t ->
+                        Column(Modifier.fillMaxSize().padding(top = 10.dp)) {
+                            when (t) {
+                                "look" -> {
+                                    val hc = art?.card?.hc ?: scene?.hc?.takeIf { it != 0 } ?: accent.toArgb(); val ac = art?.card?.ac ?: scene?.ac?.takeIf { it != 0 } ?: deep(accent)
+                                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        items(themes.size) { k ->
+                                            val th = themes[k]
+                                            ThemeCard(if (lineup != null) posterThemeName(th) else themeName(th), th == o.theme, th in NEW_THEMES && lineup == null, accent, thumbs[th],
+                                                if (lineup != null) Brush.verticalGradient(listOf(Color(hc), Color(0xFF06080C))) else themeSwatch(th, hc, ac)) { o = o.copy(theme = th) }
+                                        }
                                     }
+                                }
+                                "sound" -> if (reel) {
+                                    StudioChips(listOf("full" to L("آهنگ و ورزشگاه"), "crowd" to L("فقط صدای ورزشگاه"), "" to L("بدون صدا")), reelSound) {
+                                        reelSound = it; Store.prefs().edit().putString("reel.sound", it).apply()
+                                    }
+                                } else LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    items(TRACKS.size) { k ->
+                                        val tr = TRACKS[k]
+                                        TrackCard(tr, tr.key == music, playing == tr.key) {
+                                            music = tr.key; Store.prefs().edit().putString("story.music", tr.key).apply()
+                                            if (playing == tr.key) stopMusic() else playMusic(tr.key)
+                                        }
+                                    }
+                                }
+                                "teams" -> StudioChips(listOf(false to L("فقط همین تیم"), true to L("هر دو تیم")), o.both) { o = o.copy(both = it, format = if (it) CardFormat.STORY else o.format) }
+                                "size" -> {
+                                    val sizes = if (lineup != null) listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست"))
+                                        else listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست عمودی"), CardFormat.SQUARE to L("پست مربع"))
+                                    Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                        for ((f, label) in sizes) SizeCard(f, label, (if (o.both) CardFormat.STORY else o.format) == f, accent, Modifier.weight(1f)) {
+                                            o = o.copy(format = f, both = if (f != CardFormat.STORY) false else o.both)
+                                        }
+                                    }
+                                    if (o.both) T(L("عکس هر دو تیم فقط اندازه‌ی استوری دارد"), 11, color = C.mute, modifier = Modifier.padding(start = 18.dp, end = 18.dp, top = 8.dp))
+                                }
+                                "sticker" -> LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    items(STICKERS.size) { k ->
+                                        val st = STICKERS[k]
+                                        val on = st == o.sticker
+                                        val r = RoundedCornerShape(22.dp)
+                                        val sc by androidx.compose.animation.core.animateFloatAsState(if (on) 1.08f else 1f, label = "sticker")
+                                        Box(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(78.dp).clip(r).background(if (on) accent.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.06f))
+                                            .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.12f), r).clickable { o = o.copy(sticker = st) }, contentAlignment = Alignment.Center) {
+                                            if (st.isEmpty()) androidx.compose.material3.Icon(Ic.x, L("بدون استیکر"), Modifier.size(22.dp), tint = C.mute)
+                                            else stickerArt[st]?.let { Image(it.asImageBitmap(), null, Modifier.size(70.dp), filterQuality = FilterQuality.High) }
+                                        }
+                                    }
+                                }
+                                "text" -> {
+                                    Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.07f))
+                                        .border(1.dp, if (o.caption.isNotEmpty()) accent.copy(alpha = 0.6f) else Color.White.copy(alpha = 0.12f), RoundedCornerShape(18.dp))
+                                        .padding(horizontal = 16.dp, vertical = 14.dp)) {
+                                        if (o.caption.isEmpty()) T(L("یک جمله روی عکس… مثلاً: بهترین بازی فصل!"), 14, color = C.faint)
+                                        BasicTextField(o.caption, { o = o.copy(caption = it.take(60)) }, Modifier.fillMaxWidth(), singleLine = true,
+                                            textStyle = vz(15.sp).copy(color = Color.White), cursorBrush = SolidColor(accent))
+                                        if (o.caption.isNotEmpty()) T(fa(o.caption.length) + "/۶۰", 11, color = C.faint, modifier = Modifier.align(Alignment.CenterEnd))
+                                    }
+                                    LazyRow(Modifier.padding(top = 10.dp), contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        val ideas = listOf(L("بهترین بازی فصل!"), L("قهرمان!"), L("تا آخرش با تو"), L("دربی مال ماست"), L("یک شب فراموش‌نشدنی"), L("گل‌لایو پیش‌بینی کرده بود"))
+                                        items(ideas.size) { k ->
+                                            Box(Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.08f)).border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
+                                                .clickable { o = o.copy(caption = ideas[k]) }.padding(horizontal = 14.dp, vertical = 8.dp)) { T(ideas[k], 12, FontWeight.Bold, Color.White) }
+                                        }
+                                    }
+                                }
+                                "more" -> if (match != null) FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Toggle(L("گلزن‌ها"), o.scorers) { o = o.copy(scorers = it) }
+                                    Toggle(L("آمار کلیدی"), o.stats) { o = o.copy(stats = it) }
+                                    Toggle(L("بهترین بازیکن"), o.best) { o = o.copy(best = it) }
+                                    Toggle(L("مومنتوم"), o.momentum) { o = o.copy(momentum = it) }
+                                    if (Predictions.get(match.m.matchId) != null) Toggle(L("پیش‌بینی من"), o.prediction) { o = o.copy(prediction = it) }
                                 }
                             }
                         }
                     }
                 }
-                if (themed) {
-                    StudioLabel(L("طرح"))
-                    val hc = art?.card?.hc ?: scene?.hc?.takeIf { it != 0 } ?: accent.toArgb(); val ac = art?.card?.ac ?: scene?.ac?.takeIf { it != 0 } ?: deep(accent)
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(themes.size) { k ->
-                            val t = themes[k]
-                            val on = t == o.theme
-                            val sc by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0.93f, label = "theme")
-                            Column(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.clip(RoundedCornerShape(18.dp)).clickable { o = o.copy(theme = t) }.padding(2.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally) {
-                                val r = RoundedCornerShape(16.dp)
-                                Box(Modifier.size(78.dp, 138.dp).clip(r).background(if (lineup != null) Brush.verticalGradient(listOf(Color(hc), Color(0xFF06080C))) else themeSwatch(t, hc, ac)).border(if (on) 3.dp else 1.dp, if (on) accent else C.line2, r)) {
-                                    thumbs[t]?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.High) }
-                                    if (t in NEW_THEMES && lineup == null) Box(Modifier.align(Alignment.TopStart).padding(5.dp).clip(RoundedCornerShape(8.dp)).background(accent).padding(horizontal = 6.dp)) {
-                                        T(L("تازه"), 12, FontWeight.Black, LocalAccentInk.current)
-                                    }
-                                    if (on) Box(Modifier.align(Alignment.BottomEnd).padding(6.dp).size(22.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
-                                        T("✓", 12, FontWeight.Black, LocalAccentInk.current)
-                                    }
-                                }
-                                T(if (lineup != null) posterThemeName(t) else themeName(t), 12, if (on) FontWeight.ExtraBold else FontWeight.Normal, if (on) accent else C.mute, modifier = Modifier.padding(top = 5.dp))
-                            }
-                        }
+                // where it goes: Instagram first and largest, then Telegram, the gallery and the rest
+                Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 14.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val ig = Brush.linearGradient(listOf(Color(0xFFFEDA75), Color(0xFFFA7E1E), Color(0xFFD62976), Color(0xFF962FBF), Color(0xFF4F5BD5)))
+                    Row(Modifier.weight(1f).height(58.dp).alpha(if (ready) 1f else 0.5f).glow(Color(0xFFD62976).copy(alpha = 0.45f), 12.dp, RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(20.dp)).background(ig).clickable(enabled = ready) {
+                            stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:instagram"); send(ctx, f, mime, story, INSTAGRAM) }
+                        }, horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        ShareMark("ig", Color.White); Spacer(Modifier.width(10.dp))
+                        T(if (video) L("ویدیو در اینستاگرام") else L("استوری اینستاگرام"), 15, FontWeight.Black, Color.White)
                     }
-                }
-                if (reel) {
-                    StudioLabel(L("صدا"))
-                    StudioChips(listOf("full" to L("آهنگ و ورزشگاه"), "crowd" to L("فقط صدای ورزشگاه"), "" to L("بدون صدا")), reelSound) {
-                        reelSound = it; Store.prefs().edit().putString("reel.sound", it).apply()
+                    RoundShare(L("تلگرام"), "tg", Brush.linearGradient(listOf(Color(0xFF37BBFE), Color(0xFF1E96D4))), ready) {
+                        stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:telegram"); send(ctx, f, mime, story, TELEGRAM) }
                     }
-                } else if (video) {
-                    StudioLabel(L("آهنگ"))
-                    StudioChips(MUSIC.map { it.first to L(it.second) }, music) { music = it; Store.prefs().edit().putString("story.music", it).apply() }
-                }
-                if (lineup != null && !video) {
-                    StudioLabel(L("اندازه"))
-                    StudioChips(listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست")), if (o.both) CardFormat.STORY else o.format) { o = o.copy(format = it, both = false) }
-                }
-                if (lineup?.rival != null) {
-                    StudioLabel(L("روی عکس باشد"))
-                    StudioChips(listOf(false to L("فقط همین تیم"), true to L("هر دو تیم")), o.both) { o = o.copy(both = it, format = if (it) CardFormat.STORY else o.format) }
-                }
-                if (!reel && !video && match != null) {
-                    StudioLabel(L("اندازه"))
-                    StudioChips(listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست عمودی"), CardFormat.SQUARE to L("پست مربع")), o.format) { o = o.copy(format = it) }
-                }
-                if (story !is Story.Lineup && !reel) {
-                    StudioLabel(L("استیکر"))
-                    LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(STICKERS.size) { k ->
-                            val st = STICKERS[k]
-                            val on = st == o.sticker
-                            val r = RoundedCornerShape(20.dp)
-                            val sc by androidx.compose.animation.core.animateFloatAsState(if (on) 1.08f else 1f, label = "sticker")
-                            Box(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(66.dp).clip(r).background(if (on) accent.copy(alpha = 0.22f) else C.card2)
-                                .border(if (on) 2.dp else 1.dp, if (on) accent else C.line2, r).clickable { o = o.copy(sticker = st) }, contentAlignment = Alignment.Center) {
-                                if (st.isEmpty()) androidx.compose.material3.Icon(Ic.x, L("بدون استیکر"), Modifier.size(20.dp), tint = C.mute)
-                                else stickerArt[st]?.let { Image(it.asImageBitmap(), null, Modifier.size(60.dp), filterQuality = FilterQuality.High) }
-                            }
-                        }
+                    RoundShare(L("ذخیره"), "save", null, ready) {
+                        stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:save"); save(ctx, f, mime); done = L("در گالری ذخیره شد") }
                     }
-                }
-                if (match != null) {
-                    StudioLabel(L("روی عکس باشد"))
-                    FlowRow(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Toggle(L("گلزن‌ها"), o.scorers) { o = o.copy(scorers = it) }
-                        Toggle(L("آمار کلیدی"), o.stats) { o = o.copy(stats = it) }
-                        Toggle(L("بهترین بازیکن"), o.best) { o = o.copy(best = it) }
-                        Toggle(L("مومنتوم"), o.momentum) { o = o.copy(momentum = it) }
-                        if (Predictions.get(match.m.matchId) != null) Toggle(L("پیش‌بینی من"), o.prediction) { o = o.copy(prediction = it) }
+                    RoundShare(L("بقیه"), "share", null, ready) {
+                        stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:other"); send(ctx, f, mime, story, emptyList()) }
                     }
-                }
-                if (!reel) StudioLabel(L("نوشته‌ی خودت"))
-                if (!reel) Box(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card2).border(1.dp, C.line2, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 16.dp, vertical = 14.dp)) {
-                    if (o.caption.isEmpty()) T(L("مثلاً: بهترین بازی فصل!"), 14, color = C.faint)
-                    BasicTextField(o.caption, { o = o.copy(caption = it.take(60)) }, Modifier.fillMaxWidth(), singleLine = true,
-                        textStyle = vz(15.sp).copy(color = C.ink), cursorBrush = SolidColor(accent))
-                }
-                // where it goes
-                val ready = scene != null && making == null
-                Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ShareTarget(L("اینستاگرام"), "ig", Modifier.weight(1f), ready,
-                        Brush.linearGradient(listOf(Color(0xFFFEDA75), Color(0xFFFA7E1E), Color(0xFFD62976), Color(0xFF962FBF), Color(0xFF4F5BD5)))) {
-                        produce { f, mime -> app.goallive.live.data.Telemetry.event("share:instagram"); send(ctx, f, mime, story, INSTAGRAM) }
-                    }
-                    ShareTarget(L("تلگرام"), "tg", Modifier.weight(1f), ready, Brush.linearGradient(listOf(Color(0xFF37BBFE), Color(0xFF1E96D4)))) {
-                        produce { f, mime -> app.goallive.live.data.Telemetry.event("share:telegram"); send(ctx, f, mime, story, TELEGRAM) }
-                    }
-                }
-                Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ShareTarget(L("بقیه"), "share", Modifier.weight(1f), ready, null) { produce { f, mime -> app.goallive.live.data.Telemetry.event("share:other"); send(ctx, f, mime, story, emptyList()) } }
-                    ShareTarget(L("ذخیره در گالری"), "save", Modifier.weight(1f), ready, null) { produce { f, mime -> app.goallive.live.data.Telemetry.event("share:save"); save(ctx, f, mime) } }
                 }
             }
         }
     }
 }
+
+/** Picture or video: two icons in a glass pill with a sliding light. */
+@Composable
+private fun StudioMode(video: Boolean, accent: Color, onPick: (Boolean) -> Unit) {
+    // offset follows the reading direction: the first choice (picture) sits at the start
+    val x by androidx.compose.animation.core.animateDpAsState(if (video) 46.dp else 0.dp,
+        androidx.compose.animation.core.spring(0.7f, 500f), label = "mode")
+    Box(Modifier.width(96.dp).height(42.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.10f)).border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(50)).padding(3.dp)) {
+        Box(Modifier.offset(x = x).width(44.dp).fillMaxHeight().glow(accent.copy(alpha = 0.5f), 8.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50)).background(accent))
+        Row(Modifier.fillMaxSize()) {
+            for (v in listOf(false, true)) {
+                val on = v == video
+                Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(50)).clickable { onPick(v) }, contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.Icon(if (v) StudioIcons.film else StudioIcons.photo, if (v) L("ویدیو") else L("عکس"), Modifier.size(19.dp),
+                        tint = if (on) LocalAccentInk.current else Color.White.copy(alpha = 0.75f))
+                }
+            }
+        }
+    }
+}
+
+/** The preview's frame: a thin ring of light turning round it in the story's colours, and a soft glow under it. */
+@Composable
+private fun StudioFrame(modifier: Modifier, glow: Color, tint: Color, fast: Boolean, content: @Composable BoxScope.() -> Unit) {
+    val inf = androidx.compose.animation.core.rememberInfiniteTransition(label = "frame")
+    val turn by inf.animateFloat(0f, 360f, androidx.compose.animation.core.infiniteRepeatable(
+        androidx.compose.animation.core.tween(if (fast) 2600 else 7000, easing = androidx.compose.animation.core.LinearEasing)), label = "turn")
+    val r = RoundedCornerShape(28.dp)
+    Box(modifier.shadow(36.dp, r, ambientColor = glow, spotColor = glow).clip(r).drawBehind {
+        rotate(turn) {
+            drawCircle(Brush.sweepGradient(listOf(glow, Color.Transparent, Color.White.copy(alpha = 0.9f), Color.Transparent, tint, Color.Transparent, glow)), size.maxDimension)
+        }
+    }.padding(2.5.dp)) {
+        Box(Modifier.fillMaxSize().clip(RoundedCornerShape(26.dp)).background(Color(0xFF0B0F14)), content = content)
+    }
+}
+
+/** While the file is made: a ring that fills, the percent, and what is happening. */
+@Composable
+private fun BoxScope.MakingOverlay(pr: Float, video: Boolean, accent: Color) {
+    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = 0.62f)), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                    drawArc(Color.White.copy(alpha = 0.15f), 0f, 360f, false, style = Stroke(9.dp.toPx()))
+                    drawArc(Brush.sweepGradient(listOf(accent, Color.White, accent)), -90f, 360f * pr.coerceIn(0.02f, 1f), false, style = Stroke(9.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round))
+                }
+                T(if (video) fa((pr * 100).toInt()) + "٪" else "…", 22, FontWeight.Black, Color.White)
+            }
+            T(if (!video) L("ساختن عکس") else if (pr < 0.97f) L("ساختن ویدیو و صدا") else L("آخرین لمس‌ها"), 13, FontWeight.Bold, Color.White.copy(alpha = 0.85f),
+                modifier = Modifier.padding(top = 12.dp))
+        }
+    }
+}
+
+/** The groups of controls as a row of pills with icons; the open one lit. */
+@Composable
+private fun StudioTabs(tabs: List<Pair<String, String>>, tab: String, accent: Color, onPick: (String) -> Unit) {
+    LazyRow(contentPadding = PaddingValues(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(tabs.size) { k ->
+            val (key, label) = tabs[k]
+            val on = key == tab
+            val bg by androidx.compose.animation.animateColorAsState(if (on) accent else Color.White.copy(alpha = 0.07f), label = "tab")
+            val ink = if (on) LocalAccentInk.current else Color.White.copy(alpha = 0.8f)
+            Row(Modifier.height(40.dp).then(if (on) Modifier.glow(accent.copy(alpha = 0.4f), 8.dp, RoundedCornerShape(50)) else Modifier)
+                .clip(RoundedCornerShape(50)).background(bg).border(1.dp, if (on) Color.Transparent else Color.White.copy(alpha = 0.10f), RoundedCornerShape(50))
+                .clickable { onPick(key) }.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                androidx.compose.material3.Icon(StudioIcons.of(key), null, Modifier.size(17.dp), tint = ink)
+                Spacer(Modifier.width(6.dp)); T(label, 13, if (on) FontWeight.Black else FontWeight.Bold, ink)
+            }
+        }
+    }
+}
+
+/** A design: the story itself drawn small in it, its name on a shade at the foot, lit when chosen. */
+@Composable
+private fun ThemeCard(name: String, on: Boolean, new: Boolean, accent: Color, thumb: Bitmap?, swatch: Brush, onClick: () -> Unit) {
+    val sc by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0.94f, androidx.compose.animation.core.spring(0.6f, 400f), label = "theme")
+    val r = RoundedCornerShape(18.dp)
+    Box(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.size(96.dp, 172.dp).then(if (on) Modifier.glow(accent.copy(alpha = 0.55f), 12.dp, r) else Modifier)
+        .clip(r).background(swatch).border(if (on) 3.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.12f), r).clickable(onClick = onClick)) {
+        thumb?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.High) }
+        Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(48.dp).background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f)))))
+        T(name, 12, FontWeight.ExtraBold, Color.White, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp), maxLines = 1)
+        if (new) Box(Modifier.align(Alignment.TopStart).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(accent).padding(horizontal = 6.dp)) {
+            T(L("تازه"), 11, FontWeight.Black, LocalAccentInk.current)
+        }
+        if (on) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(22.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+            T("✓", 12, FontWeight.Black, LocalAccentInk.current)
+        }
+    }
+}
+
+/** A size: its shape drawn to scale, its name and ratio. */
+@Composable
+private fun SizeCard(f: CardFormat, label: String, on: Boolean, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    val r = RoundedCornerShape(18.dp)
+    Column(modifier.height(118.dp).clip(r).background(if (on) accent.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f))
+        .border(if (on) 2.dp else 1.dp, if (on) accent else Color.White.copy(alpha = 0.12f), r).clickable(onClick = onClick).padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        val h = 52.dp; val w = h * (f.w.toFloat() / f.h)
+        Box(Modifier.size(w, h).clip(RoundedCornerShape(6.dp)).border(2.dp, if (on) accent else Color.White.copy(alpha = 0.6f), RoundedCornerShape(6.dp))
+            .background(if (on) accent.copy(alpha = 0.25f) else Color.Transparent))
+        T(label, 13, FontWeight.ExtraBold, Color.White, modifier = Modifier.padding(top = 8.dp), maxLines = 1)
+        T(when (f) { CardFormat.STORY -> "۹:۱۶"; CardFormat.PORTRAIT -> "۴:۵"; CardFormat.SQUARE -> "۱:۱" }, 11, color = C.mute)
+    }
+}
+
+/** A track: its colours, name and feel; the bars move while it plays. */
+@Composable
+private fun TrackCard(t: Track, on: Boolean, playing: Boolean, onClick: () -> Unit) {
+    val r = RoundedCornerShape(20.dp)
+    val sc by androidx.compose.animation.core.animateFloatAsState(if (on) 1f else 0.95f, label = "track")
+    Column(Modifier.graphicsLayer { scaleX = sc; scaleY = sc }.width(150.dp).height(122.dp).clip(r)
+        .background(Brush.linearGradient(listOf(Color(t.a), Color(t.b)))).border(if (on) 3.dp else 1.dp, if (on) Color.White else Color.White.copy(alpha = 0.15f), r)
+        .clickable(onClick = onClick).padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(34.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.28f)), contentAlignment = Alignment.Center) {
+                if (playing) EqBars(Color.White, true)
+                else androidx.compose.material3.Icon(if (t.key.isEmpty()) StudioIcons.mute else if (t.key == "fx") StudioIcons.bolt else Ic.play, null, Modifier.size(16.dp), tint = Color.White)
+            }
+            Spacer(Modifier.weight(1f))
+            if (on) Box(Modifier.size(22.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) { T("✓", 12, FontWeight.Black, Color(t.b)) }
+        }
+        Spacer(Modifier.weight(1f))
+        T(L(t.name), 16, FontWeight.Black, Color.White, maxLines = 1)
+        if (t.sub.isNotEmpty()) T(L(t.sub), 11, color = Color.White.copy(alpha = 0.8f), maxLines = 1)
+    }
+}
+
+/** Four little bars dancing, for sound playing. */
+@Composable
+private fun EqBars(color: Color, on: Boolean) {
+    val inf = androidx.compose.animation.core.rememberInfiniteTransition(label = "eq")
+    val hs = (0 until 4).map { k ->
+        inf.animateFloat(0.25f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(260 + k * 90),
+            androidx.compose.animation.core.RepeatMode.Reverse), label = "eq$k")
+    }
+    Row(Modifier.height(14.dp), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.Bottom) {
+        hs.forEach { h -> Box(Modifier.width(3.dp).fillMaxHeight(if (on) h.value else 0.3f).clip(RoundedCornerShape(2.dp)).background(color)) }
+    }
+}
+
+/** A share button as a round glass disc with its mark, the name under it. */
+@Composable
+private fun RoundShare(label: String, mark: String, brush: Brush?, enabled: Boolean, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.size(50.dp).alpha(if (enabled) 1f else 0.5f).clip(CircleShape).let { if (brush != null) it.background(brush) else it.background(Color.White.copy(alpha = 0.10f)) }
+            .border(1.dp, Color.White.copy(alpha = 0.14f), CircleShape).clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
+            ShareMark(mark, Color.White)
+        }
+        T(label, 10, FontWeight.Bold, Color.White.copy(alpha = 0.75f), modifier = Modifier.padding(top = 3.dp))
+    }
+}
+
+/** The tracks a story video can have: each made for the 7-second story, its drop as the picture lands and its hit as the mark swells. */
+private class Track(val key: String, val name: String, val sub: String, val a: Long, val b: Long)
+
+private val TRACKS = listOf(
+    Track("energy", "پرانرژی", "الکترونیک با دراپ سنگین", 0xFFFF3D7F, 0xFF7C3AED),
+    Track("epic", "حماسی", "طبل، کُر و سازهای بادی", 0xFFF59E0B, 0xFFB91C1C),
+    Track("anthem", "ورزشگاهی", "پا، دست و فریاد هواداران", 0xFF22C55E, 0xFF0E7490),
+    Track("trap", "ترپ", "بیس سنگین و های‌هت تند", 0xFF8B5CF6, 0xFF1E1B4B),
+    Track("phonk", "فونک", "کاوبل و بیس دیستورت", 0xFFEF4444, 0xFF111827),
+    Track("chill", "آرام", "پیانوی گرم و حس لوفای", 0xFF38BDF8, 0xFF6366F1),
+    Track("fx", "فقط افکت", "بی‌آهنگ؛ ووش و ضربه", 0xFF64748B, 0xFF1E293B),
+    Track("", "بی‌صدا", "", 0xFF374151, 0xFF111827),
+)
+
+/** The effects alone, on the story's beats: in, the drop, the build and the hit. */
+private val STORY_FX = listOf(0.0f to StoryAudio.Fx.WHOOSH, 0.2f to StoryAudio.Fx.BOOM, 4.7f to StoryAudio.Fx.RISER, 5.74f to StoryAudio.Fx.BOOM, 5.74f to StoryAudio.Fx.SHIMMER)
 
 /** The designs added last, marked «تازه» in the picker. */
 private val NEW_THEMES = setOf("aurora", "holo", "fire", "ice", "stadium", "comic")
@@ -1296,5 +1520,27 @@ fun ReelBanner(m: MatchData) {
             T(L("ویدیوی بازی با گل‌ها، آمار و بهترین بازیکن؛ آماده‌ی استوری"), 12, color = Color.White.copy(alpha = 0.85f))
         }
         T("▶", 18, FontWeight.Black, Color.White)
+    }
+}
+
+/** The studio's own small icons, drawn like the app's others. */
+internal object StudioIcons {
+    private fun icon(name: String, vararg d: String): androidx.compose.ui.graphics.vector.ImageVector {
+        val b = androidx.compose.ui.graphics.vector.ImageVector.Builder(name, 24.dp, 24.dp, 24f, 24f)
+        for (p in d) b.addPath(pathData = androidx.compose.ui.graphics.vector.addPathNodes(p), fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.8f,
+            strokeLineCap = androidx.compose.ui.graphics.StrokeCap.Round, strokeLineJoin = androidx.compose.ui.graphics.StrokeJoin.Round)
+        return b.build()
+    }
+    val photo by lazy { icon("photo", "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-10a2 2 0 0 1 2 -2z", "M3 16l5-5 4 4 3-3 6 6", "M15.5 9a1.5 1.5 0 1 0 3 0a1.5 1.5 0 1 0 -3 0") }
+    val film by lazy { icon("film", "M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z", "M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4") }
+    val palette by lazy { icon("palette", "M12 3a9 9 0 1 0 0 18c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A4.7 4.7 0 0 0 22 9.7C22 6 17.5 3 12 3z", "M7 12h.01M9 7.5h.01M14 7h.01M17.5 10h.01") }
+    val music by lazy { icon("music", "M9 18V6l11-2v12", "M6 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0", "M17 16a3 3 0 1 0 6 0a3 3 0 1 0 -6 0") }
+    val ratio by lazy { icon("ratio", "M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2z", "M9 8l-1.5 0 0 1.5M15 16l1.5 0 0-1.5") }
+    val smile by lazy { icon("smile", "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0", "M8.5 14.5a4.5 4.5 0 0 0 7 0", "M9 9.5h.01M15 9.5h.01") }
+    val text by lazy { icon("text", "M5 6V4h14v2", "M12 4v16", "M9 20h6") }
+    val bolt by lazy { icon("bolt", "M13 2L4 14h7l-1 8 9-12h-7z") }
+    val mute by lazy { icon("mute", "M4 9h4l5-4v14l-5-4H4z", "M17 9l4 6M21 9l-4 6") }
+    fun of(key: String) = when (key) {
+        "look" -> palette; "sound" -> music; "teams" -> Ic.people; "size" -> ratio; "sticker" -> smile; "text" -> text; else -> Ic.sliders
     }
 }
