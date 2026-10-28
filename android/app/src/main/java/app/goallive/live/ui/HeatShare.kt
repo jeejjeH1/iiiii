@@ -27,7 +27,7 @@ import kotlin.math.roundToInt
  * A player's heatmap as a story picture (1080×1920): his face, name, club and rating over the team's colour, the part of the
  * match it covers, the heat on an upright pitch with the share of each of the nine zones, and the app's name at the foot.
  */
-suspend fun shareHeatmap(ctx: Context, playerId: Int, name: String, team: String, rating: Double?, pts: List<Pair<Float, Float>>, span: String, color: Color) {
+suspend fun shareHeatmap(ctx: Context, playerId: Int, name: String, team: String, rating: Double?, pts: List<Pair<Float, Float>>, span: String, teamColor: Color) {
     if (pts.size < 3) return
     val face = image(ctx, playerFace(playerId), 300)
     val uri = runCatching {
@@ -38,7 +38,7 @@ suspend fun shareHeatmap(ctx: Context, playerId: Int, name: String, team: String
             val p = Paint(Paint.ANTI_ALIAS_FLAG)
             val black = if (Lang.en) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else ResourcesCompat.getFont(ctx, R.font.vazir_black) ?: Typeface.DEFAULT_BOLD
             val bold = if (Lang.en) Typeface.DEFAULT_BOLD else ResourcesCompat.getFont(ctx, R.font.vazir_bold) ?: Typeface.DEFAULT_BOLD
-            val tc = color.toArgb()
+            val tc = teamColor.toArgb()
             // the team's colour fading into the night
             p.shader = LinearGradient(0f, 0f, 0f, H.toFloat(), intArrayOf(tc, 0xFF0B0F14.toInt(), 0xFF0B0F14.toInt()), floatArrayOf(0f, 0.42f, 1f), Shader.TileMode.CLAMP)
             c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), p); p.shader = null
