@@ -193,9 +193,14 @@ private suspend fun loadLeague(id: Int): FLeague = leagueCache[id] ?: coroutineS
     FLeague(id, players, teamNames, rounds, current, rows.mapIndexed { k, r -> (r.i("id") ?: 0) to (r.i("idx") ?: (k + 1)) }.toMap()).also { leagueCache[id] = it }
 }
 
-/** The saved game: current squad, captain, and the squad frozen at each gameweek's deadline. */
-private class FState(val o: JSONObject) {
-    val league get() = o.optInt("league")
+/**
+ * The saved game. One team per league, all kept at once ("by": league id → its game): the squad, captain and bench, the
+ * squad frozen at each gameweek's deadline, the points of each round and which were sent. [league] is the one open now.
+ */
+private class FState(val root: JSONObject) {
+    val league get() = root.optInt("league")
+    /** The open league's game. */
+    val o: JSONObject = gameOf(root, root.optInt("league"))
     val team: MutableList<Int> get() = o.optJSONArray("team").let { a -> MutableList(a?.length() ?: 0) { a!!.getInt(it) } }
     val captain get() = o.optInt("captain")
     /** The four on the bench, in the order they come on. */
@@ -205,9 +210,31 @@ private class FState(val o: JSONObject) {
         Frozen(r.getJSONArray("team").let { a -> List(a.length()) { a.getInt(it) } }, r.optInt("captain"), List(b?.length() ?: 0) { b!!.getInt(it) })
     }
     companion object {
-        fun load() = FState(runCatching { JSONObject(Store.prefs().getString("fantasy", "{}")!!) }.getOrDefault(JSONObject()))
+        private val KEYS = listOf("team", "captain", "bench", "rounds", "points", "sent")
+        fun gameOf(root: JSONObject, league: Int): JSONObject {
+            val by = root.optJSONObject("by") ?: JSONObject().also { root.put("by", it) }
+            return by.optJSONObject(league.toString()) ?: JSONObject().also { if (league > 0) by.put(league.toString(), it) }
+        }
+        fun load(): FState {
+            val root = runCatching { JSONObject(Store.prefs().getString("fantasy", "{}")!!) }.getOrDefault(JSONObject())
+            // before one team per league: the single team moves under its league
+            if (root.has("team") && root.optInt("league") > 0) {
+                val g = gameOf(root, root.optInt("league"))
+                for (k in KEYS) if (root.has(k)) { g.put(k, root.get(k)); root.remove(k) }
+                Store.prefs().edit().putString("fantasy", root.toString()).apply()
+            }
+            return FState(root)
+        }
+        /** Every league with a team: its size and season points. */
+        fun teams(root: JSONObject): Map<Int, Pair<Int, Int>> = root.optJSONObject("by")?.let { by ->
+            by.keys().asSequence().mapNotNull { k ->
+                val g = by.optJSONObject(k) ?: return@mapNotNull null
+                val n = g.optJSONArray("team")?.length() ?: 0
+                if (n == 0) null else k.toInt() to (n to (g.optJSONObject("points")?.let { p -> p.keys().asSequence().sumOf { p.optInt(it) } } ?: 0))
+            }.toMap()
+        } ?: emptyMap()
     }
-    fun save() { Store.prefs().edit().putString("fantasy", o.toString()).apply() }
+    fun save() { Store.prefs().edit().putString("fantasy", root.toString()).apply() }
     fun setTeam(t: List<Int>, c: Int, b: List<Int> = bench) { o.put("team", JSONArray(t)).put("captain", c).put("bench", JSONArray(b.filter { it in t })); save() }
     fun freeze(round: String) {
         val r = o.optJSONObject("rounds") ?: JSONObject().also { o.put("rounds", it) }
@@ -218,6 +245,11 @@ private class FState(val o: JSONObject) {
 }
 
 class Frozen(val team: List<Int>, val captain: Int, val bench: List<Int>)
+
+/** Opens the fantasy page on [comp]'s team (each league keeps its own). */
+internal fun openFantasy(nav: Nav, comp: Int) {
+    val st = FState.load(); st.root.put("league", comp); st.save(); nav.fantasy()
+}
 
 /** A new player: onto the pitch while the eleven can still take his line (and still reach every line's minimum), else to the bench. */
 private fun addTo(st: FState, p: FPlayer, lg: FLeague) {
@@ -300,7 +332,7 @@ fun FantasyScreen() {
     if (state.league == 0) {
         var help by rememberTip("fantasy")
         if (help) HowToSheet("⚽", L("فوتبال فانتزی گل‌لایو"), FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
-        LeaguePick { id -> state.o.put("league", id); state.save(); state = FState.load() }
+        LeaguePick(FState.teams(state.root)) { id -> state.root.put("league", id); state.save(); state = FState.load() }
         return
     }
     var help by rememberTip("fantasy")
@@ -308,13 +340,14 @@ fun FantasyScreen() {
     val l = rememberLoader(state.league) { loadLeague(state.league) }
     FantasyTheme(state.league) {
         LoadBox(l, 6) { lg -> FantasyBody(lg, state, { tick++ }) {
-            state.o.remove("league"); state.o.remove("team"); state.o.remove("captain"); state.o.remove("bench"); state.save(); state = FState.load()
+            // back to the list of leagues; every league's team stays as it is
+            state.root.put("league", 0); state.save(); state = FState.load()
         } }
     }
 }
 
 @Composable
-private fun LeaguePick(onPick: (Int) -> Unit) {
+private fun LeaguePick(teams: Map<Int, Pair<Int, Int>>, onPick: (Int) -> Unit) {
     val accent = LocalAccent.current
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = BottomSpace)) {
         item {
@@ -325,13 +358,19 @@ private fun LeaguePick(onPick: (Int) -> Unit) {
                 T(L("با ۱۴۰ میلیون بودجه ۱۵ بازیکن واقعی بخر: ۱۱ نفر در زمین و ۴ نفر روی نیمکت. کاپیتان انتخاب کن و از روی عملکرد واقعی‌شان در هر هفته امتیاز بگیر."), 13, color = C.mute, align = TextAlign.Center)
             }
         }
-        item { SectionTitle(L("لیگ خودت را انتخاب کن")) }
+        item { SectionTitle(if (teams.isEmpty()) L("لیگ خودت را انتخاب کن") else L("لیگ‌ها؛ در هر کدام تیم جدا داری")) }
         item {
             Card {
                 F_LEAGUES.forEachIndexed { i, (id, name) ->
                     ListRow(first = i == 0, onClick = { onPick(id) }) {
                         Box(Modifier.size(6.dp, 30.dp).clip(RoundedCornerShape(3.dp)).background(fantasyColor(id)))
-                        LeagueLogo(id, 30.dp); T(name, 15, FontWeight.Bold, modifier = Modifier.weight(1f)); androidx.compose.material3.Icon(Ic.chev, null, Modifier.size(18.dp), tint = fantasyColor(id))
+                        LeagueLogo(id, 30.dp)
+                        Column(Modifier.weight(1f)) {
+                            T(name, 15, FontWeight.Bold)
+                            T(teams[id]?.let { (n, pts) -> L("تیم تو: {0}/۱۵ بازیکن · {1} امتیاز", fa(n), fa(pts)) } ?: L("هنوز تیمی نساخته‌ای"), 12,
+                                color = if (teams[id] != null) fantasyColor(id) else C.mute)
+                        }
+                        androidx.compose.material3.Icon(Ic.chev, null, Modifier.size(18.dp), tint = fantasyColor(id))
                     }
                 }
             }
@@ -426,7 +465,7 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                         T(L("فانتزی · {0}", F_LEAGUES.firstOrNull { it.first == lg.id }?.second ?: ""), 15, FontWeight.Black)
                         T(if (roundName.all(Char::isDigit)) L("هفته {0}", roundName) else roundName, 12, color = C.mute)
                     }
-                    Pill(L("تغییر لیگ"), onClick = reset)
+                    Pill(L("لیگ‌های دیگر"), onClick = reset)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Stat(if (locked) "$roundTotal" else "–", L("امتیاز این هفته"), Modifier.weight(1f), accent)

@@ -75,8 +75,9 @@ internal fun FantasyLeaguesCard(lg: FLeague) {
             else {
                 val e = d.optJSONObject("everyone")
                 LeagueRow(L("همه‌ی بازیکنان فانتزی {0}", compName(lg.id)), L("{0} بازیکن", fa(e?.optInt("players") ?: 0)), e?.optInt("rank")?.takeIf { it > 0 }, true) { nav.fantasyLeague(0, lg.id) }
-                d.optJSONArray("leagues").objs().sortedByDescending { it.optInt("comp") == lg.id }.forEach { l ->
-                    val other = l.optInt("comp") != lg.id
+                // only this competition's leagues: every league has its own tables and its own friends' leagues
+                d.optJSONArray("leagues").objs().filter { it.optInt("comp") == lg.id }.forEach { l ->
+                    val other = false
                     LeagueRow(l.optString("name"), listOfNotNull(L("{0} نفر", fa(l.optInt("members"))), l.optString("leader").takeIf { it.isNotEmpty() }?.let { L("صدرنشین: {0}", it) },
                         if (other) compName(l.optInt("comp")) else null).joinToString(" · "), l.optInt("rank").takeIf { it > 0 }) { nav.fantasyLeague(l.optInt("id"), l.optInt("comp")) }
                 }
@@ -130,6 +131,7 @@ private fun LeagueTableBody(id: Int, comp: Int) {
                         Pill(L("دعوت دوستان"), PillKind.Accent, icon = Ic.share, onClick = { fantasyInvite(ctx, info.optString("name"), info.optString("code")) })
                         Pill(L("خروج از لیگ"), PillKind.Plain, onClick = { leaving = true })
                     }
+                    Box(Modifier.padding(top = 8.dp)) { Pill(L("تیم من در این لیگ"), PillKind.Plain, onClick = { openFantasy(nav, comp) }) }
                 } else T(L("هر کس تیم فانتزی‌اش را با حساب ثبت کرده باشد"), 13, color = C.mute, modifier = Modifier.padding(top = 4.dp))
             }
         }
@@ -137,7 +139,7 @@ private fun LeagueTableBody(id: Int, comp: Int) {
             Seg(listOf("all" to L("کل فصل"), "week" to (round?.let { if (it.all(Char::isDigit)) L("هفته {0}", fa(it)) else it } ?: L("آخرین هفته"))), if (week) "week" else "all") { week = it == "week" }
         }
         if (data == null) item { if (failed) EmptyView(L("جدول نیامد"), null, L("اینترنت را بررسی کن")) else Skeleton(4) }
-        else if (rows.isEmpty()) item { EmptyView(L("هنوز کسی امتیاز نگرفته"), null, L("امتیازها بعد از پایان هر هفته‌ی بازی‌ها اینجا می‌آید."), L("تیم فانتزی من")) { nav.fantasy() } }
+        else if (rows.isEmpty()) item { EmptyView(L("هنوز کسی امتیاز نگرفته"), null, L("امتیازها بعد از پایان هر هفته‌ی بازی‌ها اینجا می‌آید."), L("تیم فانتزی من")) { openFantasy(nav, comp) } }
         else item {
             Card {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {

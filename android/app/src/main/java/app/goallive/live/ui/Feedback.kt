@@ -48,6 +48,7 @@ private fun appVersion(ctx: Context): Int = runCatching {
 private class News(val emoji: String, val title: String, val sub: String, val go: ((Nav) -> Unit)?)
 
 private fun news(): List<News> = listOf(
+    News("👥", L("یک تیم در هر لیگ"), L("هم‌زمان در همه‌ی لیگ‌ها تیم داشته باش؛ هر لیگ جدول و لیگ‌های دوستانه‌ی خودش را دارد"), { it.fantasy() }),
     News("⭐", L("فانتزی لیگ قهرمانان"), L("فانتزی لیگ قهرمانان اروپا هم آمد؛ هر لیگ با رنگ و حال‌وهوای خودش"), { it.fantasy() }),
     News("🏆", L("لیگ فانتزی با دوستان"), L("لیگ بساز، با لینک دعوت کن و در جدول هفته و فصل رقابت کن؛ جدول همه‌ی بازیکنان هم هست"), { it.fantasy() }),
     News("👥", L("۱۵ بازیکن و نیمکت"), L("بودجه ۱۴۰ میلیون؛ اگر بازیکن زمین بازی نکند، نفر نیمکت خودکار جایش می‌آید"), { it.fantasy() }),

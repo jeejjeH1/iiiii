@@ -1890,3 +1890,10 @@
 1889|140M budget; if a starter doesn’t play, a bench player comes on automatically
 1890|Champions League fantasy
 1891|Champions League fantasy is here, and every league has its own colours
+1892|My team in this league
+1893|Leagues: a separate team in each
+1894|Your team: {0}/15 players · {1} pts
+1895|No team yet
+1896|Other leagues
+1897|A team in every league
+1898|Have a team in every league at once; each league has its own tables and friends’ leagues
