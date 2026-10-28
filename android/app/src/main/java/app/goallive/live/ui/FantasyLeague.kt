@@ -31,7 +31,7 @@ import org.json.JSONObject
  */
 
 /** The league names the fantasy game offers, by competition id. */
-private fun compName(id: Int) = when (id) { 47 -> L("لیگ برتر انگلیس"); 523 -> L("لیگ برتر خلیج فارس"); 87 -> L("لالیگا"); 55 -> L("سری آ"); 54 -> L("بوندس‌لیگا"); else -> "" }
+private fun compName(id: Int) = when (id) { 47 -> L("لیگ برتر انگلیس"); 42 -> L("لیگ قهرمانان اروپا"); 523 -> L("لیگ برتر خلیج فارس"); 87 -> L("لالیگا"); 55 -> L("سری آ"); 54 -> L("بوندس‌لیگا"); else -> "" }
 
 private fun fantasyInvite(ctx: android.content.Context, name: String, code: String) {
     val t = L("بیا تو لیگ فانتزی «{0}» در گل‌لایو با هم رقابت کنیم!", name) + "\n" + L("کد لیگ: {0}", code) + "\n" + Account.inviteLink(code)
@@ -98,7 +98,10 @@ internal fun FantasyLeaguesCard(lg: FLeague) {
 
 /** A fantasy league's table (0: everyone playing [comp]): season points, or the last gameweek's. */
 @Composable
-fun FantasyLeagueTable(id: Int, comp: Int) {
+fun FantasyLeagueTable(id: Int, comp: Int) { FantasyTheme(comp) { LeagueTableBody(id, comp) } }
+
+@Composable
+private fun LeagueTableBody(id: Int, comp: Int) {
     val ctx = LocalContext.current
     val nav = LocalNav.current
     val scope = rememberCoroutineScope()

@@ -88,7 +88,39 @@ import kotlin.math.sqrt
  * fantasy leagues.
  */
 
-private val F_LEAGUES = listOf(47 to L("لیگ برتر انگلیس"), 523 to L("لیگ برتر خلیج فارس"), 87 to L("لالیگا"), 55 to L("سری آ"), 54 to L("بوندس‌لیگا"))
+private val F_LEAGUES = listOf(47 to L("لیگ برتر انگلیس"), 42 to L("لیگ قهرمانان اروپا"), 523 to L("لیگ برتر خلیج فارس"), 87 to L("لالیگا"), 55 to L("سری آ"), 54 to L("بوندس‌لیگا"))
+
+/** Each league's own colour for its fantasy page: the accent, the buttons, the header's glow. */
+internal fun fantasyColor(id: Int) = when (id) {
+    47 -> Color(0xFFB04BFF)   // Premier League purple
+    42 -> Color(0xFF4FB6FF)   // Champions League night blue
+    523 -> Color(0xFF2BC46F)  // Persian Gulf green
+    87 -> Color(0xFFFF7A1A)   // LaLiga orange
+    55 -> Color(0xFF3B82F6)   // Serie A blue
+    54 -> Color(0xFFE5243B)   // Bundesliga red
+    else -> Color(0xFFC6FF3D)
+}
+
+/** The page in [id]'s colours. */
+@Composable
+internal fun FantasyTheme(id: Int, content: @Composable () -> Unit) {
+    if (id == 0) { content(); return }
+    val c = fantasyColor(id)
+    androidx.compose.runtime.CompositionLocalProvider(LocalAccent provides c, LocalAccentInk provides inkOn(c)) {
+        Box(Modifier.fillMaxSize()) {
+            // the league's colour glowing down from the top
+            Box(Modifier.fillMaxWidth().height(420.dp).drawBehind {
+                drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(c.copy(alpha = 0.22f), Color.Transparent)))
+                if (id == 42) for (k in 0 until 40) {
+                    // the Champions League's stars
+                    val x = ((k * 7919) % 1000) / 1000f * size.width; val y = ((k * 104729) % 1000) / 1000f * size.height * 0.8f
+                    drawCircle(Color.White.copy(alpha = 0.10f + (k % 5) * 0.06f), (1 + k % 3).dp.toPx(), Offset(x, y))
+                }
+            })
+            content()
+        }
+    }
+}
 private val POS = listOf(L("دروازه‌بان"), L("مدافع"), L("هافبک"), L("مهاجم"))
 private val POS_SHORT = listOf("GK", "DEF", "MID", "FWD")
 private val POS_RANGE = listOf(1..1, 3..5, 2..5, 1..3)
@@ -274,7 +306,11 @@ fun FantasyScreen() {
     var help by rememberTip("fantasy")
     if (help) HowToSheet("⚽", L("فوتبال فانتزی گل‌لایو"), FANTASY_STEPS, onClose = { Store.markTip("fantasy"); help = false })
     val l = rememberLoader(state.league) { loadLeague(state.league) }
-    LoadBox(l, 6) { lg -> FantasyBody(lg, state, { tick++ }) { state.o.remove("league"); state.o.remove("team"); state.o.remove("captain"); state.save(); state = FState.load() } }
+    FantasyTheme(state.league) {
+        LoadBox(l, 6) { lg -> FantasyBody(lg, state, { tick++ }) {
+            state.o.remove("league"); state.o.remove("team"); state.o.remove("captain"); state.o.remove("bench"); state.save(); state = FState.load()
+        } }
+    }
 }
 
 @Composable
@@ -294,7 +330,8 @@ private fun LeaguePick(onPick: (Int) -> Unit) {
             Card {
                 F_LEAGUES.forEachIndexed { i, (id, name) ->
                     ListRow(first = i == 0, onClick = { onPick(id) }) {
-                        LeagueLogo(id, 30.dp); T(name, 15, FontWeight.Bold, modifier = Modifier.weight(1f)); androidx.compose.material3.Icon(Ic.chev, null, Modifier.size(18.dp), tint = C.mute)
+                        Box(Modifier.size(6.dp, 30.dp).clip(RoundedCornerShape(3.dp)).background(fantasyColor(id)))
+                        LeagueLogo(id, 30.dp); T(name, 15, FontWeight.Bold, modifier = Modifier.weight(1f)); androidx.compose.material3.Icon(Ic.chev, null, Modifier.size(18.dp), tint = fantasyColor(id))
                     }
                 }
             }

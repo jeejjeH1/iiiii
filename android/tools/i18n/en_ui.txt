@@ -1888,3 +1888,5 @@
 1887|Make a league, invite by link and compete weekly and over the season; there’s a table of everyone too
 1888|15 players and a bench
 1889|140M budget; if a starter doesn’t play, a bench player comes on automatically
+1890|Champions League fantasy
+1891|Champions League fantasy is here, and every league has its own colours
