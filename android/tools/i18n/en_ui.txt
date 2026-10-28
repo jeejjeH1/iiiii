@@ -1933,3 +1933,10 @@
 1932|Epic, stadium, trap, phonk, energy and chill: on the animation’s beat, and heard before you make it
 1933|Line-ups in team colours
 1934|Name plates, photo rings and the pitch frame in the team’s own colours
+1935|Cards
+1936|Line-up as cards
+1937|Every player a card like in football games, with rating and photo; the best player's card black and glowing gold; in the video the cards flip in one by one
+1938|Line-up in the stadium
+1939|A stadium at night with floodlights and lit stands; the players stand on a 3D pitch and the camera cranes down from above
+1940|Cinematic videos
+1941|Opens with a flare of light, drifting specks of light, the beat in time with the music, and a flash and a camera kick on the final hit

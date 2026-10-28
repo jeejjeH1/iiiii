@@ -97,7 +97,7 @@ class StoryShots {
             stories.map { (name, s) ->
                 val a = runBlocking { s.load(ctx) }
                 val sc = s.scene(CardOptions(theme = s.theme, caption = if (name == "player") "بهترین بازیکن فصل! 🔥" else "", sticker = when (name) { "duel" -> "fire"; "match" -> "goal"; "analysis" -> "crown"; else -> "" }), a)
-                val frames = listOf(0.4f, 0.9f, 1.6f, 2.6f, 6.0f).map { t ->
+                val frames = listOf(0.3f, 0.9f, 1.6f, 2.6f, 5.8f, 6.0f).map { t ->
                     val b = Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888)
                     val c = Canvas(b); c.scale(0.5f, 0.5f); sc.frame(c, t); t to b
                 }
@@ -175,8 +175,24 @@ class StoryShots {
                     val a = runBlocking { l.load(ctx) }
                     for (t in app.goallive.live.ui.POSTER_THEMES) out += "77-poster-$tag-$t" to l.scene(CardOptions(theme = t), a).still(0.5f)
                     out += "77-poster-$tag-post" to l.scene(CardOptions(theme = "team", format = app.goallive.live.ui.CardFormat.PORTRAIT), a).still(0.5f)
-                    if (tag == "home") for (t in listOf("team", "neon", "light")) out += "77-poster-both-$t" to l.scene(CardOptions(theme = t, both = true), a).still(0.5f)
+                    if (tag == "home") for (t in listOf("team", "cards", "stadium", "neon", "light")) out += "77-poster-both-$t" to l.scene(CardOptions(theme = t, both = true), a).still(0.5f)
+                    if (tag == "home") for (t in listOf("cards", "stadium")) out += "77-poster-home-post-$t" to l.scene(CardOptions(theme = t, format = app.goallive.live.ui.CardFormat.PORTRAIT), a).still(0.5f)
                     if (tag == "home") out += "77-poster-home-frame" to Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888).also { b -> val c = Canvas(b); c.scale(0.5f, 0.5f); l.scene(CardOptions(theme = "team"), a).frame(c, 1.4f) }
+                    // two line-up videos frame by frame (30 a second), zipped, to be put together with their music and watched
+                    if (tag == "home") for (t in listOf("cards", "stadium")) {
+                        val sc = l.scene(CardOptions(theme = t), a)
+                        java.io.File("build/screens").mkdirs()
+                        java.util.zip.ZipOutputStream(java.io.FileOutputStream("build/screens/lineup-$t-frames.zip")).use { zip ->
+                            for (i in 0 until (sc.seconds * 30).toInt()) {
+                                val b = Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888)
+                                val c = Canvas(b); c.scale(0.5f, 0.5f); sc.frame(c, i / 30f)
+                                zip.putNextEntry(java.util.zip.ZipEntry("%04d.jpg".format(i))); b.compress(Bitmap.CompressFormat.JPEG, 88, zip); zip.closeEntry(); b.recycle()
+                            }
+                        }
+                    }
+                    // the video's moments: the opening flare, cards flipping in and their light, the crane down, the hit's flash
+                    if (tag == "home") for ((t, at) in listOf("team" to 0.3f, "team" to 0.7f, "cards" to 1.0f, "cards" to 1.75f, "cards" to 3.2f, "stadium" to 0.4f, "stadium" to 1.5f, "team" to 5.8f, "team" to 6.0f))
+                        out += "79-motion-$t-${(at * 10).toInt()}" to Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888).also { b -> val c = Canvas(b); c.scale(0.5f, 0.5f); l.scene(CardOptions(theme = t), a).frame(c, at) }
                 }
             }
             // the team of the week from the published rankings

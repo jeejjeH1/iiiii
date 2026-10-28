@@ -167,13 +167,17 @@ open class Scene(val W: Int, val H: Int, val bg: Bitmap, val hc: Int = 0, val ac
         return out
     }
 
-    /** Frame [t] of the video on [c] (already scaled to W×H): a slow push into the background, the parts, a light sweep at the end. */
+    private val light by lazy { lightPage(bg) }
+
+    /** Frame [t] of the video on [c] (already scaled to W×H): a slow push into the background, the parts kicking on the music's hit, the shared camera work, a light sweep at the end. */
     open fun frame(c: Canvas, t: Float) {
         val intro = easeOut((t / 1.6f).coerceIn(0f, 1f))
-        val z = 1.12f - 0.12f * intro + 0.035f * (t / STORY_SECONDS)
+        val z = 1.12f - 0.12f * intro + 0.035f * (t / STORY_SECONDS) + 0.02f * kick(t)
         c.save(); c.scale(z, z, W / 2f, H / 2f); c.drawBitmap(bg, 0f, 0f, smooth); c.restore()
         if (theme.isNotEmpty()) themeLive(c, theme, t, W, H, hc, ac)
-        fg(c, Clock(t))
+        val k = 1f + 0.03f * kick(t)
+        c.save(); c.scale(k, k, W / 2f, H / 2f); fg(c, Clock(t)); c.restore()
+        cinema(c, t, W, H, hc, ac, light)
         val sp = (t - 5.6f) / 0.9f
         if (sp in 0f..1f) {
             val x = -W * 0.7f + sp * W * 2.4f
@@ -1167,7 +1171,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                                     LazyRow(contentPadding = PaddingValues(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                         items(themes.size) { k ->
                                             val th = themes[k]
-                                            ThemeCard(if (lineup != null) posterThemeName(th) else themeName(th), th == o.theme, th in NEW_THEMES && lineup == null, accent, thumbs[th],
+                                            ThemeCard(if (lineup != null) posterThemeName(th) else themeName(th), th == o.theme, if (lineup != null) th in NEW_POSTERS else th in NEW_THEMES, accent, thumbs[th],
                                                 if (lineup != null) Brush.verticalGradient(listOf(Color(hc), Color(0xFF06080C))) else themeSwatch(th, hc, ac)) { o = o.copy(theme = th) }
                                         }
                                     }

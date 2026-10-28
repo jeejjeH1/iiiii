@@ -69,7 +69,7 @@ internal fun themeSwatch(t: String, hc: Int, ac: Int): Brush = when (t) {
 internal fun ca(c: Int, a: Int) = (c and 0x00FFFFFF) or (a.coerceIn(0, 255) shl 24)
 
 /** A steady pseudo-random number in 0..1 for particle [i], property [k]: the same every frame, so things move smoothly. */
-private fun rnd(i: Int, k: Int): Float { val v = sin(i * 12.9898 + k * 78.233) * 43758.5453; return (v - floor(v)).toFloat() }
+internal fun rnd(i: Int, k: Int): Float { val v = sin(i * 12.9898 + k * 78.233) * 43758.5453; return (v - floor(v)).toFloat() }
 
 private fun mix(a: Int, b: Int, k: Float) = androidx.core.graphics.ColorUtils.blendARGB(a, b, k.coerceIn(0f, 1f))
 
@@ -105,7 +105,7 @@ private val sprite: Bitmap by lazy {
     Canvas(b).drawCircle(32f, 32f, 32f, p); b
 }
 
-private fun spark(c: Canvas, p: Paint, x: Float, y: Float, r: Float, color: Int, a: Int) {
+internal fun spark(c: Canvas, p: Paint, x: Float, y: Float, r: Float, color: Int, a: Int) {
     if (a <= 0 || r <= 0.5f) return
     p.colorFilter = PorterDuffColorFilter(color or 0xFF000000.toInt(), PorterDuff.Mode.SRC_IN); p.alpha = a.coerceIn(0, 255)
     c.drawBitmap(sprite, null, RectF(x - r, y - r, x + r, y + r), p)
@@ -113,7 +113,7 @@ private fun spark(c: Canvas, p: Paint, x: Float, y: Float, r: Float, color: Int,
 }
 
 /** A four-pointed glint: a soft light with a thin cross through it. */
-private fun glint(c: Canvas, p: Paint, x: Float, y: Float, r: Float, color: Int, a: Int) {
+internal fun glint(c: Canvas, p: Paint, x: Float, y: Float, r: Float, color: Int, a: Int) {
     if (a <= 0) return
     spark(c, p, x, y, r * 0.55f, color, a)
     p.shader = LinearGradient(x - r, y, x + r, y, intArrayOf(ca(color, 0), ca(color, a), ca(color, 0)), null, Shader.TileMode.CLAMP)

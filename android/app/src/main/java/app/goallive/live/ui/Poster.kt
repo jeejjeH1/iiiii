@@ -21,10 +21,16 @@ import kotlin.math.sin
 /* ---------- line-ups as posters: the match line-up (one team or both) and the team of the week ---------- */
 
 /** The poster designs, in the studio's order. */
-internal val POSTER_THEMES = listOf("team", "neon", "gold", "light", "pitch", "minimal")
+internal val POSTER_THEMES = listOf("team", "cards", "stadium", "neon", "gold", "light", "pitch", "minimal")
+
+/** The designs marked new in the studio. */
+internal val NEW_POSTERS = setOf("cards", "stadium")
+
+/** The designs painted in the club's own colours. */
+private val CLUB_THEMES = setOf("team", "cards", "stadium")
 
 internal fun posterThemeName(k: String) = when (k) {
-    "team" -> L("رنگ تیم"); "neon" -> L("نئون"); "gold" -> L("طلایی"); "light" -> L("روشن"); "pitch" -> L("چمن"); else -> L("مینیمال")
+    "team" -> L("رنگ تیم"); "cards" -> L("کارت"); "stadium" -> L("ورزشگاه"); "neon" -> L("نئون"); "gold" -> L("طلایی"); "light" -> L("روشن"); "pitch" -> L("چمن"); else -> L("مینیمال")
 }
 
 /** Someone in the strip under the pitch: a substitute who came on (at [inAt]), the coach, or a league's best player ([note] names the league). */
@@ -102,6 +108,7 @@ private fun posterLook(theme: String, pl: Palette): PosterLook {
             WHITE, 0xFF0B2614.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, 0x66000000), pl, rings = false)
         "minimal" -> PosterLook(WHITE, 0xA6FFFFFF.toInt(), 0xF51E1F23.toInt(), 0xF51E1F23.toInt(), WHITE, a, 0xFF0E0F11.toInt(), a, 0x40FFFFFF, 0xD9FFFFFF.toInt(),
             0xFF2A2C31.toInt(), 0xFF141518.toInt(), WHITE, 0, 0x1FFFFFFF, WHITE, 0xFF0E0F11.toInt(), 0x14FFFFFF, WHITE, 0x0FFFFFFF, 0x1FFFFFFF, 0, minimal = true)
+        "cards", "stadium" -> teamPlates(dark, pl, rings = true)
         else -> teamPlates(if (pl.pale) PosterLook(d, ca(d, 0.65f), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, a, m, d, a, 46, 0x80FFFFFF.toInt(),
             a, 0xFF0B0F14.toInt(), ca(d, 0.08f), d, ca(d, 0.06f), ca(d, 0.14f), ca(a, 0.5f)) else dark, pl, rings = true)
     }
@@ -138,6 +145,10 @@ private fun outer(c: Canvas, theme: String, pl: Palette, W: Int, H: Int, mark: B
                 // the club's stripes, faint
                 p.color = ca(pl.main, 0.16f)
                 var x = 0f; while (x < w) { c.drawRect(x, 0f, x + 90f, h, p); x += 180f }
+                // light falling from above in the club's colour, and a few sparkles
+                rays(c, W, H, glowOf(pl.main), 0.7f)
+                blob(w / 2, h * 0.5f, w * 0.85f, ca(glowOf(pl.main), 0.22f))
+                sparkles(c, W, H, 26, pl.accent, 11)
             }
             mark?.let {
                 val wp = Paint(Paint.FILTER_BITMAP_FLAG).apply { alpha = if (pl.pale) 26 else 30 }
@@ -151,6 +162,14 @@ private fun outer(c: Canvas, theme: String, pl: Palette, W: Int, H: Int, mark: B
 /** The panel the players stand on, with its lines; [both] marks the halfway line for two teams. */
 private fun panel(c: Canvas, theme: String, pl: Palette, lk: PosterLook, r: RectF, both: Boolean, lower: Palette? = null) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    if (theme == "cards") {
+        // the cards stand on the page itself: only the pitch's lines, faint, and a fine edge
+        p.style = Paint.Style.STROKE; p.strokeWidth = 3f; p.color = 0x24FFFFFF
+        c.drawRoundRect(r, 44f, 44f, p)
+        c.drawCircle(r.centerX(), r.top - 10f, 220f, p)
+        c.drawRect(r.centerX() - 280, r.bottom - 140, r.centerX() + 280, r.bottom + 4, p)
+        return
+    }
     val clip = Path().apply { addRoundRect(r, 44f, 44f, Path.Direction.CW) }
     // the glow and the ring
     if (!lk.minimal) {
@@ -517,9 +536,23 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
     val pr = RectF(px, py, px + pw, bottom)
     val bg = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
     val bc = Canvas(bg)
-    outer(bc, theme, pl, W, H, if (theme == "team") badge else null)
-    panel(bc, theme, pl, lk, pr, false)
-    return Scene(W, H, bg, pl.main, pl.accent) { c, clk ->
+    // the stadium: the grass from a little under the header, the stands and floodlights above it
+    val pitchTop = pr.top + (if (post) 70f else 110f)
+    val ps = Perspective(RectF(0f, pitchTop, W.toFloat(), pr.bottom + 20f))
+    when (theme) {
+        "cards" -> { cardsPage(bc, W, H, pl.main, pl.deep, badge); panel(bc, theme, pl, lk, pr, false) }
+        "stadium" -> {
+            stadiumPage(bc, W, H, pl.main, pl.accent, pitchTop)
+            stadiumPitch(bc, ps, pl.main)
+            // the near touchline fades into the dark
+            val fp = Paint().apply { shader = LinearGradient(0f, pr.bottom - 60f, 0f, pr.bottom + 24f, 0x00050B08, 0xFF050B08.toInt(), Shader.TileMode.CLAMP) }
+            bc.drawRect(0f, pr.bottom - 60f, W.toFloat(), H.toFloat(), fp)
+            grain(bc, W, H, false)
+        }
+        else -> { outer(bc, theme, pl, W, H, if (theme == "team") badge else null); panel(bc, theme, pl, lk, pr, false) }
+    }
+    val best = l.men.firstOrNull { it.star }
+    val fg: (Canvas, Clock) -> Unit = { c, clk ->
         // the header
         c.enter(clk.at(0.1f), 0f, py) {
             var y = if (post) 26f else 40f
@@ -540,8 +573,21 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
         }
         // the formation in the panel's corner, then the players
         c.enter(clk.at(0.4f), py, py + 80) { formationText(c, l.formation, pr.left + 28, pr.top + 18, if (post) 34f else 40f, lk.formInk, a.digits ?: tf) }
-        placeAll(c, l.men, RectF(pr.left, pr.top + (if (post) 56f else 70f), pr.right, pr.bottom - (if (post) 14f else 20f)), if (post) 150f else 176f,
-            lk, a.faces, a.crests, tf, clk, 0.6f)
+        when (theme) {
+            "cards" -> placeCards(c, l.men, RectF(pr.left, pr.top + (if (post) 54f else 66f), pr.right, pr.bottom - 6f), pl.main, a.faces, a.crests,
+                l.crest?.let { a.crests[it] }, tf, clk, 0.6f)
+            "stadium" -> {
+                stadiumLive(c, W, pitchTop, if (clk.still) LIVE_STILL_T else clk.t)
+                placeStanding(l.men, ps, if (post) 150f else 180f) { m, cx, feet, d, k ->
+                    c.pop(clk.at(0.6f + k * 0.1f, 0.45f), cx, feet - d * 0.5f) {
+                        feetShadow(c, cx, feet + d * 0.06f, d)
+                        man(c, m, cx, feet - d * 1.1f, d, lk, m === best, a.faces[m.id], m.crest?.let { a.crests[it] }, tf)
+                    }
+                }
+            }
+            else -> placeAll(c, l.men, RectF(pr.left, pr.top + (if (post) 56f else 70f), pr.right, pr.bottom - (if (post) 14f else 20f)), if (post) 150f else 176f,
+                lk, a.faces, a.crests, tf, clk, 0.6f)
+        }
         // under the pitch
         var y = pr.bottom
         if (post) {
@@ -571,6 +617,7 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
             posterBrand(c, clk, W / 2f, 1836f, lk, tf, a.bold, a.logo)
         }
     }
+    return if (theme == "stadium") CraneScene(W, H, bg, pl.main, pl.accent, fg) else Scene(W, H, bg, pl.main, pl.accent, fg)
 }
 
 /** Both teams on one pitch: the home side at the top attacking down, the away side at the bottom attacking up. */
@@ -578,21 +625,26 @@ private fun bothPoster(l: Story.Lineup, r: Story.Lineup, theme: String, o: CardO
     val W = 1080; val H = 1920
     val home = if (l.home) l else r; val away = if (l.home) r else l
     val ph = palette(home.tone, null); val pa = palette(away.tone, null)
-    val lk = posterLook(theme, if (theme == "team") pa.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else pa)
+    val lk = posterLook(theme, if (theme in CLUB_THEMES) pa.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else pa)
     // each half's plates, diamonds and rings in its own club's colours
-    val lkHome = posterLook(theme, if (theme == "team") ph.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else ph)
+    val lkHome = posterLook(theme, if (theme in CLUB_THEMES) ph.let { Palette(it.deep, it.main, 0xFFE2B84E.toInt(), false) } else ph)
     val cap = o.caption.isNotBlank()
     val pr = RectF(40f, 290f, 1040f, if (cap) 1752f else 1830f)
     val bg = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
     val bc = Canvas(bg)
-    if (theme == "team") {
+    if (theme == "team" || theme == "cards") {
         // the page split in the two clubs' colours
         val p = Paint()
         p.shader = LinearGradient(0f, 0f, 0f, H.toFloat(), intArrayOf(ph.deep, ColorUtils.blendARGB(ph.main, ph.deep, 0.4f), ColorUtils.blendARGB(pa.main, pa.deep, 0.4f), pa.deep),
             floatArrayOf(0f, 0.48f, 0.52f, 1f), Shader.TileMode.CLAMP)
         bc.drawRect(0f, 0f, W.toFloat(), H.toFloat(), p)
+        if (theme == "cards") { rays(bc, W, H, glowOf(ph.main), 1f); sparkles(bc, W, H, 40, GOLD, 5) }
         grain(bc, W, H, false)
-        panel(bc, theme, ph, lk, pr, true, pa)
+        panel(bc, "team", ph, lk, pr, true, pa)
+    } else if (theme == "stadium") {
+        stadiumPage(bc, W, H, pa.main, pa.accent, pr.top + 40f)
+        panel(bc, "pitch", pa, lk, pr, true)
+        grain(bc, W, H, false)
     } else {
         outer(bc, theme, pa, W, H, null)
         panel(bc, theme, pa, lk, pr, true)
