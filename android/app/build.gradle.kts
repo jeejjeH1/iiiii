@@ -13,9 +13,11 @@ android {
         applicationId = "app.goallive.live"
         minSdk = 24
         targetSdk = 35
-        versionCode = 110
-        versionName = "2.8"
+        versionCode = 111
+        versionName = "2.8.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // Google sign-in's client, built in so the button is there on the very first screen (the server can still change it)
+        buildConfigField("String", "GOOGLE_CLIENT", "\"" + (System.getenv("GOOGLE_CLIENT_ID") ?: "") + "\"")
     }
 
     // permanent store key: the build machine writes it from the KEYSTORE_B64 / KEYSTORE_PASS secrets
@@ -44,7 +46,7 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     // screenshots of every screen with live data, rendered on the build machine (Robolectric + Roborazzi)
     testOptions {
         unitTests {

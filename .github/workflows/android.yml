@@ -46,6 +46,7 @@ jobs:
       - name: Build APK
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         run: |
           chmod +x gradlew
           set -o pipefail

@@ -43,7 +43,8 @@ object Account {
     val kept get() = me?.phone != null || me?.email != null
 
     /** The server's Google sign-in client; null while Google sign-in is not set up (the button stays hidden). */
-    var googleClient by mutableStateOf(Store.prefs().getString("league.google", null)); private set
+    var googleClient by mutableStateOf(Store.prefs().getString("league.google", null)
+        ?: app.goallive.live.BuildConfig.GOOGLE_CLIENT.takeIf { it.isNotEmpty() }); private set
 
     /** Asks the server whether Google sign-in is on. */
     fun loadConfig() {
