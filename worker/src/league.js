@@ -5,6 +5,7 @@
 // POST /p/otp     {phone}                    → {ok, wait, test?}   a login code by SMS (sms.ir)
 // POST /p/verify  {phone, code}              → {token, user}       with the bearer of a guest account, the phone is added to it
 // GET  /p/me                                 → {user}
+// POST /p/delete                             → {ok}                the account and its picks, gone
 // POST /p/name    {name}                     → {user}
 // GET  /p/picks                              → {picks}             everything this account predicted (for a new phone)
 // POST /p/picks   {picks:[{m,h,a,…}]}        → {saved}             picks of matches not started yet
@@ -64,7 +65,13 @@ export class League extends DurableObject {
       CREATE TABLE IF NOT EXISTS members (league INTEGER, user INTEGER, joined INTEGER, PRIMARY KEY (league, user));
       CREATE INDEX IF NOT EXISTS picks_match ON picks (match);
       CREATE INDEX IF NOT EXISTS members_user ON members (user);
+      CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
     `);
+    // once, before the app with the league is out: the accounts the first test runs left behind
+    if (!this.one("SELECT v FROM meta WHERE k = 'launch'")) {
+      for (const t of ['users', 'tokens', 'otps', 'picks', 'leagues', 'members']) this.sql.exec(`DELETE FROM ${t}`);
+      this.sql.exec("INSERT INTO meta (k, v) VALUES ('launch', ?)", new Date().toISOString());
+    }
   }
 
   q(s, ...a) { return this.sql.exec(s, ...a).toArray(); }
@@ -159,6 +166,15 @@ export class League extends DurableObject {
     if (name.length < 2) throw new Http(400, 'name');
     this.sql.exec('UPDATE users SET name = ? WHERE id = ?', name, me);
     return { user: this.user(me) };
+  }
+
+  /** The account and everything in it, gone (its leagues stay for the others; one nobody is left in goes too). */
+  deleteMe(me) {
+    const mine = this.q('SELECT league FROM members WHERE user = ?', me).map((r) => r.league);
+    for (const t of ['picks', 'members', 'tokens']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
+    this.sql.exec('DELETE FROM users WHERE id = ?', me);
+    for (const l of mine) if (!this.one('SELECT 1 AS x FROM members WHERE league = ?', l)) this.sql.exec('DELETE FROM leagues WHERE id = ?', l);
+    return { ok: true };
   }
 
   /* ---------- picks ---------- */
@@ -298,6 +314,7 @@ export class League extends DurableObject {
         case '/p/verify': out = await this.verify(body, me); break;
         case '/p/me': out = { user: this.user(need()) }; break;
         case '/p/name': out = this.setName(body, need()); break;
+        case '/p/delete': out = this.deleteMe(need()); break;
         case '/p/picks': out = request.method === 'POST' ? await this.savePicks(body, need()) : this.picks(need()); break;
         case '/p/leagues': out = request.method === 'POST' ? this.newLeague(body, need()) : this.leagues(need()); break;
         case '/p/join': out = this.join(body, need()); break;

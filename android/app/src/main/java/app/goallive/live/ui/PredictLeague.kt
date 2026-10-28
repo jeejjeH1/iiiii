@@ -217,6 +217,10 @@ fun PredictLeagueScreen() {
                     Pill(L("تغییر نام"), PillKind.Plain, onClick = { sheet = "name" })
                     Pill(L("پیش‌بینی‌های من"), PillKind.Plain, onClick = { nav.predictions() })
                 }
+                Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    T(L("خروج"), 13, FontWeight.Bold, C.mute, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { sheet = "out" }.padding(6.dp))
+                    T(L("حذف حساب"), 13, FontWeight.Bold, C.live, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { sheet = "delete" }.padding(6.dp))
+                }
             }
         }
         item {
@@ -249,6 +253,16 @@ fun PredictLeagueScreen() {
         }
     }
     val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    if (sheet == "out" || sheet == "delete") androidx.compose.material3.AlertDialog(onDismissRequest = { sheet = "" }, containerColor = C.cardSolid,
+        title = { T(if (sheet == "out") L("خروج از حساب لیگ؟") else L("حذف حساب لیگ؟"), 16, FontWeight.Black) },
+        text = { T(if (sheet == "out") (if (Account.me?.phone != null) L("هر وقت با همین شماره وارد شوی، همه چیز برمی‌گردد.") else L("حسابت شماره ندارد؛ با خروج دیگر به آن برنمی‌گردی.")) 
+            else L("حساب، امتیازها و عضویتت در لیگ‌ها برای همیشه پاک می‌شود. پیش‌بینی‌های روی این گوشی می‌ماند."), 14) },
+        confirmButton = { androidx.compose.material3.TextButton({
+            val del = sheet == "delete"; sheet = ""
+            if (del) scope.launch { runCatching { Account.deleteAccount() } } else Account.signOut()
+        }) { T(if (sheet == "out") L("خروج") else L("حذف"), 14, FontWeight.Bold, C.live) } },
+        dismissButton = { androidx.compose.material3.TextButton({ sheet = "" }) { T(L("انصراف"), 14, color = C.mute) } })
     when {
         sheet == "phone" -> PhoneSheet { sheet = ""; reload++ }
         sheet == "name" -> AskSheet(L("نام تو در جدول"), L("دوستانت تو را با این نام می‌بینند"), L("مثلاً علی"), L("ثبت"), Account.me?.name ?: "",

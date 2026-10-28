@@ -1797,3 +1797,9 @@
 1796|Pick or make your team, draw passes, dribbles and runs, and play them step by step
 1797|Ballon dOr 2026
 1798|Harry Kane won; see it under Rankings
+1799|Delete account
+1800|Log out of the league account?
+1801|Delete the league account?
+1802|Log in with the same number any time and it all comes back.
+1803|Your account has no number; once you log out you cannot get back to it.
+1804|Your account, points and league memberships are deleted for good. The predictions on this phone stay.

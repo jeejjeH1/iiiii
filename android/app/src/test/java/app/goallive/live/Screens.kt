@@ -230,7 +230,8 @@ class Screens {
         } }.onFailure { System.err.println("SHOT league failed: $it") }
         NavHook.nav?.back(); NavHook.nav?.predictLeague(); settle(5000); shot("27c-league-home")
         tap("بچه‌های دانشگاه", exact = true); settle(5000); shot("27d-league-table")
-        app.goallive.live.data.Account.signOut(); NavHook.nav?.back(); settle(800)
+        // the test's account goes, so it never shows in everyone's league
+        runCatching { kotlinx.coroutines.runBlocking { app.goallive.live.data.Account.deleteAccount() } }; NavHook.nav?.back(); settle(800)
         // the tactics studio: Barcelona against Real Madrid with some of everything drawn on it
         runCatching {
             val b = app.goallive.live.ui.StudioBoard(); b.fresh()

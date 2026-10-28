@@ -89,6 +89,9 @@ object Account {
 
     suspend fun refresh() { if (signedIn) keep(null, call("/me").getJSONObject("user")) }
 
+    /** Deletes the account on the server and logs out here (the predictions stay on this phone). */
+    suspend fun deleteAccount() { call("/delete", JSONObject()); signOut() }
+
     suspend fun rename(name: String) { keep(null, call("/name", JSONObject().put("name", name)).getJSONObject("user")) }
 
     /** The predictions the account made on other phones, added to this one's. */
