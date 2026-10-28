@@ -1271,11 +1271,14 @@ private fun ShotSlices(m: MatchData) {
 private fun ShotsTab(m: MatchData) {
     var team by rememberSaveable { mutableStateOf("h") }
     var sel by remember { mutableStateOf<Int?>(null) }
+    var who by remember { mutableStateOf<Int?>(null) }
     val isH = { s: JSONObject -> s.i("teamId") == m.homeId }
     val home = team == "h"
-    val vis = m.shots.filter { isH(it) == home }
+    val teamShots = m.shots.filter { isH(it) == home }
+    // one player's shots only, when picked under the map
+    val vis = teamShots.filter { who == null || it.i("playerId") == who }
     val color = if (home) m.homeColor else m.awayColor
-    Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), team) { team = it; sel = null }
+    Seg(listOf("h" to teamName(m.homeId, m.homeName), "a" to teamName(m.awayId, m.awayName)), team) { team = it; sel = null; who = null }
     // both teams side by side: chance quality and shots
     fun sum(arr: List<JSONObject>) = Triple(arr.sumOf { it.d("expectedGoals") ?: 0.0 }, arr.size, arr.count { it.b("isOnTarget") })
     val hs = sum(m.shots.filter(isH)); val aw = sum(m.shots.filter { !isH(it) })
@@ -1306,6 +1309,27 @@ private fun ShotsTab(m: MatchData) {
             T(L("شوت‌های {0}", teamName(if (home) m.homeId else m.awayId, if (home) m.homeName else m.awayName)), 15, FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             T(L("{0} شوت", fa(vis.size)), 12, FontWeight.Bold, C.mute)
         }
+        // who shot: all of them, or one player's shots with his chance total
+        val shooters = teamShots.groupBy { it.i("playerId") ?: 0 }.filterKeys { it != 0 }.entries.sortedByDescending { e -> e.value.sumOf { it.d("expectedGoals") ?: 0.0 } }
+        if (shooters.size > 1) androidx.compose.foundation.lazy.LazyRow(Modifier.padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            item {
+                Box(Modifier.clip(RoundedCornerShape(50)).background(if (who == null) color else C.card2).clickable { who = null; sel = null }
+                    .padding(horizontal = 12.dp, vertical = 7.dp)) { T(L("همه"), 12, FontWeight.Bold, if (who == null) inkOn(color) else C.ink) }
+            }
+            items(shooters.size) { k ->
+                val (pid, list) = shooters[k]
+                val on = pid == who
+                Row(Modifier.clip(RoundedCornerShape(50)).background(if (on) color else C.card2).clickable { who = if (on) null else pid; sel = null }
+                    .padding(start = 4.dp, end = 10.dp, top = 3.dp, bottom = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Face(pid, 24.dp); Spacer(Modifier.width(5.dp))
+                    T(personName(list.first().s("lastName") ?: list.first().s("playerName") ?: ""), 12, FontWeight.Bold, if (on) inkOn(color) else C.ink, maxLines = 1)
+                    Spacer(Modifier.width(5.dp))
+                    T(fa(list.size), 11, FontWeight.Black, if (on) inkOn(color) else C.mute)
+                }
+            }
+        }
+        if (who != null && vis.isNotEmpty()) T(L("{0} شوت · {1} در چارچوب · کیفیت موقعیت‌ها {2}", fa(vis.size), fa(vis.count { it.b("isOnTarget") }),
+            fa(dec(vis.sumOf { it.d("expectedGoals") ?: 0.0 }, 2))), 12, FontWeight.Bold, C.mute, Modifier.padding(bottom = 8.dp))
         // the attacking half stood up: FotMob's x runs 0…105 towards the goal attacked, y 0…68 across
         CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
             BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(68f / 56f).clip(RoundedCornerShape(18.dp))) {
@@ -1795,16 +1819,28 @@ private fun PlayerSheet(m: MatchData, p: LP, onClose: () -> Unit) {
                 }
             }
             if (m.started) {
-                // everyone else in this match, own team first, to compare with
+                // everyone else in this match, own team first, with the minutes each was on (for the heatmap's halves)
                 // heatmaps are keyed by Opta's player id, which the match's player stats carry
                 val stats = m.content.o("playerStats")
                 fun opta(id: Int) = stats?.optJSONObject(id.toString())?.s("optaId")?.toIntOrNull() ?: 0
                 val lu = m.content.o("lineup")
-                val others = listOf(true, false).sortedByDescending { it == p.home }.flatMap { home ->
+                val end = matchEnd(m)
+                val people = listOf(true, false).sortedByDescending { it == p.home }.flatMap { home ->
                     val t = lu?.o(if (home) "homeTeam" else "awayTeam")
-                    (t.a("starters").objs() + t.a("subs").objs()).map { val id = it.i("id") ?: 0; HeatPlayer(id, opta(id), it.s("name") ?: "", home) }
+                    t.a("starters").objs().map { it to home to true } + t.a("subs").objs().map { it to home to false }
+                }.map { (ph, starter) ->
+                    val (j, home) = ph
+                    val id = j.i("id") ?: 0
+                    val ev = j.o("performance").a("substitutionEvents").objs()
+                    val from = ev.firstOrNull { it.s("type") == "subIn" }?.i("time") ?: if (starter) 0 else end
+                    val to = ev.firstOrNull { it.s("type") == "subOut" }?.i("time") ?: end
+                    HeatPlayer(id, opta(id), j.s("name") ?: "", home, from, to)
                 }
-                PlayerHeatmap(m.matchId, p.id, opta(p.id), p.name, others, color)
+                val self = people.firstOrNull { it.id == p.id }
+                var vs by rememberSaveable(p.id) { mutableStateOf<Int?>(null) }
+                MatchCompare(m, p.id, p.name, people.filter { it.id != p.id && it.from < it.to }, vs) { vs = it }
+                PlayerHeatmap(m.matchId, p.id, opta(p.id), p.name, people, color, from = self?.from ?: 0, to = self?.to ?: end, end = end,
+                    vsId = vs, picker = false, rating = rating, team = teamName(teamId, if (p.home) m.homeName else m.awayName))
             }
             val groups = ps?.a("stats").objs()
             if (groups.isNullOrEmpty()) T(L("آمار این بازیکن در این بازی ثبت نشده"), 13, color = C.mute, modifier = Modifier.fillMaxWidth().padding(24.dp), align = TextAlign.Center)
@@ -1869,6 +1905,115 @@ private fun positionName(p: Int?) = when (p) { 0 -> L("دروازه‌بان"); 
 private fun statOf(p: JSONObject, title: String): Double? {
     for (g in p.a("stats").objs()) g.o("stats")?.o(title)?.o("stat")?.d("value")?.let { return it }
     return null
+}
+
+/** The match's last minute so far: the clock while it is live, 90 once it is over. */
+private fun matchEnd(m: MatchData): Int =
+    if (m.live) (cleanMinute(m.minute).substringBefore('+').filter(Char::isDigit).toIntOrNull()?.coerceAtLeast(1) ?: 90) else 90
+
+private fun statTotal(p: JSONObject, title: String): Double? {
+    for (g in p.a("stats").objs()) g.o("stats")?.o(title)?.o("stat")?.d("total")?.let { return it }
+    return null
+}
+
+/**
+ * "مقایسه در همین بازی": the player next to anyone else from this match, line by line (rating, minutes, goals, chances,
+ * passing, touches, duels, defending, running), mirrored bars meeting in the middle, the better side lit. The same choice
+ * puts the other player's heatmap under his.
+ */
+@Composable
+private fun MatchCompare(m: MatchData, id: Int, name: String, others: List<HeatPlayer>, vs: Int?, onPick: (Int?) -> Unit) {
+    val stats = m.content.o("playerStats") ?: return
+    val mine = stats.optJSONObject(id.toString()) ?: return
+    val ratings = LocalRatings.current
+    val rivals = others.filter { stats.optJSONObject(it.id.toString())?.a("stats")?.length()?.let { n -> n > 0 } == true }
+    if (rivals.isEmpty()) return
+    val accent = LocalAccent.current
+    val other = rivals.firstOrNull { it.id == vs }
+    val theirs = other?.let { stats.optJSONObject(it.id.toString()) }
+    SheetCard {
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Ic.swap, null, Modifier.size(16.dp), tint = accent); Spacer(Modifier.width(6.dp))
+            Column(Modifier.weight(1f)) {
+                T(L("مقایسه در همین بازی"), 15, FontWeight.ExtraBold)
+                T(L("یک بازیکن دیگر این بازی را انتخاب کن"), 11, color = C.mute, maxLines = 1)
+            }
+            if (other != null) T(L("بستن"), 12, FontWeight.Bold, C.mute, Modifier.clip(RoundedCornerShape(10.dp)).clickable { onPick(null) }.padding(6.dp))
+        }
+        androidx.compose.foundation.lazy.LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(rivals.size) { k ->
+                val r = rivals[k]
+                val on = r.id == vs
+                Row(Modifier.clip(RoundedCornerShape(50)).background(if (on) C.gold.copy(alpha = 0.22f) else C.card2)
+                    .border(1.dp, if (on) C.gold else Color.Transparent, RoundedCornerShape(50)).clickable { onPick(if (on) null else r.id) }
+                    .padding(start = 4.dp, end = 12.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Face(r.id, 26.dp); Spacer(Modifier.width(6.dp))
+                    T(personName(r.name.substringAfterLast(' ')), 12, FontWeight.Bold, if (on) C.gold else C.ink, maxLines = 1)
+                    Spacer(Modifier.width(6.dp))
+                    Box(Modifier.size(8.dp).clip(CircleShape).background(if (r.home) m.homeColor else m.awayColor))
+                }
+            }
+        }
+        if (other != null && theirs != null) {
+            class Line(val label: String, val a: Double?, val b: Double?, val show: (Double) -> String, val lowBetter: Boolean = false)
+            fun st(o: JSONObject, t: String) = statOf(o, t)
+            val pct = { o: JSONObject -> st(o, "Accurate passes")?.let { v -> statTotal(o, "Accurate passes")?.takeIf { it > 0 }?.let { v / it * 100 } } }
+            val lines = listOf(
+                Line(L("نمره گل‌لایو"), ratings[id]?.value, ratings[other.id]?.value, { fa(dec(it, 1)) }),
+                Line(L("دقیقه"), st(mine, "Minutes played"), st(theirs, "Minutes played"), { fa(it.toInt()) }),
+                Line(L("گل"), st(mine, "Goals"), st(theirs, "Goals"), { fa(it.toInt()) }),
+                Line(L("پاس گل"), st(mine, "Assists"), st(theirs, "Assists"), { fa(it.toInt()) }),
+                Line(L("کیفیت موقعیت‌ها (xG)"), st(mine, "Expected goals (xG)"), st(theirs, "Expected goals (xG)"), { fa(dec(it, 2)) }),
+                Line(L("شوت"), st(mine, "Total shots"), st(theirs, "Total shots"), { fa(it.toInt()) }),
+                Line(L("موقعیت ساخته‌شده"), st(mine, "Chances created"), st(theirs, "Chances created"), { fa(it.toInt()) }),
+                Line(L("دقت پاس"), pct(mine), pct(theirs), { fa(it.roundToInt()) + "٪" }),
+                Line(L("لمس توپ"), st(mine, "Touches"), st(theirs, "Touches"), { fa(it.toInt()) }),
+                Line(L("دوئل برده"), st(mine, "Duels won"), st(theirs, "Duels won"), { fa(it.toInt()) }),
+                Line(L("تکل"), st(mine, "Tackles"), st(theirs, "Tackles"), { fa(it.toInt()) }),
+                Line(L("توپ‌گیری"), st(mine, "Recoveries"), st(theirs, "Recoveries"), { fa(it.toInt()) }),
+                Line(L("مسافت (کیلومتر)"), st(mine, "Distance covered")?.div(1000), st(theirs, "Distance covered")?.div(1000), { fa(dec(it, 1)) }),
+                Line(L("توپ از دست داده"), st(mine, "Dispossessed"), st(theirs, "Dispossessed"), { fa(it.toInt()) }, lowBetter = true),
+            ).filter { it.a != null || it.b != null }
+            Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 12.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card2).padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Face(id, 30.dp); Spacer(Modifier.width(6.dp))
+                    T(personName(name.substringAfterLast(' ')), 13, FontWeight.ExtraBold, accent, Modifier.weight(1f), maxLines = 1)
+                    T(personName(other.name.substringAfterLast(' ')), 13, FontWeight.ExtraBold, C.gold, Modifier.weight(1f), maxLines = 1, align = TextAlign.End)
+                    Spacer(Modifier.width(6.dp)); Face(other.id, 30.dp)
+                }
+                var wins = 0 to 0
+                for (l in lines) {
+                    val a = l.a ?: 0.0; val b = l.b ?: 0.0
+                    val aw = if (l.lowBetter) a < b else a > b; val bw = if (l.lowBetter) b < a else b > a
+                    if (aw) wins = wins.first + 1 to wins.second; if (bw) wins = wins.first to wins.second + 1
+                    val top = max(max(a, b), 0.0001)
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            T(l.a?.let(l.show) ?: "–", 13, FontWeight.Black, if (aw) accent else C.mute, Modifier.width(52.dp))
+                            T(l.label, 12, modifier = Modifier.weight(1f), align = TextAlign.Center, maxLines = 1)
+                            T(l.b?.let(l.show) ?: "–", 13, FontWeight.Black, if (bw) C.gold else C.mute, Modifier.width(52.dp), align = TextAlign.End)
+                        }
+                        Row(Modifier.fillMaxWidth().padding(top = 3.dp).height(5.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterEnd) {
+                                Box(Modifier.fillMaxWidth((a / top).toFloat().coerceIn(0.02f, 1f)).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(if (aw) accent else accent.copy(alpha = 0.35f)))
+                            }
+                            Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.CenterStart) {
+                                Box(Modifier.fillMaxWidth((b / top).toFloat().coerceIn(0.02f, 1f)).fillMaxHeight().clip(RoundedCornerShape(5.dp)).background(if (bw) C.gold else C.gold.copy(alpha = 0.35f)))
+                            }
+                        }
+                    }
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(C.line))
+                T(when {
+                    wins.first > wins.second -> L("{0} در {1} مورد از {2} بهتر بود", personName(name.substringAfterLast(' ')), fa(wins.first), fa(lines.size))
+                    wins.second > wins.first -> L("{0} در {1} مورد از {2} بهتر بود", personName(other.name.substringAfterLast(' ')), fa(wins.second), fa(lines.size))
+                    else -> L("دو بازیکن تقریباً هم‌سطح بودند")
+                }, 13, FontWeight.Bold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+    }
 }
 
 /* ---------- players ---------- */

@@ -1819,3 +1819,25 @@
 1818|Google: {0}
 1819|Log in with the same number or Google account and everything comes back.
 1820|Log in with your mobile number or Google account to keep your team, follows, fantasy, predictions, tactics and settings on any phone.
+1821|Last 15 min
+1822|Share
+1823|Not on the pitch, or barely, in this part of the match
+1824|Stop
+1825|Play through the match
+1826|Zone shares
+1827|Times are estimated from the order of his actions
+1828|GoalLive · on Cafe Bazaar
+1829|{0}’s heatmap on GoalLive
+1830|{0} shots · {1} on target · xG {2}
+1831|Compare in this match
+1832|Pick another player from this match
+1833|Chances created
+1834|Duels won
+1835|Recoveries
+1836|{0} was better in {1} of {2}
+1837|The two were about level
+1838|New heatmaps
+1839|Either half or the last 15 minutes; played back through the match, each zone’s share and a ready story
+1840|Put any player next to another from the same match: stats and heatmaps side by side
+1841|Each player’s shots
+1842|See one player’s shots on the shot map
