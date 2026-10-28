@@ -182,6 +182,8 @@ class Screens {
         sheetUp(1); shot("44b-sheet-heat")
         tap("بزرگ", exact = true); settle(1500); shot("46-heatmap-full")
         tap("افقی", exact = true); settle(800)
+        tap("نیمه دوم", exact = true); settle(1200); tap("درصد مناطق", exact = true); settle(1200); shot("46b-heat-h2-zones")
+        tap("درصد مناطق", exact = true); tap("کل بازی", exact = true); settle(800)
         tap("سولانکه"); settle(1500); sheetUp(2); shot("45-heatmap-compare")
         sheetUp(3); shot("47-sheet-stats")
         NavHook.nav?.team(8634); settle(9000); shot("07-team")
