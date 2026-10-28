@@ -219,6 +219,15 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
     val accent = LocalAccent.current
     // a quiet bar: the mark and the name on the main tabs (just the mark inside a page), a breathing live dot, two plain icons
     val pulse by rememberInfiniteTransition(label = "live").animateFloat(0.35f, 1f, infiniteRepeatable(tween(1100), RepeatMode.Reverse), label = "p")
+    // a match page whose scoreboard has scrolled away puts a small one in the middle of the bar
+    val mm = TopTitle.match
+    val keep = remember { arrayOfNulls<MatchData>(1) }
+    if (mm != null) keep[0] = mm
+    Box(Modifier.fillMaxWidth().height(54.dp)) {
+    AnimatedVisibility(canBack && mm != null, Modifier.align(Alignment.Center),
+        enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 2 }, exit = fadeOut(tween(160)) + androidx.compose.animation.slideOutVertically(tween(200)) { it / 2 }) {
+        keep[0]?.let { MiniScore(it) }
+    }
     Row(Modifier.fillMaxWidth().height(54.dp).padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         if (canBack) IconBtn(Ic.back, L("بازگشت"), size = 22.dp) { nav.back() }
         Row(Modifier.clip(RoundedCornerShape(14.dp)).clickable { nav.tab("home") }.padding(horizontal = 4.dp, vertical = 4.dp),
@@ -233,31 +242,83 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
         IconBtn(Ic.search, L("جستجو"), tint = C.mute, size = 21.dp) { nav.tab("search") }
         IconBtn(Ic.sliders, L("تنظیمات"), tint = C.mute, size = 21.dp) { nav.tab("settings") }
     }
+    }
     // a hairline under the bar, brightest in the middle
     Box(Modifier.fillMaxWidth().height(1.dp).background(Brush.horizontalGradient(listOf(Color.Transparent, C.line2, accent.copy(alpha = 0.25f), C.line2, Color.Transparent))))
 }
 
-/** ".nav": the floating pill tab bar. */
+/**
+ * ".nav": the floating tab bar, a strip of pitch: dark glass with faint pitch markings, the selected tab in a lit pill that
+ * slides across, and a ball sitting on the bar above it that rolls (and hops) to the next tab; a light tap of the phone on
+ * each change. The list fades out above it instead of showing through.
+ */
 @Composable
 private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
     val accent = LocalAccent.current
-    val shape = RoundedCornerShape(22.dp)
-    Box(modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 10.dp), contentAlignment = Alignment.Center) {
-        Row(
-            Modifier.widthIn(max = 440.dp).fillMaxWidth().height(64.dp).clip(shape).background(C.cardSolid.copy(alpha = 0.97f))
-                .border(1.dp, C.line2, shape).padding(6.dp),
-        ) {
-            TABS.forEach { (r, label, icon) ->
-                val on = r == route
-                Column(
-                    Modifier.weight(1f).fillMaxHeight().semantics(mergeDescendants = true) { role = Role.Tab; selected = on; contentDescription = label }.then(if (on) Modifier.glow(accent.copy(alpha = 0.35f), 8.dp, RoundedCornerShape(18.dp)) else Modifier)
-                        .clip(RoundedCornerShape(18.dp)).background(if (on) accent else Color.Transparent).clickable { if (!on) nav.tab(r) else nav.root(r) },
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
-                ) {
-                    val c = if (on) LocalAccentInk.current else C.mute
-                    Icon(icon(), null, Modifier.size(21.dp), tint = c)
-                    Spacer(Modifier.height(1.dp))
-                    T(label, 12, FontWeight.Bold, c, maxLines = 1)
+    val ink = LocalAccentInk.current
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+    val shape = RoundedCornerShape(24.dp)
+    val sel = TABS.indexOfFirst { it.first == route }
+    var last by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    LaunchedEffect(sel) { if (sel >= 0) last = sel }
+    val idx = if (sel >= 0) sel else last
+    val pos by androidx.compose.animation.core.animateFloatAsState(idx.toFloat(), androidx.compose.animation.core.spring(0.78f, 260f), label = "tab")
+    val shown by androidx.compose.animation.core.animateFloatAsState(if (sel >= 0) 1f else 0f, tween(250), label = "pill")
+    val lines = if (Look.light) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.055f)
+    Box(
+        modifier.fillMaxWidth().drawBehind {
+            // the list fades into the page above the bar
+            drawRect(Brush.verticalGradient(listOf(C.bg.copy(alpha = 0f), C.bg.copy(alpha = 0.9f), C.bg), -28.dp.toPx(), size.height * 0.6f), Offset(0f, -28.dp.toPx()),
+                androidx.compose.ui.geometry.Size(size.width, size.height + 28.dp.toPx()))
+        }.navigationBarsPadding().padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        BoxWithConstraints(Modifier.widthIn(max = 440.dp).fillMaxWidth().height(64.dp)) {
+            val tw = (maxWidth - 12.dp) / TABS.size
+            val twPx = with(androidx.compose.ui.platform.LocalDensity.current) { tw.toPx() }
+            // the bar
+            Box(
+                Modifier.matchParentSize().shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black).clip(shape)
+                    .background(Brush.verticalGradient(listOf(C.cardSolid, androidx.compose.ui.graphics.lerp(C.cardSolid, C.bg, 0.55f))))
+                    .drawBehind { pitchLines(lines) }
+                    .border(1.dp, Brush.verticalGradient(listOf(if (Look.light) C.line2 else Color.White.copy(alpha = 0.16f), C.line)), shape)
+            )
+            // the pill under the selected tab
+            Box(
+                Modifier.align(Alignment.CenterStart).offset(x = 6.dp + tw * pos).width(tw).fillMaxHeight().padding(vertical = 6.dp)
+                    .graphicsLayer { alpha = shown }
+                    .glow(accent.copy(alpha = 0.45f), 10.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp))
+                    .background(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(accent, Color.White, 0.18f), accent)))
+            )
+            // the ball on the bar, rolling with the pill and hopping between tabs
+            val hop = kotlin.math.abs(kotlin.math.sin(Math.PI * pos)).toFloat()
+            Canvas(Modifier.align(Alignment.TopStart).offset(x = 6.dp + tw * (pos + 0.5f) - 10.dp, y = (-13).dp - 9.dp * hop).size(20.dp)) {
+                val r = size.minDimension / 2
+                // its shadow on the bar's edge, smaller as it rises
+                drawOval(Color.Black.copy(alpha = 0.35f * (1 - hop * 0.6f)), Offset(r * (0.25f + 0.25f * hop), size.height + (9.dp.toPx() * hop) - r * 0.25f),
+                    androidx.compose.ui.geometry.Size(r * (1.5f - hop * 0.5f), r * 0.45f))
+                football(center, r, (if (rtl) -1f else 1f) * pos * twPx / r * 57.2958f)
+            }
+            Row(Modifier.matchParentSize().padding(6.dp)) {
+                TABS.forEachIndexed { i, (r, label, icon) ->
+                    val on = i == sel
+                    // the ink follows the pill as it slides over the tab
+                    val c = androidx.compose.ui.graphics.lerp(C.mute, ink, ((1f - kotlin.math.abs(pos - i)) * shown).coerceIn(0f, 1f))
+                    val bounce = remember { Animatable(1f) }
+                    LaunchedEffect(on) { if (on) { bounce.snapTo(0.72f); bounce.animateTo(1f, androidx.compose.animation.core.spring(0.38f, 520f)) } }
+                    Column(
+                        Modifier.weight(1f).fillMaxHeight().semantics(mergeDescendants = true) { role = Role.Tab; selected = on; contentDescription = label }
+                            .clip(RoundedCornerShape(18.dp)).clickable {
+                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
+                                if (!on) nav.tab(r) else nav.root(r)
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(icon(), null, Modifier.size(21.dp).graphicsLayer { scaleX = bounce.value; scaleY = bounce.value }, tint = c)
+                        Spacer(Modifier.height(1.dp))
+                        T(label, 12, FontWeight.Bold, c, maxLines = 1)
+                    }
                 }
             }
         }

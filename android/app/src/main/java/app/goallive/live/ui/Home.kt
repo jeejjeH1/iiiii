@@ -149,7 +149,7 @@ fun HomeScreen() {
             }
         }
         // the days and the filters stay at the top while the matches scroll under them
-        stickyHeader(key = "dates") { Column(Modifier.fillMaxWidth().background(C.bg).padding(top = 2.dp)) {
+        stickyHeader(key = "dates") { Column(Modifier.fillMaxWidth().stickyBack(14.dp).padding(top = 2.dp)) {
             DateStrip(day) { day = it }
             val all = list?.flatMap { it.matches }.orEmpty()
             val liveN = all.count { it.live }

@@ -1940,3 +1940,7 @@
 1939|A stadium at night with floodlights and lit stands; the players stand on a 3D pitch and the camera cranes down from above
 1940|Cinematic videos
 1941|Opens with a flare of light, drifting specks of light, the beat in time with the music, and a flash and a camera kick on the final hit
+1942|A more football look
+1943|A ball that rolls between the bottom tabs, a spinning ball when refreshing, gentle taps of the phone, and gold sparks when you follow
+1944|The scoreboard always in view
+1945|On a match page the score stays in the top bar as you scroll; a goal rolls the number over like a stadium scoreboard

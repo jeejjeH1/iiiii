@@ -84,6 +84,12 @@ import androidx.lifecycle.repeatOnLifecycle
 import app.goallive.live.data.MatchItem
 import app.goallive.live.data.Store
 import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.runtime.compositionLocalOf
@@ -411,8 +417,31 @@ fun Rating(r: Double?, modifier: Modifier = Modifier, small: Boolean = false) {
 
 @Composable
 fun StarButton(on: Boolean, onToggle: () -> Unit, size: Dp = 18.dp, tint: Color = C.faint, box: Dp = 32.dp) {
-    Box(Modifier.size(box).clip(RoundedCornerShape(10.dp)).clickable(onClick = onToggle), contentAlignment = Alignment.Center) {
-        Icon(if (on) Ic.starOn else Ic.star, if (on) L("دنبال نکن") else L("دنبال کن"), Modifier.size(size), tint = if (on) C.gold else tint)
+    // following: the star pops and a ring of gold sparks bursts out of it, with a light tap of the phone
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val k = remember { Animatable(1f) }
+    var was by remember { mutableStateOf(on) }
+    LaunchedEffect(on) {
+        if (on && !was) { k.snapTo(0f); k.animateTo(1f, tween(560)) }
+        was = on
+    }
+    val gold = C.gold
+    Box(Modifier.size(box).clip(RoundedCornerShape(10.dp)).clickable {
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove); onToggle()
+    }, contentAlignment = Alignment.Center) {
+        val t = k.value
+        if (t < 1f) Canvas(Modifier.size(box)) {
+            val c = center; val r0 = size.minDimension * 0.18f; val r1 = size.minDimension * 0.5f
+            val e = 1 - (1 - t) * (1 - t)
+            for (i in 0 until 8) {
+                val a = Math.toRadians(i * 45.0 + 22.5)
+                val d = r0 + (r1 - r0) * e
+                drawCircle(gold.copy(alpha = (1 - t).coerceIn(0f, 1f)), (2.6f - 1.6f * t).dp.toPx(), Offset(c.x + d * kotlin.math.cos(a).toFloat(), c.y + d * kotlin.math.sin(a).toFloat()))
+            }
+            drawCircle(gold.copy(alpha = 0.35f * (1 - t)), r0 + (r1 - r0) * e, c, style = Stroke(1.5.dp.toPx()))
+        }
+        val pop = if (t < 1f) 1f + 0.45f * kotlin.math.sin(Math.PI * (t * 1.7f).coerceAtMost(1f)).toFloat() else 1f
+        Icon(if (on) Ic.starOn else Ic.star, if (on) L("دنبال نکن") else L("دنبال کن"), Modifier.size(size).graphicsLayer { scaleX = pop; scaleY = pop }, tint = if (on) C.gold else tint)
     }
 }
 
@@ -574,10 +603,7 @@ fun Refreshable(vararg loaders: Loader<*>, content: @Composable () -> Unit) {
         isRefreshing = busy,
         onRefresh = { busy = true; startedAt = done; Api.invalidate(); loaders.forEach { it.reload() } },
         modifier = Modifier.fillMaxSize(), state = state,
-        indicator = {
-            PullToRefreshDefaults.Indicator(state = state, isRefreshing = busy, modifier = Modifier.align(Alignment.TopCenter),
-                containerColor = C.cardSolid, color = accent)
-        },
+        indicator = { BallRefresh(state, busy, Modifier.align(Alignment.TopCenter)) },
     ) { content() }
 }
 
@@ -595,10 +621,16 @@ fun <T> LoadBox(l: Loader<T>, skeletonRows: Int = 6, content: @Composable (T) ->
 /** Score digits; the home goals sit on the right (RTL). */
 @Composable
 fun ScoreText(h: Int?, a: Int?, size: Int = 16, color: Color = C.ink, weight: FontWeight = FontWeight.Black, sepColor: Color = C.faint) {
+    // a goal rolls the number over like a stadium scoreboard: the old one drops away, the new one comes down into place
+    val roll = @Composable { v: Int? ->
+        AnimatedContent(v, transitionSpec = { slideInVertically { -it } togetherWith slideOutVertically { it } }, label = "goal") { x ->
+            Text("${x ?: "-"}", color = color, style = num(size.sp, weight))
+        }
+    }
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy((size / 3).dp)) {
-        Text("${h ?: "-"}", color = color, style = num(size.sp, weight))
+        roll(h)
         Text("-", color = sepColor, style = vz(size.sp, FontWeight.Light))
-        Text("${a ?: "-"}", color = color, style = num(size.sp, weight))
+        roll(a)
     }
 }
 

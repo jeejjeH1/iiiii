@@ -65,7 +65,9 @@ fun FormationPitch(
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp), content = header)
-        Box(Modifier.padding(horizontal = 8.dp).fillMaxWidth().aspectRatio(0.7f).clip(RoundedCornerShape(18.dp))) {
+        // a taller pitch when players carry goals, cards or substitutions under their names, so one line's badges never run into the next line
+        val busy = players.any { it.subIn != null || it.outAt != null || it.goals + it.own + it.assists > 0 || it.red || it.yellow }
+        Box(Modifier.padding(horizontal = 8.dp).fillMaxWidth().aspectRatio(if (busy) 0.6f else 0.7f).clip(RoundedCornerShape(18.dp))) {
             Canvas(Modifier.fillMaxSize()) { grass(color) }
             // pitch spots are screen positions: left stays left in both languages
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -205,11 +207,16 @@ private fun Events(p: PitchMan) {
     if (p.goals == 0 && p.own == 0 && !p.red && !p.yellow && p.assists == 0 && p.outAt == null) return
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         EventBadges(p)
+        // the substitution in one chip: the minute he went off and who came on
         p.subIn?.let { n ->
-            Row(Modifier.padding(top = 2.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xCC0B2A18)).padding(horizontal = 5.dp, vertical = 1.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                EmojiIcons.of("⇧")?.let { androidx.compose.material3.Icon(it, null, Modifier.padding(end = 2.dp).size(10.dp), tint = Color(0xFF39D98A)) }
-                Ltr(n, style = vz(9.5.sp, FontWeight.Bold), color = Color.White, raw = true)
+            Row(Modifier.padding(top = 2.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xD90B1410)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
+                .padding(horizontal = 4.dp, vertical = 1.dp), verticalAlignment = Alignment.CenterVertically) {
+                p.outAt?.let { t ->
+                    EmojiIcons.of("⇩")?.let { androidx.compose.material3.Icon(it, null, Modifier.size(10.dp), tint = Color(0xFFFF6B6B)) }
+                    Text(fa(t) + "'", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 3.dp))
+                }
+                EmojiIcons.of("⇧")?.let { androidx.compose.material3.Icon(it, null, Modifier.padding(end = 1.dp).size(10.dp), tint = Color(0xFF39D98A)) }
+                Ltr(n, Modifier.weight(1f, false), style = vz(9.5.sp, FontWeight.Bold), color = Color.White, raw = true)
             }
         }
     }
@@ -233,7 +240,7 @@ private fun EventBadges(p: PitchMan) {
         }
         if (p.red) Box(Modifier.size(10.dp, 13.dp).clip(RoundedCornerShape(2.dp)).background(C.live))
         else if (p.yellow) Box(Modifier.size(10.dp, 13.dp).clip(RoundedCornerShape(2.dp)).background(C.gold))
-        p.outAt?.let { t ->
+        if (p.subIn == null) p.outAt?.let { t ->
             Row(Modifier.clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 EmojiIcons.of("⇩")?.let { androidx.compose.material3.Icon(it, null, Modifier.size(10.dp), tint = Color(0xFFFF6B6B)) }
                 Text(fa(t) + "'", fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Bold)

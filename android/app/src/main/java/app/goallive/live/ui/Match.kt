@@ -62,6 +62,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.luminance
@@ -199,8 +200,21 @@ private fun MatchBody(m: MatchData) {
     if (statViews.none { it.first == statsView }) statsView = statViews.firstOrNull()?.first ?: "team"
     val ratings = remember(m.d) { runCatching { rateMatch(m) }.getOrDefault(emptyMap()) }
     CompositionLocalProvider(LocalRatings provides ratings) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = BottomSpace)) {
-        item { Hero(m) }
+    // once the scoreboard at the top has scrolled away, the top bar carries a small one; the big one drifts up slower than the list and fades
+    val list = androidx.compose.foundation.lazy.rememberLazyListState()
+    val mini by remember { derivedStateOf { list.firstVisibleItemIndex > 0 || list.firstVisibleItemScrollOffset > 420 } }
+    LaunchedEffect(mini, m) { TopTitle.match = if (mini) m else null }
+    DisposableEffect(Unit) { onDispose { TopTitle.match = null } }
+    LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = BottomSpace)) {
+        item {
+            Box(Modifier.graphicsLayer {
+                if (list.firstVisibleItemIndex == 0) {
+                    val o = list.firstVisibleItemScrollOffset.toFloat()
+                    translationY = o * 0.4f
+                    alpha = (1f - o / size.height.coerceAtLeast(1f) * 1.1f).coerceIn(0f, 1f)
+                }
+            }) { Hero(m) }
+        }
         stickyTabs(tabs, tab) { tab = it }
         item {
             Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -237,7 +251,7 @@ private fun MatchBody(m: MatchData) {
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun androidx.compose.foundation.lazy.LazyListScope.stickyTabs(tabs: List<Pair<String, String>>, tab: String, onSelect: (String) -> Unit) {
     stickyHeader {
-        Box(Modifier.fillMaxWidth().background(C.bg.copy(alpha = 0.95f)).padding(vertical = 6.dp)) { Tabs(tabs, tab, onSelect = onSelect) }
+        Box(Modifier.fillMaxWidth().stickyBack().padding(vertical = 6.dp)) { Tabs(tabs, tab, onSelect = onSelect) }
     }
 }
 
