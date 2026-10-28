@@ -66,7 +66,18 @@ jobs:
             -d "{\"d\":\"00000000-0000-0000-0000-000000000000\",\"v\":\"ci\",\"sdk\":34,\"m\":\"CI\",\"l\":\"fa\",\"days\":{\"$(date +%F)\":{\"open\":1}}}"
           curl -s "$url/t/dash" -o /dev/null -w "%{http_code} /t/dash (503 until DASH_KEY is set, 403 with it)\n"
           # the league: an account, and whether sms.ir answers this server (its credit, never a message)
-          curl -s -X POST "$url/p/guest" -H 'content-type: application/json' -d '{"name":"CI"}' -o /dev/null -w "%{http_code} /p/guest\n"
+          # a test account: a fantasy league made, listed and its table read, then the account deleted
+          tok=$(curl -s -X POST "$url/p/guest" -H 'content-type: application/json' -d '{"name":"CI"}' | python3 -c "import sys,json;print(json.load(sys.stdin).get('token',''))")
+          echo "guest: ${tok:+ok}"
+          if [ -n "$tok" ]; then
+            A="authorization: Bearer $tok"
+            fid=$(curl -s -X POST "$url/p/fleagues" -H "$A" -H 'content-type: application/json' -d '{"name":"CI fantasy","comp":47}' | tee /dev/stderr | python3 -c "import sys,json;print(json.load(sys.stdin)['league']['id'])" || true)
+            curl -s "$url/p/fleagues?comp=47" -H "$A" -w "  /p/fleagues\n"
+            curl -s "$url/p/fleague?id=$fid" -H "$A" -w "  /p/fleague\n"
+            curl -s "$url/p/fleague?id=0&comp=47" -H "$A" -w "  /p/fleague everyone\n"
+            curl -s -X POST "$url/p/fpoints" -H "$A" -H 'content-type: application/json' -d '{"comp":47,"round":"1","pts":10}' -w "  /p/fpoints (404 without a team)\n"
+            curl -s -X POST "$url/p/delete" -H "$A" -H 'content-type: application/json' -d '{}' -w "  /p/delete\n"
+          fi
           if [ -n "$DASH" ]; then curl -s "$url/p/sms?key=$DASH" -w "  /p/sms\n"; fi
           # Google sign-in: on once the GOOGLE_CLIENT_ID secret is set (the client id is public)
           curl -s "$url/p/config" -w "  /p/config\n"

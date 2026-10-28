@@ -69,6 +69,11 @@ export class League extends DurableObject {
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
       CREATE TABLE IF NOT EXISTS backups (user INTEGER PRIMARY KEY, data TEXT, updated INTEGER);
       CREATE TABLE IF NOT EXISTS otps2 (phone TEXT PRIMARY KEY, prev TEXT, prev_expires INTEGER);
+      CREATE TABLE IF NOT EXISTS fleagues (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, name TEXT, owner INTEGER, comp INTEGER, created INTEGER);
+      CREATE TABLE IF NOT EXISTS fmembers (league INTEGER, user INTEGER, joined INTEGER, PRIMARY KEY (league, user));
+      CREATE TABLE IF NOT EXISTS fteams (user INTEGER, comp INTEGER, round TEXT, team TEXT, captain INTEGER, kickoff INTEGER, at INTEGER, PRIMARY KEY (user, comp, round));
+      CREATE TABLE IF NOT EXISTS fpoints (user INTEGER, comp INTEGER, round TEXT, pts INTEGER, at INTEGER, PRIMARY KEY (user, comp, round));
+      CREATE INDEX IF NOT EXISTS fpoints_comp ON fpoints (comp);
       CREATE TABLE IF NOT EXISTS smslog (at INTEGER, phone TEXT, ok INTEGER, http INTEGER, status INTEGER, message TEXT, id TEXT, body TEXT);
     `);
     // accounts can also be a Google account (its id and address)
@@ -201,7 +206,11 @@ export class League extends DurableObject {
     this.sql.exec('INSERT OR IGNORE INTO members (league, user, joined) SELECT league, ?, joined FROM members WHERE user = ?', id, me);
     this.sql.exec('UPDATE leagues SET owner = ? WHERE owner = ?', id, me);
     this.sql.exec('INSERT OR IGNORE INTO backups (user, data, updated) SELECT ?, data, updated FROM backups WHERE user = ?', id, me);
-    for (const t of ['picks', 'members', 'tokens', 'backups']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
+    this.sql.exec('INSERT OR IGNORE INTO fmembers (league, user, joined) SELECT league, ?, joined FROM fmembers WHERE user = ?', id, me);
+    this.sql.exec('UPDATE fleagues SET owner = ? WHERE owner = ?', id, me);
+    this.sql.exec('INSERT OR IGNORE INTO fteams (user, comp, round, team, captain, kickoff, at) SELECT ?, comp, round, team, captain, kickoff, at FROM fteams WHERE user = ?', id, me);
+    this.sql.exec('INSERT OR IGNORE INTO fpoints (user, comp, round, pts, at) SELECT ?, comp, round, pts, at FROM fpoints WHERE user = ?', id, me);
+    for (const t of ['picks', 'members', 'tokens', 'backups', 'fmembers', 'fteams', 'fpoints']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
     this.sql.exec('DELETE FROM users WHERE id = ?', me);
   }
 
@@ -215,7 +224,7 @@ export class League extends DurableObject {
   /** The account and everything in it, gone (its leagues stay for the others; one nobody is left in goes too). */
   deleteMe(me) {
     const mine = this.q('SELECT league FROM members WHERE user = ?', me).map((r) => r.league);
-    for (const t of ['picks', 'members', 'tokens', 'backups']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
+    for (const t of ['picks', 'members', 'tokens', 'backups', 'fmembers', 'fteams', 'fpoints']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
     this.sql.exec('DELETE FROM users WHERE id = ?', me);
     for (const l of mine) if (!this.one('SELECT 1 AS x FROM members WHERE league = ?', l)) this.sql.exec('DELETE FROM leagues WHERE id = ?', l);
     return { ok: true };
@@ -356,6 +365,112 @@ export class League extends DurableObject {
     return { league: id ? this.leagueInfo(id, me) : { id: 0, name: 'everyone' }, span, week: weekStart(), rows: this.table(id, span), next };
   }
 
+  /* ---------- fantasy leagues ---------- */
+
+  /**
+   * A gameweek's squad, sent while it can still change: the server keeps it only before the round's first kick-off (the
+   * match the app names, checked with FotMob), so a team can't be picked after the results are known.
+   */
+  async fantasyTeam(b, me) {
+    const comp = +b.comp, round = String(b.round || '').slice(0, 40), first = +b.first;
+    const team = Array.isArray(b.team) ? b.team.map(Number).filter((x) => x > 0).slice(0, 15) : [];
+    if (!(comp > 0) || !round || !(first > 0) || team.length < 1) throw new Http(400, 'team');
+    const m = await this.match(first);
+    if (!m) throw new Http(404, 'match');
+    if (Date.now() >= m.time) throw new Http(409, 'locked');
+    const bench = Array.isArray(b.bench) ? b.bench.map(Number).filter((x) => team.includes(x)).slice(0, 4) : [];
+    this.sql.exec(`INSERT INTO fteams (user, comp, round, team, captain, kickoff, at) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user, comp, round) DO UPDATE SET team = excluded.team, captain = excluded.captain, kickoff = excluded.kickoff, at = excluded.at`,
+      me, comp, round, JSON.stringify({ team, bench }), +b.captain || 0, m.time, Date.now());
+    return { ok: true };
+  }
+
+  /** A gameweek's points, worked out on the phone from the real matches; only for a round whose team came in before it began. */
+  fantasyPoints(b, me) {
+    const comp = +b.comp, round = String(b.round || '').slice(0, 40), pts = Math.round(+b.pts);
+    if (!(comp > 0) || !round || !Number.isFinite(pts) || pts < -60 || pts > 400) throw new Http(400, 'points');
+    const t = this.one('SELECT kickoff FROM fteams WHERE user = ? AND comp = ? AND round = ?', me, comp, round);
+    if (!t) throw new Http(404, 'team');
+    if (Date.now() < t.kickoff) throw new Http(409, 'early');
+    this.sql.exec('INSERT INTO fpoints (user, comp, round, pts, at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user, comp, round) DO UPDATE SET pts = excluded.pts, at = excluded.at',
+      me, comp, round, pts, Date.now());
+    return { ok: true };
+  }
+
+  newFantasy(b, me) {
+    const name = cleanName(b.name), comp = +b.comp;
+    if (name.length < 2) throw new Http(400, 'name');
+    if (!(comp > 0)) throw new Http(400, 'comp');
+    if (this.one('SELECT COUNT(*) AS n FROM fleagues WHERE owner = ?', me).n >= 20) throw new Http(429, 'limit');
+    let code;
+    // "F" and five letters or digits, so an invite link can tell a fantasy league from a prediction league
+    do { code = 'F' + [...crypto.getRandomValues(new Uint8Array(5))].map((x) => 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'[x % 31]).join(''); }
+    while (this.one('SELECT 1 AS x FROM fleagues WHERE code = ?', code) || this.one('SELECT 1 AS x FROM leagues WHERE code = ?', code));
+    const id = this.one('INSERT INTO fleagues (code, name, owner, comp, created) VALUES (?, ?, ?, ?, ?) RETURNING id', code, name, me, comp, Date.now()).id;
+    this.sql.exec('INSERT INTO fmembers (league, user, joined) VALUES (?, ?, ?)', id, me, Date.now());
+    return { league: this.fantasyInfo(id, me) };
+  }
+
+  joinFantasy(b, me) {
+    const code = String(b.code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const l = this.one('SELECT id FROM fleagues WHERE code = ?', code);
+    if (!l) throw new Http(404, 'code');
+    if (this.one('SELECT COUNT(*) AS n FROM fmembers WHERE league = ?', l.id).n >= 500) throw new Http(429, 'full');
+    this.sql.exec('INSERT OR IGNORE INTO fmembers (league, user, joined) VALUES (?, ?, ?)', l.id, me, Date.now());
+    return { league: this.fantasyInfo(l.id, me) };
+  }
+
+  leaveFantasy(b, me) {
+    this.sql.exec('DELETE FROM fmembers WHERE league = ? AND user = ?', +b.id, me);
+    if (!this.one('SELECT 1 AS x FROM fmembers WHERE league = ?', +b.id)) this.sql.exec('DELETE FROM fleagues WHERE id = ?', +b.id);
+    return { ok: true };
+  }
+
+  fantasyInfo(id, me) {
+    const l = this.one('SELECT id, code, name, owner, comp FROM fleagues WHERE id = ?', id);
+    if (!l) return null;
+    const rows = this.fantasyTable(id, l.comp, null);
+    const mine = rows.findIndex((r) => r.id === me);
+    return { id: l.id, code: l.code, name: l.name, comp: l.comp, mine: l.owner === me, members: rows.length, rank: mine >= 0 ? mine + 1 : null, leader: rows[0]?.name || null };
+  }
+
+  /** My fantasy leagues (all competitions), and where I stand among everyone playing [comp]. */
+  fantasyLeagues(url, me) {
+    const comp = +url.searchParams.get('comp') || 0;
+    const ids = this.q('SELECT league FROM fmembers WHERE user = ? ORDER BY joined DESC', me).map((r) => r.league);
+    const everyone = comp ? this.fantasyTable(0, comp, null) : [];
+    const at = everyone.findIndex((r) => r.id === me);
+    return {
+      leagues: ids.map((id) => this.fantasyInfo(id, me)).filter(Boolean),
+      everyone: { players: everyone.length, rank: at >= 0 ? at + 1 : null, leader: everyone[0]?.name || null },
+    };
+  }
+
+  /** A fantasy table: everyone in the league (0: everyone with a team in [comp]), by season points or one round's. */
+  fantasyTable(id, comp, round) {
+    const who = id ? 'u.id IN (SELECT user FROM fmembers WHERE league = ?)' : 'u.id IN (SELECT DISTINCT user FROM fteams WHERE comp = ?)';
+    return this.q(`SELECT u.id, u.name, COALESCE(SUM(f.pts), 0) AS total, COUNT(f.round) AS weeks,
+        COALESCE(SUM(CASE WHEN f.round = ? THEN f.pts END), 0) AS last
+      FROM users u LEFT JOIN fpoints f ON f.user = u.id AND f.comp = ?
+      WHERE ${who} GROUP BY u.id ORDER BY ${round ? 'last DESC, total DESC' : 'total DESC, last DESC'}, u.id LIMIT 500`, round || '', comp, id || comp)
+      .map((r) => ({ id: r.id, name: r.name, total: r.total, weeks: r.weeks, last: r.last }));
+  }
+
+  fantasyLeague(url, me) {
+    const id = +url.searchParams.get('id') || 0;
+    const round = url.searchParams.get('round') || null;
+    let comp = +url.searchParams.get('comp') || 0;
+    if (id) {
+      if (!this.one('SELECT 1 AS x FROM fmembers WHERE league = ? AND user = ?', id, me)) throw new Http(403, 'member');
+      comp = this.one('SELECT comp FROM fleagues WHERE id = ?', id)?.comp || 0;
+    }
+    if (!comp) throw new Http(400, 'comp');
+    // the last round anyone in it has points for, when none is asked
+    const last = round || this.one(`SELECT f.round FROM fpoints f WHERE f.comp = ? ${id ? 'AND f.user IN (SELECT user FROM fmembers WHERE league = ?)' : ''} ORDER BY f.at DESC LIMIT 1`,
+      ...(id ? [comp, id] : [comp]))?.round || null;
+    return { league: id ? this.fantasyInfo(id, me) : { id: 0, name: 'everyone', comp }, round: last, rows: this.fantasyTable(id, comp, last), byRound: !!round };
+  }
+
   /* ---------- the way in ---------- */
 
   async fetch(request) {
@@ -382,6 +497,12 @@ export class League extends DurableObject {
         case '/p/join': out = this.join(body, need()); break;
         case '/p/leave': out = this.leave(body, need()); break;
         case '/p/league': out = await this.league(url, need()); break;
+        case '/p/fteam': out = await this.fantasyTeam(body, need()); break;
+        case '/p/fpoints': out = this.fantasyPoints(body, need()); break;
+        case '/p/fleagues': out = request.method === 'POST' ? this.newFantasy(body, need()) : this.fantasyLeagues(url, need()); break;
+        case '/p/fjoin': out = this.joinFantasy(body, need()); break;
+        case '/p/fleave': out = this.leaveFantasy(body, need()); break;
+        case '/p/fleague': out = this.fantasyLeague(url, need()); break;
         case '/p/settle': out = { checked: await this.settle(20) }; break;
         case '/p/smslog': out = this.q('SELECT at, phone, ok, http, status, message, id, body FROM smslog ORDER BY at DESC LIMIT 10'); break;
         default: throw new Http(404, 'not found');
@@ -480,13 +601,17 @@ const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods
 
 /** The page an invite link opens: the app on the league when it is installed, otherwise its page on Cafe Bazaar. */
 function joinPage(code) {
+  // a fantasy league's code starts with F
+  const fantasy = code.startsWith('F');
+  const what = fantasy ? 'لیگ فانتزی' : 'لیگ پیش‌بینی';
+  const line = fantasy ? 'در گل‌لایو تیم فانتزی بچین و هر هفته با دوستانت رقابت کن.' : 'در گل‌لایو نتیجه‌ی بازی‌ها را پیش‌بینی کن و با دوستانت رقابت کن.';
   return `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>دعوت به لیگ پیش‌بینی گل‌لایو</title>
+<title>دعوت به ${what} گل‌لایو</title>
 <style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#0B0F14;color:#fff;font-family:Tahoma,sans-serif;text-align:center}
 .c{padding:28px;max-width:360px}.k{font-size:34px;letter-spacing:6px;color:#C6FF3D;margin:14px 0;font-family:monospace}
 a{display:block;margin:12px 0;padding:14px;border-radius:14px;text-decoration:none;font-weight:bold}
 .p{background:#C6FF3D;color:#0B0F14}.s{background:#1B222C;color:#fff}</style></head>
-<body><div class="c"><h2>دعوت به لیگ پیش‌بینی</h2><p>در گل‌لایو نتیجه‌ی بازی‌ها را پیش‌بینی کن و با دوستانت رقابت کن.</p>
+<body><div class="c"><h2>دعوت به ${what}</h2><p>${line}</p>
 <div>کد لیگ</div><div class="k">${code}</div>
 <a class="p" href="goallive://join/${code}">باز کردن در گل‌لایو</a>
 <a class="s" href="${BAZAAR}">نصب گل‌لایو از کافه‌بازار</a></div>
