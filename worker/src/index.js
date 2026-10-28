@@ -57,6 +57,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // the prediction league: accounts, picks, leagues and their invite links
+    if (url.pathname === '/privacy') return new Response(PRIVACY, { headers: { 'content-type': 'text/html; charset=utf-8' } });
     if (url.pathname.startsWith('/p/') || url.pathname.startsWith('/j/')) {
       try { return await league(request, env, url); } catch (e) { return Response.json({ error: String(e && e.message || e) }, { status: 500 }); }
     }
@@ -107,3 +108,21 @@ async function api(request, ctx, url) {
   out.headers.set('Access-Control-Allow-Origin', '*');
   return out;
 }
+
+/** The privacy policy (Persian, then English): what the optional account keeps and how to delete it. */
+const PRIVACY = `<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>حریم خصوصی گل‌لایو</title>
+<style>body{margin:0 auto;max-width:720px;padding:20px 16px;background:#0B0F14;color:#E8EDF2;font:16px/1.9 Tahoma,sans-serif}h1{font-size:22px}h2{font-size:17px;margin-top:28px}.en{direction:ltr;text-align:left;border-top:1px solid #1F2733;margin-top:36px;padding-top:12px}</style></head><body>
+<h1>حریم خصوصی گل‌لایو</h1>
+<p>گل‌لایو بدون ورود هم کامل کار می‌کند. ورود اختیاری است و فقط برای لیگ پیش‌بینی و نگه داشتن اطلاعات اپ روی گوشی‌های دیگر به کار می‌رود.</p>
+<h2>چه چیزی نگه می‌داریم</h2>
+<p>اگر وارد شوی: نامی که در جدول نشان داده می‌شود، شماره‌ی موبایل (اگر با شماره وارد شوی) یا شناسه و ایمیل حساب گوگل (اگر با گوگل وارد شوی)، پیش‌بینی‌ها، لیگ‌هایی که عضو آن‌ها هستی و تنظیمات اپ مثل تیم‌های دنبال‌شده. همچنین آمار ناشناس استفاده از اپ، بدون نام یا شماره.</p>
+<h2>چه کاری با آن می‌کنیم</h2>
+<p>فقط برای ورود، جدول لیگ‌ها و برگرداندن اطلاعاتت روی گوشی دیگر. شماره برای فرستادن کد ورود به سرویس پیامک داده می‌شود. اطلاعاتت را نمی‌فروشیم و برای تبلیغ به کسی نمی‌دهیم.</p>
+<h2>پاک کردن</h2>
+<p>در اپ، بخش لیگ پیش‌بینی، «حذف حساب» را بزن تا حساب و همه‌ی اطلاعاتش از سرور پاک شود.</p>
+<div class="en"><h1>GoalLive privacy policy</h1>
+<p>GoalLive works fully without an account. Logging in is optional and is used only for the prediction league and to bring your app data to another phone.</p>
+<h2>What we keep</h2><p>If you log in: the name shown in league tables, your mobile number (number login) or your Google account id and email (Google login), your predictions, the leagues you joined, and app settings such as followed teams. Also anonymous usage statistics with no name or number.</p>
+<h2>How it is used</h2><p>Only for logging in, league tables and restoring your data on another phone. Your number is passed to the SMS provider to send the login code. We do not sell your data or share it for advertising.</p>
+<h2>Deleting</h2><p>In the app, open the prediction league and tap "Delete account" to remove the account and all its data from the server.</p></div>
+</body></html>`;
