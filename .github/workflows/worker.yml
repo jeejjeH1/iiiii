@@ -79,6 +79,11 @@ jobs:
             curl -s -X POST "$url/p/delete" -H "$A" -H 'content-type: application/json' -d '{}' -w "  /p/delete\n"
           fi
           if [ -n "$DASH" ]; then curl -s "$url/p/sms?key=$DASH" -w "  /p/sms\n"; fi
+          # how many: installs and active phones, accounts (counts only, never a name or number)
+          if [ -n "$DASH" ]; then
+            curl -s "$url/t/stats?key=$DASH" | python3 -c "import sys,json;d=json.load(sys.stdin);print('USERS installs',d['total'],'active7',d['active7'],'today',(d['dau'][-1] if d['dau'] else {}),'new',d['fresh'][-7:])" || true
+            curl -s "$url/p/stats?key=$DASH" -w "  /p/stats\n" | sed 's/^/USERS /'
+          fi
           # Google sign-in: on once the GOOGLE_CLIENT_ID secret is set (the client id is public)
           curl -s "$url/p/config" -w "  /p/config\n"
           curl -sf "$url/api/fm?e=suggest&term=persepolis" -o /dev/null
