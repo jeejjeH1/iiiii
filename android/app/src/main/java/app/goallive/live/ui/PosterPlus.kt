@@ -268,9 +268,15 @@ internal fun stadiumPage(c: Canvas, W: Int, H: Int, main: Int, accent: Int, pitc
     p.shader = LinearGradient(0f, 0f, 0f, h, intArrayOf(0xFF02040A.toInt(), ColorUtils.blendARGB(main or 0xFF000000.toInt(), 0xFF02040A.toInt(), 0.75f), 0xFF050B08.toInt()),
         floatArrayOf(0f, 0.3f, 1f), Shader.TileMode.CLAMP)
     c.drawRect(0f, 0f, w, h, p); p.shader = null
-    // the stands: a dark band with thousands of small lights, the club's colours among them
-    val sTop = pitchTop - 260f; val sBot = pitchTop + 30f
-    p.shader = LinearGradient(0f, sTop, 0f, sBot, 0xFF0B0E16.toInt(), 0xFF151A24.toInt(), Shader.TileMode.CLAMP); c.drawRect(0f, sTop, w, sBot, p); p.shader = null
+    // the stands: a band rising out of the night, in tiers, with thousands of small lights, the club's colours among them
+    val sTop = pitchTop - STANDS; val sBot = pitchTop + 30f
+    p.shader = LinearGradient(0f, sTop - 90f, 0f, sBot, intArrayOf(0x000B0E16, 0xFF0B0E16.toInt(), 0xFF161B26.toInt()), floatArrayOf(0f, 0.3f, 1f), Shader.TileMode.CLAMP)
+    c.drawRect(0f, sTop - 90f, w, sBot, p); p.shader = null
+    for (k in 1..4) {
+        val y = sTop + (sBot - sTop) * k / 5f
+        p.color = 0x14FFFFFF; c.drawRect(0f, y, w, y + 2f, p)
+        p.color = 0x33000000; c.drawRect(0f, y + 2f, w, y + 10f, p)
+    }
     val rnd = java.util.Random(3)
     val cols = intArrayOf(glowOf(main), W_, accent, glowOf(main), 0xFFFFE9A8.toInt())
     repeat(900) {
@@ -278,8 +284,7 @@ internal fun stadiumPage(c: Canvas, W: Int, H: Int, main: Int, accent: Int, pitc
         p.color = al(cols[rnd.nextInt(cols.size)], 0.15f + rnd.nextFloat() * 0.55f)
         c.drawCircle(x, y, 1.2f + rnd.nextFloat() * 2.6f, p)
     }
-    // the stands' roof line and a few flags of light in the club's colour
-    p.color = 0xFF000000.toInt(); c.drawRect(0f, sTop - 40f, w, sTop, p)
+    // the club's colour glowing over the stands
     p.shader = RadialGradient(w / 2, sTop + 80f, w * 0.7f, al(glowOf(main), 0.35f), 0, Shader.TileMode.CLAMP); c.drawRect(0f, sTop, w, sBot, p); p.shader = null
     // floodlights: towers in the corners, each flaring, a beam to the pitch
     for (side in listOf(-1f, 1f)) {
@@ -306,14 +311,33 @@ internal class Perspective(val r: RectF, val far: Float = 0.66f) {
 /** The grass: mown bands in perspective, the markings, a glow of the club's colour from the near end and haze at the far end. */
 internal fun stadiumPitch(c: Canvas, ps: Perspective, main: Int) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    fun quad(v0: Float, v1: Float) = Path().apply { moveTo(ps.x(0f, v0), ps.y(v0)); lineTo(ps.x(1f, v0), ps.y(v0)); lineTo(ps.x(1f, v1), ps.y(v1)); lineTo(ps.x(0f, v1), ps.y(v1)); close() }
+    fun quad(v0: Float, v1: Float, u0: Float = 0f, u1: Float = 1f) = Path().apply {
+        moveTo(ps.x(u0, v0), ps.y(v0)); lineTo(ps.x(u1, v0), ps.y(v0)); lineTo(ps.x(u1, v1), ps.y(v1)); lineTo(ps.x(u0, v1), ps.y(v1)); close()
+    }
+    // the grass runs past the lines to the boards, mown in bands
+    val far = -0.07f
     val bands = 12
-    for (k in 0 until bands) { p.color = if (k % 2 == 0) 0xFF1F8A4C.toInt() else 0xFF1A7A43.toInt(); c.drawPath(quad(k / bands.toFloat(), (k + 1) / bands.toFloat() + 0.002f), p) }
-    val all = quad(0f, 1f)
-    c.save(); c.clipPath(all)
-    p.shader = LinearGradient(0f, ps.y(0f), 0f, ps.y(1f), intArrayOf(0x66000000, 0x00000000, al(glowOf(main), 0.28f)), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP)
-    c.drawRect(ps.r.left - 200, ps.r.top, ps.r.right + 200, ps.r.bottom, p); p.shader = null
+    for (k in -1 until bands) {
+        val v0 = if (k < 0) far else k / bands.toFloat()
+        p.color = if (k % 2 == 0) 0xFF1F8A4C.toInt() else 0xFF1A7A43.toInt()
+        c.drawPath(quad(v0, (k + 1) / bands.toFloat() + 0.002f, -0.6f, 1.6f), p)
+    }
+    val ground = quad(far, 1f, -0.6f, 1.6f)
+    c.save(); c.clipPath(ground)
+    p.shader = LinearGradient(0f, ps.y(far), 0f, ps.y(1f), intArrayOf(0x88000000.toInt(), 0x00000000, al(glowOf(main), 0.28f)), floatArrayOf(0f, 0.45f, 1f), Shader.TileMode.CLAMP)
+    c.drawRect(ps.r.left - 400, ps.y(far), ps.r.right + 400, ps.r.bottom, p); p.shader = null
+    // light pooled in the middle of the pitch, darker towards the sides
+    p.shader = RadialGradient(ps.r.centerX(), ps.y(0.5f), ps.r.width() * 0.75f, intArrayOf(0x22FFFFFF, 0x00FFFFFF, 0x55000000), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP)
+    c.drawRect(ps.r.left - 400, ps.y(far), ps.r.right + 400, ps.r.bottom, p); p.shader = null
     c.restore()
+    // the boards along the far end, lit in the club's colour
+    val by = ps.y(far); val bh = 30f
+    p.color = 0xFF07090D.toInt(); c.drawRect(ps.r.left - 10, by - bh, ps.r.right + 10, by, p)
+    p.shader = LinearGradient(ps.r.left, 0f, ps.r.right, 0f, intArrayOf(al(glowOf(main), 0.9f), al(glowOf(main), 0.35f), al(glowOf(main), 0.9f), al(glowOf(main), 0.35f), al(glowOf(main), 0.9f)), null, Shader.TileMode.CLAMP)
+    c.drawRect(ps.r.left - 10, by - bh + 5, ps.r.right + 10, by - 5, p); p.shader = null
+    p.shader = LinearGradient(0f, by - bh - 40f, 0f, by - bh, 0, al(glowOf(main), 0.35f), Shader.TileMode.CLAMP)
+    c.drawRect(ps.r.left - 10, by - bh - 40f, ps.r.right + 10, by - bh, p); p.shader = null
+    val all = quad(0f, 1f)
     // markings: 68 m across, 105 long (only what lies on this half-and-a-bit of pitch)
     p.style = Paint.Style.STROKE; p.color = 0xBFFFFFFF.toInt(); p.strokeWidth = 4f
     fun seg(u0: Float, v0: Float, u1: Float, v1: Float) = c.drawLine(ps.x(u0, v0), ps.y(v0), ps.x(u1, v1), ps.y(v1), p)

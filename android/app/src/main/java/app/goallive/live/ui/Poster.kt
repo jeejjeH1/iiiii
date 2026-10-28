@@ -166,8 +166,10 @@ private fun panel(c: Canvas, theme: String, pl: Palette, lk: PosterLook, r: Rect
         // the cards stand on the page itself: only the pitch's lines, faint, and a fine edge
         p.style = Paint.Style.STROKE; p.strokeWidth = 3f; p.color = 0x24FFFFFF
         c.drawRoundRect(r, 44f, 44f, p)
+        c.save(); c.clipRect(r)
         c.drawCircle(r.centerX(), r.top - 10f, 220f, p)
         c.drawRect(r.centerX() - 280, r.bottom - 140, r.centerX() + 280, r.bottom + 4, p)
+        c.restore()
         return
     }
     val clip = Path().apply { addRoundRect(r, 44f, 44f, Path.Direction.CW) }
