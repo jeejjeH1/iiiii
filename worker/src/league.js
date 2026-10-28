@@ -182,7 +182,11 @@ export class League extends DurableObject {
     if (!client) throw new Http(404, 'google');
     const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(String(b.token || '')), { signal: AbortSignal.timeout(10000) }).catch(() => null);
     const t = r && r.ok ? await r.json().catch(() => ({})) : {};
-    if (t.aud !== client || !t.sub || !['accounts.google.com', 'https://accounts.google.com'].includes(t.iss) || +t.exp * 1000 < Date.now()) throw new Http(401, 'google');
+    // the reason, short, for the app to show under the error (never the token)
+    if (!r) throw new Http(502, 'google: no answer');
+    if (!r.ok) throw new Http(401, 'google: check ' + r.status);
+    if (t.aud !== client) throw new Http(401, 'google: aud ' + String(t.aud || '').slice(0, 14) + ' / ' + client.slice(0, 14));
+    if (!t.sub || !['accounts.google.com', 'https://accounts.google.com'].includes(t.iss) || +t.exp * 1000 < Date.now()) throw new Http(401, 'google: token');
     const email = t.email_verified === 'true' || t.email_verified === true ? String(t.email || '').toLowerCase() : null;
     let id = this.one('SELECT id FROM users WHERE google = ?', t.sub)?.id;
     if (id && me && me !== id) this.absorb(id, me);

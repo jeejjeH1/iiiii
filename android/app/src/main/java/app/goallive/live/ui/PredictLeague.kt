@@ -50,7 +50,8 @@ private fun errorText(e: Throwable) = when ((e as? LeagueError)?.code) {
     "full" -> L("این لیگ پر شده است")
     "google" -> L("ورود با گوگل ممکن نشد؛ با شماره وارد شو")
     "noaccount" -> L("حساب گوگلی روی این گوشی نیست")
-    else -> if ((e as? LeagueError)?.code?.startsWith("sms") == true) L("فرستادن پیامک ممکن نشد؛ کمی بعد دوباره امتحان کن")
+    else -> if ((e as? LeagueError)?.code?.startsWith("google") == true) L("ورود با گوگل ممکن نشد؛ با شماره وارد شو")
+    else if ((e as? LeagueError)?.code?.startsWith("sms") == true) L("فرستادن پیامک ممکن نشد؛ کمی بعد دوباره امتحان کن")
     else L("ارتباط برقرار نشد؛ اینترنت را بررسی کن")
 }
 
@@ -95,8 +96,9 @@ private fun GoogleButton(onError: (String?) -> Unit, onDone: () -> Unit) {
                 when (e) {
                     is androidx.credentials.exceptions.GetCredentialCancellationException -> {}
                     is androidx.credentials.exceptions.NoCredentialException -> onError(errorText(LeagueError("noaccount", 0)))
-                    is LeagueError -> onError(errorText(e))
-                    else -> onError(errorText(LeagueError("google", 0)))
+                    // the reason in small print under the message, to know what to fix
+                    is LeagueError -> onError(errorText(e) + "\n" + e.code + " (" + e.http + ")")
+                    else -> onError(errorText(LeagueError("google", 0)) + "\n" + (e.javaClass.simpleName + ": " + e.message.orEmpty()).take(220))
                 }
             }
             busy = false
