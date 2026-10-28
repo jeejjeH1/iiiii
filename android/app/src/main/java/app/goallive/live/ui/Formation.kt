@@ -67,7 +67,7 @@ fun FormationPitch(
             horizontalArrangement = Arrangement.spacedBy(10.dp), content = header)
         // a taller pitch when players carry goals, cards or substitutions under their names, so one line's badges never run into the next line
         val busy = players.any { it.subIn != null || it.outAt != null || it.goals + it.own + it.assists > 0 || it.red || it.yellow }
-        Box(Modifier.padding(horizontal = 8.dp).fillMaxWidth().aspectRatio(if (busy) 0.6f else 0.7f).clip(RoundedCornerShape(18.dp))) {
+        Box(Modifier.padding(horizontal = 8.dp).fillMaxWidth().aspectRatio(if (busy) 0.56f else 0.7f).clip(RoundedCornerShape(18.dp))) {
             Canvas(Modifier.fillMaxSize()) { grass(color) }
             // pitch spots are screen positions: left stays left in both languages
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -99,8 +99,11 @@ internal fun tidy(players: List<PitchMan>): Map<Int, Triple<Float, Float, Int>> 
         if (last != null && m.y - last.last().y < 0.075f) last += m else rows += mutableListOf(m)
     }
     val out = HashMap<Int, Triple<Float, Float, Int>>()
-    for (row in rows) {
-        val y = row.map { it.y }.average().toFloat()
+    // the lines evenly spaced from the forwards to the keeper, so no two lines crowd each other
+    val top = rows.firstOrNull()?.let { r -> r.map { it.y }.average().toFloat() } ?: 0f
+    val bottom = rows.lastOrNull()?.let { r -> r.map { it.y }.average().toFloat() } ?: 1f
+    for ((ri, row) in rows.withIndex()) {
+        val y = if (rows.size > 2) top + (bottom - top) * ri / (rows.size - 1) else row.map { it.y }.average().toFloat()
         val n = row.size
         row.sortedBy { it.x }.forEachIndexed { i, m -> out[m.id] = Triple(if (n == 1) 0.5f else 0.04f + 0.92f * (i + 0.5f) / n, y, n) }
     }
@@ -206,7 +209,8 @@ private fun Token(p: PitchMan, color: Color, modifier: Modifier, onClick: () -> 
 private fun Events(p: PitchMan) {
     if (p.goals == 0 && p.own == 0 && !p.red && !p.yellow && p.assists == 0 && p.outAt == null) return
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        EventBadges(p)
+        // (a substitution alone needs no badge row: its chip below carries the minute)
+        if (p.goals + p.own + p.assists > 0 || p.red || p.yellow || (p.outAt != null && p.subIn == null)) EventBadges(p)
         // the substitution in one chip: the minute he went off and who came on
         p.subIn?.let { n ->
             Row(Modifier.padding(top = 2.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xD90B1410)).border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(6.dp))
