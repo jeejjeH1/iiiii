@@ -1710,3 +1710,90 @@
 1709|Floating tools
 1710|Tools at the bottom
 1711|Team of the week
+1712|Prediction league with friends
+1713|Make a league, invite friends and top the table
+1714|Exact score 3 points, right winner (or draw) 1 point. Predictions are also kept in your league account.
+1715|Wrong code
+1716|The code expired; get a new one
+1717|Too many wrong tries; get a new code
+1718|You reached today's limit; try again tomorrow
+1719|That mobile number isn't valid
+1720|The name needs at least two letters
+1721|No league with this code
+1722|This league is full
+1723|The SMS couldn't be sent; try again shortly
+1724|Couldn't connect; check your internet
+1725|Join my prediction league "{0}" on GoalLive!
+1726|League code: {0}
+1727|Invite friends
+1728|Log in with your mobile number
+1729|Verification code
+1730|Your account is tied to this number; it all comes back on any phone with the same number.
+1731|Enter the 5-digit code sent to {0}
+1732|e.g. 09123456789
+1733|Get the code
+1734|Test mode: code {0}
+1735|Log in
+1736|Change the number
+1737|Resend in {0} s
+1738|Resend
+1739|Prediction league
+1740|Predict match scores and compete with friends. Exact score 3 points, right winner 1 point.
+1741|Invited to a league with code {0}; start first
+1742|Number: {0}
+1743|No number; on this phone only
+1744|Add number
+1745|Change name
+1746|My predictions
+1747|Make a league
+1748|Join with a code
+1749|Leagues didn't load
+1750|Check your internet
+1751|Again
+1752|All GoalLive players
+1753|You're not in a league yet. Make one and send its code to your friends.
+1754|My leagues
+1755|{0} players · leader: {1}
+1756|Predictions can change until kick-off. Tables update after every match.
+1757|Your name in the table
+1758|Your friends see you by this name
+1759|e.g. Ali
+1760|New league
+1761|A name for the league; then you send its code to friends
+1762|e.g. Uni friends
+1763|Make
+1764|Join a league
+1765|The 6-letter code your friend sent
+1766|Join
+1767|Make a league or join a friend's with its code
+1768|Predict the score before each match
+1769|Watch the weekly and season tables and get to the top
+1770|Your name in the table, e.g. Ali
+1771|Logging in with a number is optional; with it your account stays with you on any phone.
+1772|Rank
+1773|{0} players · league code: {1}
+1774|Leave league
+1775|Everyone with at least one prediction
+1776|This week
+1777|Season
+1778|The table didn't load
+1779|No predictions yet
+1780|Exact
+1781|(you)
+1782|Upcoming matches in this league
+1783|{0} predictions
+1784|Weeks start on Saturday. Exact score 3 points, right winner 1 point.
+1785|Leave the league?
+1786|Your points stay; come back with the code any time and you're back in your place.
+1787|Leave
+1788|You and your friends' table
+1789|Compete with your friends
+1790|Make a league, invite friends with a link and top the weekly and season tables
+1791|Log in with your number, if you like
+1792|Start with a name; with your mobile number your account stays with you on any phone
+1793|Everyones league
+1794|Your place among all GoalLive predictors
+1795|Simple tactics
+1796|Pick or make your team, draw passes, dribbles and runs, and play them step by step
+1797|Ballon dOr 2026
+1798|Harry Kane won; see it under Rankings

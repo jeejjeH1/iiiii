@@ -48,6 +48,8 @@ private fun shortcuts(): List<Shortcut> {
         Shortcut("ai", L("دستیار"), L("سؤال فوتبالی بپرس، با نوشتن یا با صدا"), Ic.mic, null, C.home, !Store.tipSeen("assistant")),
         Shortcut("predict", L("پیش‌بینی"), if (Predictions.all.isEmpty()) L("نتیجه بازی‌ها را حدس بزن و امتیاز بگیر") else L("{0} امتیاز · {1}", fa(Predictions.total), predictLevel(Predictions.total).first),
             null, "🔮", C.gold, Predictions.all.isEmpty()),
+        Shortcut("league", L("لیگ پیش‌بینی"), if (app.goallive.live.data.Account.signedIn) L("جدول تو و دوستانت") else L("با دوستانت رقابت کن"), Ic.people, null, C.gold,
+            !app.goallive.live.data.Account.signedIn),
         Shortcut("fantasy", L("فانتزی"), fantasy, null, "⚽", C.win, !fantasy.startsWith(L("مجموع"))),
         Shortcut("rank", L("برترین‌ها"), L("رتبه‌بندی جهان، توپ طلا و کفش طلا"), null, "🏆", C.gold, !Store.tipSeen("rankings")),
         Shortcut("board", L("تخته تاکتیک"), L("ترکیب بچین، فلش بکش و بفرست"), null, "📋", C.home, false),
@@ -61,6 +63,7 @@ private fun go(key: String, nav: Nav, tv: () -> Unit) = when (key) {
     "tv" -> tv()
     "fantasy" -> nav.fantasy()
     "predict" -> nav.predictions()
+    "league" -> nav.predictLeague()
     "rank" -> { Store.markTip("rankings"); nav.rankings() }
     "board" -> nav.board()
     "quiz" -> nav.quiz()

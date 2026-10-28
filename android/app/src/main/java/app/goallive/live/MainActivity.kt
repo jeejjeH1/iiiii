@@ -32,6 +32,10 @@ class MainActivity : ComponentActivity() {
     private fun handle(i: Intent?) {
         val id = i?.getIntExtra("match", 0) ?: 0
         if (id > 0) openMatch.intValue = id
+        // an invite to a prediction league: goallive://join/<code>
+        i?.data?.takeIf { it.scheme == "goallive" && it.host == "join" }?.lastPathSegment?.let { c ->
+            app.goallive.live.data.Account.pendingCode = c.uppercase().filter { it.isLetterOrDigit() }.take(8)
+        }
     }
 
     override fun onStart() {

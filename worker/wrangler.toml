@@ -13,3 +13,16 @@ class_name = "Telemetry"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["Telemetry"]
+
+# the prediction league (src/league.js): accounts, picks and private leagues; the sms.ir key is the SMSIR_KEY secret
+[[durable_objects.bindings]]
+name = "LEAGUE"
+class_name = "League"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["League"]
+
+# final scores for the league tables
+[triggers]
+crons = ["*/10 * * * *"]

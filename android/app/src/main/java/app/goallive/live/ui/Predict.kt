@@ -234,8 +234,20 @@ fun PredictionsScreen() {
                     Tile(fa(Predictions.streak), L("پیاپی"), Modifier.weight(1f))
                 }
             }
+            // the league with friends
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(20.dp))
+                .background(Brush.linearGradient(listOf(C.gold.copy(alpha = 0.22f), LocalAccent.current.copy(alpha = 0.08f))))
+                .border(1.dp, C.gold.copy(alpha = 0.4f), RoundedCornerShape(20.dp)).clickable { nav.predictLeague() }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                androidx.compose.material3.Icon(Ic.people, null, Modifier.size(26.dp), tint = C.gold)
+                Column(Modifier.weight(1f)) {
+                    T(L("لیگ پیش‌بینی با دوستان"), 15, FontWeight.Black)
+                    T(L("لیگ بساز، دوستانت را دعوت کن و صدرنشین شو"), 12, color = C.mute)
+                }
+                androidx.compose.material3.Icon(Ic.chev, null, Modifier.size(16.dp), tint = C.faint)
+            }
             if (Predictions.duelGames > 0) Duel()
-            T(L("نتیجه دقیق ۳ امتیاز و برنده درست (یا مساوی) ۱ امتیاز. پیش‌بینی‌ها روی همین گوشی ذخیره می‌شود."), 12, color = C.mute,
+            T(if (app.goallive.live.data.Account.signedIn) L("نتیجه دقیق ۳ امتیاز و برنده درست (یا مساوی) ۱ امتیاز. پیش‌بینی‌ها در حساب لیگت هم ذخیره می‌شود.") else L("نتیجه دقیق ۳ امتیاز و برنده درست (یا مساوی) ۱ امتیاز. پیش‌بینی‌ها روی همین گوشی ذخیره می‌شود."), 12, color = C.mute,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
         }
         if (all.isEmpty()) item {

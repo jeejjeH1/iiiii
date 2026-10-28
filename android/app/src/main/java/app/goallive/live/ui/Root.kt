@@ -165,6 +165,8 @@ fun Root(openMatch: MutableIntState) {
                         screen("calendar") { CalendarScreen() }
                         screen("assistant") { AssistantScreen() }
                         screen("predictions") { PredictionsScreen() }
+                        screen("pleague") { PredictLeagueScreen() }
+                        screen("pleague/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PredictLeagueTable(it.arguments?.getInt("id") ?: 0) }
                         screen("rankings") { RankingsScreen() }
                         screen("board/{m}/{s}", listOf(navArgument("m") { type = NavType.IntType }, navArgument("s") { type = NavType.StringType })) {
                             BoardScreen(it.arguments?.getInt("m") ?: 0, it.arguments?.getString("s") ?: "h")
@@ -174,6 +176,7 @@ fun Root(openMatch: MutableIntState) {
                     }
                     }
                     // after NavHost has set its graph: open the match a notification pointed at
+                    LaunchedEffect(app.goallive.live.data.Account.pendingCode) { if (app.goallive.live.data.Account.pendingCode != null) nav.predictLeague() }
                     LaunchedEffect(openMatch.intValue) {
                         val id = openMatch.intValue
                         if (id > 0) { nav.match(id); openMatch.intValue = 0 }

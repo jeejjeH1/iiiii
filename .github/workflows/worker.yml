@@ -39,7 +39,20 @@ jobs:
         env:
           DASH_KEY: ${{ secrets.DASH_KEY }}
         run: if [ -n "$DASH_KEY" ]; then printf '%s' "$DASH_KEY" | npx -y wrangler@4 secret put DASH_KEY; else echo "no DASH_KEY secret yet"; fi
+      # the prediction league's SMS (sms.ir): the API key, and the template id and its parameter when they are set
+      - name: SMS keys
+        env:
+          SMSIR_KEY: ${{ secrets.SMSIR_KEY }}
+          SMSIR_TEMPLATE: ${{ secrets.SMSIR_TEMPLATE }}
+          SMSIR_PARAM: ${{ secrets.SMSIR_PARAM }}
+        run: |
+          for k in SMSIR_KEY SMSIR_TEMPLATE SMSIR_PARAM; do
+            v="${!k}"
+            if [ -n "$v" ]; then printf '%s' "$v" | npx -y wrangler@4 secret put "$k"; else echo "no $k secret (the league runs in test mode without SMSIR_KEY)"; fi
+          done
       - name: Check
+        env:
+          DASH: ${{ secrets.DASH_KEY }}
         run: |
           url=$(grep -oE 'https://[a-z0-9.-]+\.workers\.dev' deploy.log | head -1)
           echo "Server: $url"
@@ -51,6 +64,9 @@ jobs:
           curl -s -X POST "$url/t/up" -H 'content-type: application/json' -w " %{http_code} /t/up\n" \
             -d "{\"d\":\"00000000-0000-0000-0000-000000000000\",\"v\":\"ci\",\"sdk\":34,\"m\":\"CI\",\"l\":\"fa\",\"days\":{\"$(date +%F)\":{\"open\":1}}}"
           curl -s "$url/t/dash" -o /dev/null -w "%{http_code} /t/dash (503 until DASH_KEY is set, 403 with it)\n"
+          # the league: an account, and whether sms.ir answers this server (its credit, never a message)
+          curl -s -X POST "$url/p/guest" -H 'content-type: application/json' -d '{"name":"CI"}' -o /dev/null -w "%{http_code} /p/guest\n"
+          if [ -n "$DASH" ]; then curl -s "$url/p/sms?key=$DASH" -w "  /p/sms\n"; fi
           curl -sf "$url/api/fm?e=suggest&term=persepolis" -o /dev/null
           curl -sf "$url/v1/matches?date=today" -o /dev/null
           curl -sf "$url/v1/leagues/47/table" -o /dev/null

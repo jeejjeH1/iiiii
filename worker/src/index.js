@@ -9,7 +9,9 @@ import img from '../../api/img.js';
 import { tts } from './tts.js';
 import { v1, DOCS, HttpError } from './v1.js';
 import { telemetry } from './telemetry.js';
+import { league, settleAll } from './league.js';
 export { Telemetry } from './telemetry.js';
+export { League } from './league.js';
 
 const ROUTES = { fm, today, widget, hl, img };
 
@@ -50,8 +52,14 @@ async function cached(request, ctx, make) {
 }
 
 export default {
+  // every ten minutes: the final scores of picked matches, for the league tables
+  async scheduled(event, env, ctx) { ctx.waitUntil(settleAll(env)); },
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
+    // the prediction league: accounts, picks, leagues and their invite links
+    if (url.pathname.startsWith('/p/') || url.pathname.startsWith('/j/')) {
+      try { return await league(request, env, url); } catch (e) { return Response.json({ error: String(e && e.message || e) }, { status: 500 }); }
+    }
     if (url.pathname.startsWith('/t/')) {
       try { return await telemetry(request, env, url); } catch (e) { return new Response(String(e && e.message || e), { status: 500 }); }
     }

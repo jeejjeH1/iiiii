@@ -16,6 +16,9 @@ class Nav(private val c: NavHostController?) {
     fun calendar() { c?.navigate("calendar") }
     fun assistant() { c?.navigate("assistant") }
     fun predictions() { c?.navigate("predictions") }
+    /** The prediction league: its home, or a league's table (0: every player). */
+    fun predictLeague() { c?.navigate("pleague") }
+    fun predictLeague(id: Int) { c?.navigate("pleague/$id") }
     fun rankings() { c?.navigate("rankings") }
     fun board(match: Int = 0, side: String = "h") { c?.navigate("board/$match/$side") }
     fun back() { c?.popBackStack() }

@@ -49,7 +49,10 @@ object Predictions {
 
     fun get(matchId: Int) = all[matchId]
 
-    fun put(pick: Pick) { all = all + (pick.matchId to pick); save(); Telemetry.event("predict:made") }
+    fun put(pick: Pick) { all = all + (pick.matchId to pick); save(); Telemetry.event("predict:made"); Account.push(pick) }
+
+    /** A prediction made on another phone with the same league account. */
+    fun restore(pick: Pick) { if (all[pick.matchId] == null) { all = all + (pick.matchId to pick); save() } }
 
     /** Records the final score; returns the points the pick earned. */
     fun settle(matchId: Int, home: Int, away: Int): Int? {

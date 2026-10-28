@@ -220,6 +220,17 @@ class Screens {
             runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.4f, durationMillis = 500) } }; settle(1500); shot("26b-predict-forecast")
         }
         NavHook.nav?.predictions(); settle(3000); shot("27-predictions")
+        // the prediction league: the start, logging in with a number, then a guest's leagues and a league's table
+        NavHook.nav?.predictLeague(); settle(3000); shot("27a-league-start")
+        tap("ورود با شماره موبایل", exact = true); settle(1500); shot("27b-league-phone")
+        runCatching { rule.onAllNodesWithContentDescription("بستن")[0].performSemanticsAction(SemanticsActions.OnClick) }; settle(1200)
+        runCatching { kotlinx.coroutines.runBlocking {
+            app.goallive.live.data.Account.startAsGuest("علی")
+            app.goallive.live.data.Account.create("بچه‌های دانشگاه")
+        } }.onFailure { System.err.println("SHOT league failed: $it") }
+        NavHook.nav?.back(); NavHook.nav?.predictLeague(); settle(5000); shot("27c-league-home")
+        tap("بچه‌های دانشگاه", exact = true); settle(5000); shot("27d-league-table")
+        app.goallive.live.data.Account.signOut(); NavHook.nav?.back(); settle(800)
         // the tactics studio: Barcelona against Real Madrid with some of everything drawn on it
         runCatching {
             val b = app.goallive.live.ui.StudioBoard(); b.fresh()
