@@ -83,7 +83,7 @@ internal fun cardsPage(c: Canvas, W: Int, H: Int, main: Int, deep: Int, mark: Bi
 }
 
 /** One player's card: a shield, [cw] wide, its top at [top], centred on [cx]. */
-internal fun futCard(c: Canvas, m: PitchMan, cx: Float, top: Float, cw: Float, main: Int, best: Boolean, face: Bitmap?, crest: Bitmap?, tf: Typeface, shine: Float = -1f) {
+internal fun futCard(c: Canvas, m: PitchMan, cx: Float, top: Float, cw: Float, main: Int, best: Boolean, face: Bitmap?, crest: Bitmap?, tf: Typeface, shine: Float = -1f, rateP: Float = 1f) {
     val ch = cw * 1.38f
     val l = cx - cw / 2; val r = cx + cw / 2; val b = top + ch
     val shield = Path().apply {
@@ -120,12 +120,22 @@ internal fun futCard(c: Canvas, m: PitchMan, cx: Float, top: Float, cw: Float, m
         c.restoreToCount(n)
     }
     c.restore()
-    // the rating column at the reading start: the rating, the shirt number, the crest
-    val colX = if (Lang.en) l + cw * 0.2f else r - cw * 0.2f
+    // the rating column at the reading start: the rating on a badge in its colour (counting up as the card lands), the shirt number, the crest
+    val colX = if (Lang.en) l + cw * 0.22f else r - cw * 0.22f
     val ink = if (best) GOLD_ else W_
-    val rt = m.rating?.let { fa(dec(it, 1)) } ?: fa(m.number)
-    textAt(c, rt, colX, top + ch * 0.16f, cw * (if (rt.length > 3) 0.16f else 0.19f), ink, tf, true)
-    if (m.rating != null && m.number.isNotEmpty()) textAt(c, "#" + fa(m.number), colX, top + ch * 0.27f, cw * 0.085f, al(ink, 0.85f), tf, false)
+    val rating = m.rating
+    if (rating != null) {
+        val bw = cw * 0.38f; val bh = cw * 0.26f; val by = top + ch * 0.155f
+        val br = RectF(colX - bw / 2, by - bh / 2, colX + bw / 2, by + bh / 2)
+        val rc = ratingColor(rating) or 0xFF000000.toInt()
+        p.shader = LinearGradient(0f, br.top, 0f, br.bottom, ColorUtils.blendARGB(rc, W_, 0.25f), ColorUtils.blendARGB(rc, 0xFF000000.toInt(), 0.2f), Shader.TileMode.CLAMP)
+        p.setShadowLayer(cw * 0.05f, 0f, cw * 0.02f, 0x99000000.toInt()); c.drawRoundRect(br, bh * 0.3f, bh * 0.3f, p); p.clearShadowLayer(); p.shader = null
+        p.style = Paint.Style.STROKE; p.strokeWidth = cw * 0.014f; p.color = if (best) GOLD_ else 0xCCFFFFFF.toInt()
+        c.drawRoundRect(br, bh * 0.3f, bh * 0.3f, p); p.style = Paint.Style.FILL
+        val shown = rating * rateP.coerceIn(0f, 1f)
+        rateText(c, shown, colX, by, cw * (if (rating >= 9.95) 0.165f else 0.2f), W_, tf)
+        if (m.number.isNotEmpty()) textAt(c, "#" + fa(m.number), colX, top + ch * 0.275f, cw * 0.085f, al(ink, 0.85f), tf, false)
+    } else textAt(c, fa(m.number), colX, top + ch * 0.16f, cw * 0.19f, ink, tf, true)
     p.color = al(ink, 0.6f); c.drawRect(colX - cw * 0.08f, top + ch * 0.31f, colX + cw * 0.08f, top + ch * 0.31f + 2.5f, p)
     crest?.let { cb -> val s = cw * 0.17f; c.drawBitmap(cb, null, RectF(colX - s / 2, top + ch * 0.34f, colX + s / 2, top + ch * 0.34f + s), Paint(Paint.FILTER_BITMAP_FLAG)) }
     if (m.captain) {
@@ -186,6 +196,25 @@ internal fun burst(c: Canvas, cx: Float, cy: Float, R: Float, deg: Float, col: I
     p.shader = RadialGradient(cx, cy, R * 0.6f, intArrayOf(al(col, 0.45f * a), 0), null, Shader.TileMode.CLAMP); c.drawCircle(cx, cy, R * 0.6f, p)
 }
 
+/**
+ * A rating as a scoreboard writes it: the whole number large and the tenth smaller beside it on one baseline (so «۷٫۶» never
+ * reads as a fraction), centred on ([cx], [cy]). Returns its width; measures only when [c] is null.
+ */
+internal fun rateText(c: Canvas?, r: Double, cx: Float, cy: Float, size: Float, color: Int, tf: Typeface, shadow: Boolean = true): Float {
+    val tenths = Math.round(r * 10).toInt().coerceAtLeast(0)
+    val whole = fa(tenths / 10); val frac = (if (Lang.en) "." else "٫") + fa(tenths % 10)
+    val big = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf; this.color = color; if (shadow) setShadowLayer(size * 0.12f, 0f, size * 0.05f, 0x80000000.toInt()) }
+    val small = Paint(big).apply { textSize = size * 0.6f }
+    val wb = big.measureText(whole); val ws = small.measureText(frac)
+    if (c != null) {
+        val fm = big.fontMetrics; val base = cy - (fm.ascent + fm.descent) / 2
+        val left = cx - (wb + ws) / 2
+        c.drawText(whole, left, base, big)
+        c.drawText(frac, left + wb, base, small)
+    }
+    return wb + ws
+}
+
 private fun textAt(c: Canvas, s: String, cx: Float, cy: Float, size: Float, color: Int, tf: Typeface, shadow: Boolean) {
     val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf; this.color = color; textAlign = Paint.Align.CENTER; if (shadow) setShadowLayer(size * 0.15f, 0f, size * 0.06f, 0x99000000.toInt()) }
     val fm = tp.fontMetrics
@@ -244,7 +273,8 @@ internal fun placeCards(c: Canvas, men: List<PitchMan>, box: RectF, main: Int, f
         var shine = if (clk.still) -1f else clk.at(at + 0.42f, 0.55f).let { if (it in 0.001f..0.999f) it else -1f }
         if (star && !clk.still) { val tt = clk.t - (start + all * 0.09f + 0.9f); if (tt > 0f && tt % 1.9f < 0.7f) shine = (tt % 1.9f) / 0.7f }
         c.flipIn(clk.at(at, 0.5f), s.cx, s.top + ch / 2) {
-            futCard(c, s.m, s.cx, s.top, cw, s.m.color?.toArgb() ?: main, star, faces[s.m.id], s.m.crest?.let { crests[it] } ?: teamCrest, tf, shine)
+            futCard(c, s.m, s.cx, s.top, cw, s.m.color?.toArgb() ?: main, star, faces[s.m.id], s.m.crest?.let { crests[it] } ?: teamCrest, tf, shine,
+                if (clk.still) 1f else easeOut(clk.at(at + 0.3f, 0.8f)))
         }
     }
 }

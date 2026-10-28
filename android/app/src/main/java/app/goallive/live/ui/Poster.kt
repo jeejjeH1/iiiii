@@ -275,10 +275,13 @@ private fun arrow(c: Canvas, x: Float, y: Float, s: Float, up: Boolean, col: Int
 
 /** A rating in its colour, its right edge at [right]. */
 private fun rateChip(c: Canvas, r: Double, right: Float, top: Float, size: Float, tf: Typeface) {
-    val s = fa(dec(r, 1)); val w = width(s, size, tf) + size * 0.8f; val h = size * 1.45f
+    val w = rateText(null, r, 0f, 0f, size * 1.12f, WHITE, tf, false) + size * 0.8f; val h = size * 1.45f
     val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = ratingColor(r); setShadowLayer(10f, 0f, 5f, 0x59000000) }
-    c.drawRoundRect(RectF(right - w, top, right, top + h), size * 0.5f, size * 0.5f, p)
-    line(c, s, right - w / 2, top + h / 2, size, WHITE, tf, w)
+    val rr = RectF(right - w, top, right, top + h)
+    c.drawRoundRect(rr, size * 0.5f, size * 0.5f, p); p.clearShadowLayer()
+    // a white edge so it reads on any photo or colour
+    p.style = Paint.Style.STROKE; p.strokeWidth = maxOf(2f, size * 0.09f); p.color = 0xE6FFFFFF.toInt(); c.drawRoundRect(rr, size * 0.5f, size * 0.5f, p)
+    rateText(c, r, right - w / 2, top + h / 2, size * 1.12f, WHITE, tf, false)
 }
 
 /** A round photo of [d] at ([cx], top [top]) on the design's disc, ringed; the best player's ring is gold and glows. */
@@ -305,7 +308,7 @@ private fun man(c: Canvas, m: PitchMan, cx: Float, top: Float, d: Float, lk: Pos
     photo(c, face, cx, top, d, lk, best)
     // the badge shows the number; the team of the week has none, so its rating goes there instead
     val badge = m.number.ifEmpty { m.rating?.let { dec(it, 1) } ?: "" }
-    if (m.number.isNotEmpty()) m.rating?.let { rateChip(c, it, cx + d / 2 + d * 0.13f * 0.3f, top - d * 0.13f * 0.2f, Math.round(d * 0.13f).toFloat(), tf) }
+    if (m.number.isNotEmpty()) m.rating?.let { rateChip(c, it, cx + d / 2 + d * 0.16f * 0.3f, top - d * 0.16f * 0.25f, Math.round(d * 0.16f).toFloat(), tf) }
     // goals and assists down the left of the photo
     val bs = Math.round(d * 0.17f).toFloat()
     var ey = top - bs * 0.1f
