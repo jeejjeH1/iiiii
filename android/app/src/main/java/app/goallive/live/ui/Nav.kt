@@ -12,6 +12,8 @@ class Nav(private val c: NavHostController?) {
     fun search() { c?.navigate("search") }
     fun compare(a: Int, b: Int = 0) { if (a > 0) c?.navigate("compare/$a/$b") }
     fun fantasy() { c?.navigate("fantasy") }
+    /** A fantasy league's table (0: everyone playing competition [comp]). */
+    fun fantasyLeague(id: Int, comp: Int) { c?.navigate("fleague/$id/$comp") }
     fun quiz() { c?.navigate("quiz") }
     fun calendar() { c?.navigate("calendar") }
     fun assistant() { c?.navigate("assistant") }

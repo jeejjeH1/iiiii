@@ -166,6 +166,9 @@ fun Root(openMatch: MutableIntState) {
                         screen("assistant") { AssistantScreen() }
                         screen("predictions") { PredictionsScreen() }
                         screen("pleague") { PredictLeagueScreen() }
+                        screen("fleague/{id}/{comp}", listOf(navArgument("id") { type = NavType.IntType }, navArgument("comp") { type = NavType.IntType })) {
+                            FantasyLeagueTable(it.arguments?.getInt("id") ?: 0, it.arguments?.getInt("comp") ?: 0)
+                        }
                         screen("pleague/{id}", listOf(navArgument("id") { type = NavType.IntType })) { PredictLeagueTable(it.arguments?.getInt("id") ?: 0) }
                         screen("rankings") { RankingsScreen() }
                         screen("board/{m}/{s}", listOf(navArgument("m") { type = NavType.IntType }, navArgument("s") { type = NavType.StringType })) {
@@ -176,7 +179,11 @@ fun Root(openMatch: MutableIntState) {
                     }
                     }
                     // after NavHost has set its graph: open the match a notification pointed at
-                    LaunchedEffect(app.goallive.live.data.Account.pendingCode) { if (app.goallive.live.data.Account.pendingCode != null) nav.predictLeague() }
+                    LaunchedEffect(app.goallive.live.data.Account.pendingCode) {
+                        // an invite link: a fantasy league's code starts with F
+                        val c = app.goallive.live.data.Account.pendingCode
+                        if (c != null) { if (c.startsWith("F")) nav.fantasy() else nav.predictLeague() }
+                    }
                     LaunchedEffect(openMatch.intValue) {
                         val id = openMatch.intValue
                         if (id > 0) { nav.match(id); openMatch.intValue = 0 }

@@ -167,6 +167,29 @@ object Account {
     suspend fun leave(id: Int) { call("/leave", JSONObject().put("id", id)) }
     suspend fun table(id: Int, week: Boolean): JSONObject = call("/league?id=$id&span=" + if (week) "week" else "all")
 
+    /* fantasy */
+
+    /** This gameweek's squad, sent while it can still change (the server takes it only before [first] kicks off). */
+    fun fantasyTeam(comp: Int, round: String, first: Int, team: List<Int>, bench: List<Int>, captain: Int) {
+        if (!signedIn || team.isEmpty() || first <= 0) return
+        scope.launch {
+            runCatching { call("/fteam", JSONObject().put("comp", comp).put("round", round).put("first", first).put("team", JSONArray(team)).put("bench", JSONArray(bench)).put("captain", captain)) }
+        }
+    }
+
+    /** A finished gameweek's points, for the fantasy tables. */
+    fun fantasyPoints(comp: Int, round: String, pts: Int) {
+        if (!signedIn) return
+        scope.launch { runCatching { call("/fpoints", JSONObject().put("comp", comp).put("round", round).put("pts", pts)) } }
+    }
+
+    suspend fun fantasyLeagues(comp: Int): JSONObject = call("/fleagues?comp=$comp")
+    suspend fun fantasyCreate(name: String, comp: Int): JSONObject = call("/fleagues", JSONObject().put("name", name).put("comp", comp)).getJSONObject("league")
+    suspend fun fantasyJoin(code: String): JSONObject = call("/fjoin", JSONObject().put("code", code)).getJSONObject("league")
+    suspend fun fantasyLeave(id: Int) { call("/fleave", JSONObject().put("id", id)) }
+    suspend fun fantasyTable(id: Int, comp: Int, round: String?): JSONObject =
+        call("/fleague?id=$id&comp=$comp" + (round?.let { "&round=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""))
+
     /** The invite link for a league: it opens the app on the league, or the app's page on Cafe Bazaar. */
     fun inviteLink(code: String) = Api.SITE + "/j/" + code
 }

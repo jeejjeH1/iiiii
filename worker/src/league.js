@@ -389,7 +389,9 @@ export class League extends DurableObject {
   fantasyPoints(b, me) {
     const comp = +b.comp, round = String(b.round || '').slice(0, 40), pts = Math.round(+b.pts);
     if (!(comp > 0) || !round || !Number.isFinite(pts) || pts < -60 || pts > 400) throw new Http(400, 'points');
-    const t = this.one('SELECT kickoff FROM fteams WHERE user = ? AND comp = ? AND round = ?', me, comp, round);
+    // a team not changed this week carries over from an earlier one (the app keeps it for the next round as it was)
+    const t = this.one('SELECT kickoff FROM fteams WHERE user = ? AND comp = ? AND round = ?', me, comp, round)
+      || this.one('SELECT 0 AS kickoff FROM fteams WHERE user = ? AND comp = ? AND kickoff < ? LIMIT 1', me, comp, Date.now());
     if (!t) throw new Http(404, 'team');
     if (Date.now() < t.kickoff) throw new Http(409, 'early');
     this.sql.exec('INSERT INTO fpoints (user, comp, round, pts, at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user, comp, round) DO UPDATE SET pts = excluded.pts, at = excluded.at',

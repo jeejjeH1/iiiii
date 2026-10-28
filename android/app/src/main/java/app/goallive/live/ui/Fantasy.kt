@@ -46,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
@@ -80,15 +81,24 @@ import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /*
- * فوتبال فانتزی: eleven real players within a 100M budget (at most 3 per club, 1 GK, 3–5 DEF, 2–5 MID, 1–3 FWD)
- * and a captain. Each gameweek the team is locked at the first kick-off and scores from the real match data.
+ * فوتبال فانتزی: a squad of fifteen real players within a 140M budget (2 GK, 5 DEF, 5 MID, 3 FWD, at most 3 per club):
+ * eleven on the pitch (1 GK, 3–5 DEF, 2–5 MID, 1–3 FWD) and four on the bench, in order, and a captain. Each gameweek the
+ * team is locked at the first kick-off and scores from the real match data; a starter who doesn't play is replaced by the
+ * first bench player who did and keeps the shape legal. Signed in, the squad and the points go to the server for the
+ * fantasy leagues.
  */
 
 private val F_LEAGUES = listOf(47 to L("لیگ برتر انگلیس"), 523 to L("لیگ برتر خلیج فارس"), 87 to L("لالیگا"), 55 to L("سری آ"), 54 to L("بوندس‌لیگا"))
 private val POS = listOf(L("دروازه‌بان"), L("مدافع"), L("هافبک"), L("مهاجم"))
 private val POS_SHORT = listOf("GK", "DEF", "MID", "FWD")
 private val POS_RANGE = listOf(1..1, 3..5, 2..5, 1..3)
-private const val BUDGET = 120.0
+/** How many of each line the squad holds. */
+private val SQUAD = listOf(2, 5, 5, 3)
+private const val SQUAD_SIZE = 15
+private const val BUDGET = 140.0
+
+/** Whether eleven players make a legal shape. */
+private fun legalXi(xi: List<FPlayer>) = xi.size == 11 && (0..3).all { pos -> xi.count { it.pos == pos } in POS_RANGE[pos] }
 
 class FPlayer(val id: Int, val name: String, val teamId: Int, val pos: Int, val price: Double, val rating: Double?, val goals: Int, val assists: Int, val injured: Boolean)
 
@@ -156,20 +166,66 @@ private class FState(val o: JSONObject) {
     val league get() = o.optInt("league")
     val team: MutableList<Int> get() = o.optJSONArray("team").let { a -> MutableList(a?.length() ?: 0) { a!!.getInt(it) } }
     val captain get() = o.optInt("captain")
-    fun frozen(round: String): Pair<List<Int>, Int>? = o.optJSONObject("rounds")?.optJSONObject(round)?.let { r ->
-        r.getJSONArray("team").let { a -> List(a.length()) { a.getInt(it) } } to r.optInt("captain")
+    /** The four on the bench, in the order they come on. */
+    val bench: MutableList<Int> get() = o.optJSONArray("bench").let { a -> MutableList(a?.length() ?: 0) { a!!.getInt(it) } }.filter { it in team }.toMutableList()
+    fun frozen(round: String): Frozen? = o.optJSONObject("rounds")?.optJSONObject(round)?.let { r ->
+        val b = r.optJSONArray("bench")
+        Frozen(r.getJSONArray("team").let { a -> List(a.length()) { a.getInt(it) } }, r.optInt("captain"), List(b?.length() ?: 0) { b!!.getInt(it) })
     }
     companion object {
         fun load() = FState(runCatching { JSONObject(Store.prefs().getString("fantasy", "{}")!!) }.getOrDefault(JSONObject()))
     }
     fun save() { Store.prefs().edit().putString("fantasy", o.toString()).apply() }
-    fun setTeam(t: List<Int>, c: Int) { o.put("team", JSONArray(t)).put("captain", c); save() }
+    fun setTeam(t: List<Int>, c: Int, b: List<Int> = bench) { o.put("team", JSONArray(t)).put("captain", c).put("bench", JSONArray(b.filter { it in t })); save() }
     fun freeze(round: String) {
         val r = o.optJSONObject("rounds") ?: JSONObject().also { o.put("rounds", it) }
-        if (!r.has(round)) { r.put(round, JSONObject().put("team", JSONArray(team)).put("captain", captain)); save() }
+        if (!r.has(round)) { r.put(round, JSONObject().put("team", JSONArray(team)).put("captain", captain).put("bench", JSONArray(bench))); save() }
     }
     fun recordPoints(round: String, pts: Int) { val p = o.optJSONObject("points") ?: JSONObject().also { o.put("points", it) }; p.put(round, pts); save() }
     fun points(): Map<String, Int> = o.optJSONObject("points")?.let { p -> p.keys().asSequence().associateWith { p.optInt(it) } } ?: emptyMap()
+}
+
+class Frozen(val team: List<Int>, val captain: Int, val bench: List<Int>)
+
+/** A new player: onto the pitch while the eleven can still take his line (and still reach every line's minimum), else to the bench. */
+private fun addTo(st: FState, p: FPlayer, lg: FLeague) {
+    val team = st.team.apply { add(p.id) }
+    val bench = st.bench
+    val xi = team.filter { it != p.id && it !in bench }.mapNotNull { lg.players[it] }
+    val after = xi + p
+    val count = (0..3).map { pos -> after.count { it.pos == pos } }
+    val missing = (0..3).sumOf { pos -> (POS_RANGE[pos].first - count[pos]).coerceAtLeast(0) }
+    val fits = xi.size < 11 && count[p.pos] <= POS_RANGE[p.pos].last && 11 - after.size >= missing
+    if (!fits) { if (p.pos == 0) bench.add(0, p.id) else bench.add(p.id) }
+    st.setTeam(team, if (st.captain == 0 && fits) p.id else st.captain, bench)
+}
+
+/** The gameweek's score with automatic substitutions: who counted, who came on, who went off. */
+private class Week(val total: Int, val counted: Set<Int>, val cameOn: Set<Int>, val wentOff: Set<Int>)
+
+private fun weekScore(squad: List<FPlayer>, bench: List<Int>, captain: Int, pts: Map<Int, Pair<Int, List<String>>>, done: (FPlayer) -> Boolean): Week {
+    val played = { p: FPlayer -> pts[p.id]?.second?.isNotEmpty() == true }
+    var xi = squad.filter { it.id !in bench }
+    val benchP = bench.mapNotNull { id -> squad.firstOrNull { it.id == id } }.toMutableList()
+    val on = HashSet<Int>(); val off = HashSet<Int>()
+    for (s in xi.toList()) {
+        if (played(s) || !done(s)) continue
+        // the first on the bench who played and keeps the shape legal (a keeper only for the keeper)
+        val sub = benchP.firstOrNull { b -> b.id !in on && played(b) && (b.pos == 0) == (s.pos == 0) && legalXi(xi - s + b) } ?: continue
+        xi = xi - s + sub; on += sub.id; off += s.id
+    }
+    val total = xi.sumOf { p -> (pts[p.id]?.first ?: 0) * if (p.id == captain) 2 else 1 }
+    return Week(total, xi.map { it.id }.toSet(), on, off)
+}
+
+/** A finished round's points kept on the phone, and sent for the fantasy leagues when they are new or changed. */
+private fun record(st: FState, comp: Int, round: String, pts: Int) {
+    if (st.points()[round] == pts && st.o.optJSONObject("sent")?.optInt(round, Int.MIN_VALUE) == pts) return
+    st.recordPoints(round, pts)
+    if (app.goallive.live.data.Account.signedIn) {
+        app.goallive.live.data.Account.fantasyPoints(comp, round, pts)
+        (st.o.optJSONObject("sent") ?: JSONObject().also { st.o.put("sent", it) }).put(round, pts); st.save()
+    }
 }
 
 /** Points of one player in one match, with the reasons (FPL-style rules). */
@@ -229,7 +285,7 @@ private fun LeaguePick(onPick: (Int) -> Unit) {
                 Box(Modifier.size(64.dp).glow(accent.copy(alpha = 0.4f), 10.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(accent),
                     contentAlignment = Alignment.Center) { androidx.compose.material3.Icon(Ic.shirt, null, Modifier.size(34.dp), tint = LocalAccentInk.current) }
                 T(L("فوتبال فانتزی"), 22, FontWeight.Black)
-                T(L("با ۱۲۰ میلیون بودجه ۱۱ بازیکن واقعی بخر، کاپیتان انتخاب کن و از روی عملکرد واقعی‌شان در هر هفته امتیاز بگیر."), 13, color = C.mute, align = TextAlign.Center)
+                T(L("با ۱۴۰ میلیون بودجه ۱۵ بازیکن واقعی بخر: ۱۱ نفر در زمین و ۴ نفر روی نیمکت. کاپیتان انتخاب کن و از روی عملکرد واقعی‌شان در هر هفته امتیاز بگیر."), 13, color = C.mute, align = TextAlign.Center)
             }
         }
         item { SectionTitle(L("لیگ خودت را انتخاب کن")) }
@@ -245,7 +301,7 @@ private fun LeaguePick(onPick: (Int) -> Unit) {
         item {
             Card(Modifier.padding(top = 12.dp)) {
                 CardTitle(L("قانون امتیازها"))
-                T(L("بازی کمتر از ۶۰ دقیقه ۱ و بیشتر ۲ امتیاز · گل: دروازه‌بان و مدافع ۶، هافبک ۵، مهاجم ۴ · پاس گل ۳ · کلین‌شیت: دروازه‌بان و مدافع ۴، هافبک ۱ · هر ۲ گل خورده (دروازه‌بان و مدافع) ۱- · کارت زرد ۱- · قرمز ۳- · گل به خودی ۲- · پاداش نمره: ۷+ یک، ۷٫۵+ دو، ۸٫۵+ سه · امتیاز کاپیتان دو برابر"),
+                T(L("بازی کمتر از ۶۰ دقیقه ۱ و بیشتر ۲ امتیاز · گل: دروازه‌بان و مدافع ۶، هافبک ۵، مهاجم ۴ · پاس گل ۳ · کلین‌شیت: دروازه‌بان و مدافع ۴، هافبک ۱ · هر ۲ گل خورده (دروازه‌بان و مدافع) ۱- · کارت زرد ۱- · قرمز ۳- · گل به خودی ۲- · پاداش نمره: ۷+ یک، ۷٫۵+ دو، ۸٫۵+ سه · امتیاز کاپیتان دو برابر · اگر بازیکن زمین بازی نکند، اولین بازیکن نیمکت که بازی کرده جایش حساب می‌شود"),
                     13, color = C.ink.copy(alpha = 0.85f), modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp))
             }
         }
@@ -261,12 +317,23 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
     val locked = System.currentTimeMillis() >= deadline
     if (locked) st.freeze(roundName)
     val frozen = st.frozen(roundName)
-    val team = if (locked && frozen != null) frozen.first else st.team
-    val captain = if (locked && frozen != null) frozen.second else st.captain
+    val team = if (locked && frozen != null) frozen.team else st.team
+    val captain = if (locked && frozen != null) frozen.captain else st.captain
+    val bench = if (locked && frozen != null) frozen.bench else st.bench
     val picks = team.mapNotNull { lg.players[it] }
+    val xiPicks = picks.filter { it.id !in bench }
+    val benchPicks = bench.mapNotNull { lg.players[it] }
     val spent = picks.sumOf { it.price }
     var pickPos by remember { mutableStateOf<Int?>(null) }
     var open by remember { mutableStateOf<FPlayer?>(null) }
+    // a player picked to change places with one on the other side of the bench line
+    var swapFrom by remember { mutableStateOf<FPlayer?>(null) }
+    var swapError by remember { mutableStateOf<String?>(null) }
+    // signed in: the squad goes to the server whenever it changes before the deadline (the fantasy leagues read it there)
+    val first = roundMatches.minByOrNull { it.time }?.id ?: 0
+    LaunchedEffect(lg.id, roundName, team.joinToString(","), bench.joinToString(","), captain, app.goallive.live.data.Account.signedIn) {
+        if (!locked && team.isNotEmpty()) app.goallive.live.data.Account.fantasyTeam(lg.id, roundName, first, team, bench, captain)
+    }
 
     // live points for this gameweek
     val clubs = picks.map { it.teamId }.toSet()
@@ -282,21 +349,28 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
         }
     }
     val livePts = pts.value
-    val roundTotal = livePts?.entries?.sumOf { (id, v) -> if (id == captain) v.first * 2 else v.first } ?: 0
-    if (locked && livePts != null && relevant.isNotEmpty() && relevant.all { it.finished }) st.recordPoints(roundName, roundTotal)
+    // a player's matches this round are over (or he had none): only then can the bench take his place
+    val doneFor = { p: FPlayer -> roundMatches.filter { it.home.id == p.teamId || it.away.id == p.teamId }.all { it.finished || it.cancelled } }
+    val week = livePts?.let { weekScore(picks, bench, captain, it, doneFor) }
+    val roundTotal = week?.total ?: 0
+    if (locked && livePts != null && relevant.isNotEmpty() && relevant.all { it.finished }) record(st, lg.id, roundName, roundTotal)
     // rounds that ended while the app wasn't open get their points now
     LaunchedEffect(lg.id, roundName) {
         for ((r, ms) in lg.rounds.take(lg.current)) {
             if (r in st.points()) continue
-            val (t, cap) = st.frozen(r) ?: continue
-            val ps = t.mapNotNull { lg.players[it] }
+            val fr = st.frozen(r) ?: continue
+            val ps = fr.team.mapNotNull { lg.players[it] }
             val clubs2 = ps.map { it.teamId }.toSet()
             val played = ms.filter { (it.home.id in clubs2 || it.away.id in clubs2) && it.finished }
-            if (played.isEmpty()) { st.recordPoints(r, 0); continue }
+            if (played.isEmpty()) { record(st, lg.id, r, 0); continue }
             val det = coroutineScope { played.map { m -> async { runCatching { Api.fm("matchDetails", mapOf("matchId" to m.id), 6 * 3_600_000) }.getOrNull() } }.awaitAll().filterNotNull() }
             if (det.size < played.size) continue
-            val total = ps.sumOf { p -> det.filter { d -> d.path("header").a("teams").objs().any { it.i("id") == p.teamId } }.sumOf { score(p, it).first } * if (p.id == cap) 2 else 1 }
-            st.recordPoints(r, total); changed()
+            val each = ps.associate { p ->
+                var total = 0; val why = ArrayList<String>()
+                det.filter { d -> d.path("header").a("teams").objs().any { it.i("id") == p.teamId } }.forEach { d -> val (x, w) = score(p, d); total += x; why += w }
+                p.id to (total to why)
+            }
+            record(st, lg.id, r, weekScore(ps, fr.bench, fr.captain, each) { true }.total); changed()
         }
     }
     val history = st.points()
@@ -325,45 +399,71 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                     else L("تیم این هفته قفل شد") + if (relevant.any { it.live }) L(" · بازی‌ها در جریان است و امتیازها زنده حساب می‌شود") else "", 12, FontWeight.Bold, C.ink.copy(alpha = 0.9f))
             }
         }
-        item { FPitch(picks, captain, locked, livePts?.mapValues { it.value.first }, lg, big = picks.size == 11) { open = it } }
+        item { FantasyLeaguesCard(lg) }
+        swapFrom?.let { f -> item {
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(C.gold.copy(alpha = 0.16f)).border(1.dp, C.gold.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                .padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                T(swapError ?: L("جابه‌جایی {0}: بازیکنی از {1} را انتخاب کن", personName(f.name.substringAfterLast(' ')), if (f.id in bench) L("زمین") else L("نیمکت")),
+                    13, FontWeight.Bold, if (swapError != null) C.loss else C.ink, Modifier.weight(1f))
+                T(L("لغو"), 13, FontWeight.Bold, C.mute, Modifier.clip(RoundedCornerShape(8.dp)).clickable { swapFrom = null; swapError = null }.padding(6.dp))
+            }
+        } }
+        // a tap while changing places finishes the swap; otherwise it opens the player
+        val tapPlayer = { p: FPlayer ->
+            val f = swapFrom
+            if (f == null || f.id == p.id) { swapFrom = null; open = p }
+            else if ((f.id in bench) == (p.id in bench)) swapError = L("یکی از زمین و یکی از نیمکت")
+            else {
+                val out = if (f.id in bench) p else f; val inn = if (f.id in bench) f else p
+                val newXi = xiPicks - out + inn
+                if (xiPicks.size == 11 && !legalXi(newXi)) swapError = L("این جابه‌جایی ترکیب مجاز نمی‌سازد")
+                else {
+                    val b = bench.toMutableList().apply { set(indexOf(inn.id), out.id) }
+                    st.setTeam(st.team, if (captain == out.id) inn.id else st.captain, b); swapFrom = null; swapError = null; changed()
+                }
+            }
+        }
+        item { FPitch(xiPicks, captain, locked, livePts?.mapValues { it.value.first }, lg, big = xiPicks.size == 11, faded = week?.let { picks.map { it.id }.toSet() - it.counted } ?: emptySet(),
+            marked = setOfNotNull(swapFrom?.id)) { tapPlayer(it) } }
+        if (benchPicks.isNotEmpty() || picks.size >= 11) item { BenchRow(benchPicks, locked, livePts?.mapValues { it.value.first }, week?.cameOn ?: emptySet(), setOfNotNull(swapFrom?.id)) { tapPlayer(it) } }
         if (!locked && picks.isEmpty()) item {
             // one tap to a sensible team within budget, to edit from there
             Pill(L("✨ چیدن خودکار تیم"), PillKind.Accent, onClick = {
-                val auto = autoTeam(lg)
-                if (auto.isNotEmpty()) { st.setTeam(auto.map { it.id }, auto.maxByOrNull { it.rating ?: 0.0 }?.id ?: auto.first().id); changed() }
+                val (auto, b) = autoTeam(lg)
+                if (auto.isNotEmpty()) { st.setTeam(auto.map { it.id }, auto.filter { it.id !in b }.maxByOrNull { it.rating ?: 0.0 }?.id ?: auto.first().id, b); changed() }
             })
         }
-        if (picks.size == 11) item { TeamFacts(picks, lg) }
+        if (picks.size >= 11) item { TeamFacts(picks, lg) }
         if (picks.isNotEmpty()) item { Fixtures(picks, lg) }
         if (!locked) item {
             val counts = (0..3).map { pos -> picks.count { it.pos == pos } }
             val perClub = picks.groupingBy { it.teamId }.eachCount()
             var editOpen by remember { mutableStateOf(false) }
             Card {
-                CardTitle(L("چیدن تیم"), sub = L("{0}/۱۱ بازیکن", picks.size)) {
-                    if (picks.size == 11) Pill(if (editOpen) L("بستن") else L("تغییر تیم"), onClick = { editOpen = !editOpen })
+                CardTitle(L("چیدن تیم"), sub = L("{0}/۱۵ بازیکن", fa(picks.size))) {
+                    if (picks.size == SQUAD_SIZE) Pill(if (editOpen) L("بستن") else L("تغییر تیم"), onClick = { editOpen = !editOpen })
                 }
                 val problems = buildList {
                     if (spent > BUDGET) add(L("از بودجه بیشتر خرج کرده‌ای"))
                     perClub.filter { it.value > 3 }.keys.forEach { add(L("بیشتر از ۳ بازیکن از {0}", teamName(it, lg.teamNames[it] ?: ""))) }
-                    if (picks.size == 11 && (0..3).any { counts[it] !in POS_RANGE[it] }) add(L("ترکیب پست‌ها مجاز نیست"))
-                    if (picks.size == 11 && captain !in team) add(L("کاپیتان انتخاب نشده؛ روی یک بازیکن بزن"))
+                    if (picks.size == SQUAD_SIZE && !legalXi(xiPicks)) add(L("ترکیب ۱۱ نفر زمین مجاز نیست؛ با نیمکت جابه‌جا کن"))
+                    if (picks.size == SQUAD_SIZE && (captain !in team || captain in bench)) add(L("کاپیتان باید در زمین باشد؛ روی یک بازیکن زمین بزن"))
                 }
-                if (picks.size < 11 || editOpen) {
+                if (picks.size < SQUAD_SIZE || editOpen) {
                 Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (0..3).forEach { pos ->
-                        val ok = counts[pos] in POS_RANGE[pos]
-                        val full = counts[pos] >= POS_RANGE[pos].last || picks.size >= 11
+                        val ok = counts[pos] == SQUAD[pos]
+                        val full = counts[pos] >= SQUAD[pos] || picks.size >= SQUAD_SIZE
                         Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (ok) C.win.copy(alpha = 0.12f) else C.card2)
                             .clickable(enabled = !full) { pickPos = pos }.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             T(POS[pos], 11, FontWeight.Bold, C.mute)
                             T("${counts[pos]}", 18, FontWeight.Black, if (ok) C.win else C.ink)
-                            T("${POS_RANGE[pos].first}–${POS_RANGE[pos].last}", 10, color = C.faint)
+                            T(L("از {0}", fa(SQUAD[pos])), 10, color = C.faint)
                             if (!full) T(L("+ افزودن"), 11, FontWeight.ExtraBold, accent)
                         }
                     }
                 }
-                if (picks.size == 11 && problems.isEmpty()) T(L("✓ تیمت آماده است و تا مهلت هر تغییری بدهی ذخیره می‌شود."), 12, FontWeight.Bold, C.win, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
+                if (picks.size == SQUAD_SIZE && problems.isEmpty()) T(L("✓ تیمت آماده است و تا مهلت هر تغییری بدهی ذخیره می‌شود."), 12, FontWeight.Bold, C.win, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
                 problems.forEach { T("• $it", 12, FontWeight.Bold, C.loss, Modifier.padding(start = 16.dp, end = 16.dp, bottom = 6.dp)) }
                 } else if (problems.isEmpty()) T(L("✓ تیمت کامل است؛ روی هر بازیکن بزن تا کاپیتانش کنی یا بفروشی‌اش."), 12, FontWeight.Bold, C.win,
                     Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp))
@@ -373,12 +473,19 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
         if (locked && livePts != null) item {
             Card {
                 CardTitle(L("امتیاز بازیکن‌ها در این هفته"))
-                picks.sortedByDescending { livePts[it.id]?.first ?: 0 }.forEachIndexed { i, p ->
-                    val v = (livePts[p.id]?.first ?: 0) * if (p.id == captain) 2 else 1
+                val counted = week?.counted ?: xiPicks.map { it.id }.toSet()
+                picks.sortedWith(compareByDescending<FPlayer> { it.id in counted }.thenByDescending { livePts[it.id]?.first ?: 0 }).forEachIndexed { i, p ->
+                    val on = p.id in counted
+                    val v = (livePts[p.id]?.first ?: 0) * if (p.id == captain && on) 2 else 1
                     ListRow(first = i == 0, onClick = { open = p }) {
                         Face(p.id, 34.dp)
-                        Column(Modifier.weight(1f)) { Ltr(p.name + if (p.id == captain) " (C)" else ""); T("${POS[p.pos]} · ${teamName(p.teamId, lg.teamNames[p.teamId] ?: "")}", 11, color = C.mute) }
-                        T("$v", 17, FontWeight.Black, if (v > 0) accent else C.mute)
+                        Column(Modifier.weight(1f)) {
+                            Ltr(p.name + if (p.id == captain) " (C)" else "", color = if (on) C.ink else C.faint)
+                            T(listOfNotNull(POS[p.pos], teamName(p.teamId, lg.teamNames[p.teamId] ?: ""),
+                                when { p.id in (week?.cameOn ?: emptySet()) -> L("از نیمکت آمد"); p.id in (week?.wentOff ?: emptySet()) -> L("بازی نکرد؛ تعویض شد"); !on -> L("نیمکت"); else -> null }
+                            ).joinToString(" · "), 11, color = C.mute)
+                        }
+                        T("$v", 17, FontWeight.Black, if (v > 0 && on) accent else C.mute)
                     }
                 }
             }
@@ -397,13 +504,22 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                 }
             }
         }
-        item { T(L("قیمت‌ها از ارزش بازار بازیکن‌ها ساخته شده و امتیازها از آمار واقعی FotMob. تیم و امتیازها روی همین گوشی ذخیره می‌شود."), 11, color = C.faint, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
+        item { T(L("قیمت‌ها از ارزش بازار بازیکن‌ها ساخته شده و امتیازها از آمار واقعی بازی‌ها. با ورود به حساب، تیم و امتیازت برای لیگ‌های فانتزی ثبت می‌شود."), 11, color = C.faint, align = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
     }
 
-    pickPos?.let { pos -> Picker(lg, pos, picks, spent, roundMatches, { pickPos = null }) { p -> val t = st.team.apply { add(p.id) }; st.setTeam(t, if (st.captain == 0) p.id else st.captain); changed(); pickPos = null } }
+    pickPos?.let { pos -> Picker(lg, pos, picks, spent, roundMatches, { pickPos = null }) { p -> addTo(st, p, lg); changed(); pickPos = null } }
     open?.let { p -> PlayerActions(p, lg, p.id == captain, !locked, livePts?.get(p.id), { open = null },
         onCaptain = { st.setTeam(st.team, p.id); changed(); open = null },
-        onRemove = { val t = st.team.apply { remove(p.id) }; st.setTeam(t, if (st.captain == p.id) t.firstOrNull() ?: 0 else st.captain); changed(); open = null }) }
+        onRemove = {
+            val t = st.team.apply { remove(p.id) }; val b = st.bench.apply { remove(p.id) }
+            st.setTeam(t, if (st.captain == p.id) t.firstOrNull { it !in b } ?: 0 else st.captain, b); changed(); open = null
+        },
+        onBench = if (!locked && picks.size >= 12) ({ open = null; swapFrom = p; swapError = null }) else null,
+        onBenchUp = if (!locked && p.id in bench && bench.indexOf(p.id) > 1) ({
+            val b = st.bench; val k = b.indexOf(p.id); b[k] = b[k - 1]; b[k - 1] = p.id; st.setTeam(st.team, st.captain, b); changed(); open = null
+        }) else null,
+        onBenchLabel = if (p.id in bench) L("به زمین") else L("به نیمکت"),
+        canCaptain = p.id !in bench) }
 }
 
 @Composable
@@ -415,7 +531,8 @@ private fun Stat(big: String, small: String, modifier: Modifier, color: Color) {
 
 /** The eleven by line: forwards at the top, goalkeeper at the bottom. Shows price before the deadline and points after. */
 @Composable
-private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map<Int, Int>?, lg: FLeague, big: Boolean = false, onOpen: (FPlayer) -> Unit) {
+private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map<Int, Int>?, lg: FLeague, big: Boolean = false,
+                   faded: Set<Int> = emptySet(), marked: Set<Int> = emptySet(), onOpen: (FPlayer) -> Unit) {
     val disc = if (big) 54.dp else 42.dp
     BoxWithConstraints(
         Modifier.fillMaxWidth().aspectRatio(if (big) 68f / 104f else 68f / 84f).clip(RoundedCornerShape(18.dp)).drawBehind {
@@ -434,11 +551,12 @@ private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map
             val y = listOf(0.86f, 0.62f, 0.38f, 0.14f)[pos]
             row.forEachIndexed { j, p ->
                 val x = (j + 1f) / (row.size + 1f)
-                Column(Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * x - 40.dp, h * y - disc * 0.75f).width(80.dp).clickable { onOpen(p) },
+                Column(Modifier.align(AbsoluteAlignment.TopLeft).absoluteOffset(w * x - 40.dp, h * y - disc * 0.75f).width(80.dp)
+                    .alpha(if (p.id in faded) 0.45f else 1f).clickable { onOpen(p) },
                     horizontalAlignment = Alignment.CenterHorizontally) {
                     Box {
                         val col = Clubs.get(p.teamId)?.let { Color(it.c1) } ?: hueColor(p.teamId)
-                        Box(Modifier.size(disc).clip(CircleShape).background(col).border(2.dp, Color.White, CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(disc).clip(CircleShape).background(col).border(if (p.id in marked) 3.dp else 2.dp, if (p.id in marked) C.gold else Color.White, CircleShape), contentAlignment = Alignment.Center) {
                             Crest(p.teamId, disc * 0.62f)
                             coil.compose.AsyncImage(playerFace(p.id), null, Modifier.fillMaxSize().clip(CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
                         }
@@ -456,6 +574,33 @@ private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map
                     }
                 }
             }
+        }
+    }
+}
+
+/** The four on the bench, in the order they come on (the keeper first), with points once the week has begun. */
+@Composable
+private fun BenchRow(bench: List<FPlayer>, locked: Boolean, pts: Map<Int, Int>?, cameOn: Set<Int>, marked: Set<Int>, onOpen: (FPlayer) -> Unit) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(18.dp)).padding(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            T(L("نیمکت"), 14, FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+            T(L("اگر بازیکن زمین بازی نکند، به این ترتیب جایش می‌آیند"), 11, color = C.mute, maxLines = 1)
+        }
+        if (bench.isEmpty()) T(L("۴ بازیکن نیمکت را از «چیدن تیم» بخر"), 12, color = C.mute, modifier = Modifier.padding(top = 8.dp))
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            bench.forEachIndexed { k, p ->
+                val on = p.id in cameOn
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(if (on) C.win.copy(alpha = 0.16f) else C.card2)
+                    .border(if (p.id in marked) 2.dp else 0.dp, if (p.id in marked) C.gold else Color.Transparent, RoundedCornerShape(14.dp))
+                    .clickable { onOpen(p) }.padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    T(if (p.pos == 0) L("دروازه‌بان") else fa(k), 10, FontWeight.Bold, C.mute)
+                    Face(p.id, 40.dp)
+                    Ltr(p.name.substringAfterLast(' '), style = lat(11.sp), align = TextAlign.Center)
+                    T(if (locked) fa((pts?.get(p.id) ?: 0)) else dec(p.price, 1), 12, FontWeight.Black, if (on) C.win else C.ink)
+                    if (on) T(L("وارد شد"), 10, FontWeight.Bold, C.win)
+                }
+            }
+            repeat((4 - bench.size).coerceAtLeast(0)) { Box(Modifier.weight(1f)) }
         }
     }
 }
@@ -507,7 +652,8 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable: Boolean, pts: Pair<Int, List<String>>?, onClose: () -> Unit, onCaptain: () -> Unit, onRemove: () -> Unit) {
+private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable: Boolean, pts: Pair<Int, List<String>>?, onClose: () -> Unit, onCaptain: () -> Unit, onRemove: () -> Unit,
+                          onBench: (() -> Unit)? = null, onBenchUp: (() -> Unit)? = null, onBenchLabel: String = "", canCaptain: Boolean = true) {
     val nav = LocalNav.current
     GlSheet(onDismissRequest = onClose, containerColor = C.cardSolid, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 16.dp)) {
@@ -524,8 +670,10 @@ private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable:
                 if (pts.second.isEmpty()) T(L("هنوز بازی نکرده"), 13, color = C.mute, modifier = Modifier.padding(horizontal = 16.dp))
                 pts.second.forEach { T("• $it", 13, modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)) }
             }
-            Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (editable && !isCaptain) Pill(L("کاپیتان کن"), PillKind.Accent, onClick = onCaptain)
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (editable && !isCaptain && canCaptain) Pill(L("کاپیتان کن"), PillKind.Accent, onClick = onCaptain)
+                onBench?.let { Pill(onBenchLabel, onClick = it) }
+                onBenchUp?.let { Pill(L("اولویت بالاتر در نیمکت"), onClick = it) }
                 if (editable) Pill(L("فروش"), PillKind.Live, onClick = onRemove)
                 Pill(L("پروفایل"), onClick = { onClose(); nav.player(p.id) })
             }
@@ -534,21 +682,26 @@ private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable:
 }
 
 
-/** A starting team within budget: 1-4-4-2 by season rating and goal involvement, at most three per club, no injured players. */
-private fun autoTeam(lg: FLeague): List<FPlayer> {
-    val need = listOf(0 to 1, 1 to 4, 2 to 4, 3 to 2)
+/**
+ * A squad within budget: a 1-4-4-2 eleven by season rating and goal involvement, then the cheapest sensible bench (a keeper,
+ * a defender, a midfielder, a forward), at most three per club, no injured players. Returns the squad and the bench.
+ */
+private fun autoTeam(lg: FLeague): Pair<List<FPlayer>, List<Int>> {
     val out = ArrayList<FPlayer>()
     var left = BUDGET
-    // forwards and midfielders first: they score the most; the money left buys the rest at the cheapest sensible level
-    for ((pos, n) in need.sortedByDescending { it.first }) repeat(n) {
-        val slotsAfter = 11 - out.size - 1
+    fun buy(pos: Int, cheap: Boolean): FPlayer? {
+        val slotsAfter = SQUAD_SIZE - out.size - 1
         val cap = left - 4.5 * slotsAfter
         val perClub = out.groupingBy { it.teamId }.eachCount()
-        val best = lg.players.values.filter { it.pos == pos && !it.injured && it !in out && it.price <= cap && (perClub[it.teamId] ?: 0) < 3 }
-            .maxByOrNull { (it.rating ?: 6.4) + it.goals * 0.12 + it.assists * 0.08 + it.price * 0.05 } ?: return emptyList()
-        out += best; left -= best.price
+        val ok = lg.players.values.filter { it.pos == pos && !it.injured && it !in out && it.price <= cap && (perClub[it.teamId] ?: 0) < 3 }
+        val best = (if (cheap) ok.filter { it.price <= 5.0 }.ifEmpty { ok }.maxByOrNull { (it.rating ?: 6.0) - it.price * 0.1 }
+            else ok.maxByOrNull { (it.rating ?: 6.4) + it.goals * 0.12 + it.assists * 0.08 + it.price * 0.05 }) ?: return null
+        out += best; left -= best.price; return best
     }
-    return out
+    // the eleven first, forwards and midfielders before the rest: they score the most
+    for ((pos, n) in listOf(3 to 2, 2 to 4, 1 to 4, 0 to 1)) repeat(n) { buy(pos, false) ?: return emptyList<FPlayer>() to emptyList() }
+    val bench = listOf(0, 1, 2, 3).map { pos -> buy(pos, true)?.id ?: return emptyList<FPlayer>() to emptyList() }
+    return out to bench
 }
 
 /** Team value, average rating and the club spread. */

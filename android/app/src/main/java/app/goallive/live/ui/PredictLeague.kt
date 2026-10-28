@@ -39,7 +39,7 @@ import org.json.JSONObject
  */
 
 /** What a refusal from the league server means, in words. */
-private fun errorText(e: Throwable) = when ((e as? LeagueError)?.code) {
+internal fun errorText(e: Throwable) = when ((e as? LeagueError)?.code) {
     "wrong" -> L("کد درست نیست")
     "expired" -> L("کد منقضی شده؛ دوباره بگیر")
     "tries" -> L("دفعه‌های زیادی اشتباه شد؛ کد تازه بگیر")
@@ -69,7 +69,7 @@ private fun LField(value: String, hint: String, modifier: Modifier = Modifier, n
 }
 
 @Composable
-private fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false, plain: Boolean = false, onClick: () -> Unit) {
+internal fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Boolean = true, busy: Boolean = false, plain: Boolean = false, onClick: () -> Unit) {
     val accent = LocalAccent.current
     Box(modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(if (plain) C.card2 else if (enabled) accent else C.card2)
         .then(if (plain) Modifier.border(1.dp, C.line2, RoundedCornerShape(16.dp)) else Modifier)
@@ -180,7 +180,7 @@ fun PhoneSheet(onClose: () -> Unit) {
 /** One question with a box: a league's name, a code, the player's name. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun AskSheet(title: String, sub: String, hint: String, action: String, initial: String = "", code: Boolean = false, onDone: suspend (String) -> Unit, onClose: () -> Unit) {
+internal fun AskSheet(title: String, sub: String, hint: String, action: String, initial: String = "", code: Boolean = false, onDone: suspend (String) -> Unit, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
     var v by remember { mutableStateOf(initial) }
     var busy by remember { mutableStateOf(false) }
@@ -217,7 +217,8 @@ fun PredictLeagueScreen() {
     }
     // an invite link: join as soon as there is an account
     LaunchedEffect(Account.pendingCode, signed) {
-        val c = Account.pendingCode ?: return@LaunchedEffect
+        // fantasy codes (F…) are for the fantasy page
+        val c = Account.pendingCode?.takeIf { !it.startsWith("F") } ?: return@LaunchedEffect
         if (!signed) return@LaunchedEffect
         Account.pendingCode = null
         runCatching { Account.join(c) }.onSuccess { nav.predictLeague(it.optInt("id")) }.onFailure { sheet = "join:$c" }
@@ -228,7 +229,7 @@ fun PredictLeagueScreen() {
                 .border(1.dp, C.gold.copy(alpha = 0.35f), RoundedCornerShape(24.dp)).padding(20.dp)) {
                 T(L("لیگ پیش‌بینی"), 24, FontWeight.Black)
                 T(L("نتیجه‌ی بازی‌ها را پیش‌بینی کن و با دوستانت رقابت کن. نتیجه‌ی دقیق ۳ امتیاز، برنده‌ی درست ۱ امتیاز."), 13, color = C.mute, modifier = Modifier.padding(top = 4.dp))
-                Account.pendingCode?.let { T(L("دعوت به لیگ با کد {0}؛ اول وارد شو", it), 13, FontWeight.Bold, C.gold, modifier = Modifier.padding(top = 8.dp)) }
+                Account.pendingCode?.takeIf { !it.startsWith("F") }?.let { T(L("دعوت به لیگ با کد {0}؛ اول وارد شو", it), 13, FontWeight.Bold, C.gold, modifier = Modifier.padding(top = 8.dp)) }
             }
         }
         if (!signed) {
@@ -344,7 +345,7 @@ private fun StartCard(onPhone: () -> Unit) {
 }
 
 @Composable
-private fun LeagueRow(name: String, sub: String, rank: Int?, everyone: Boolean = false, onClick: () -> Unit) {
+internal fun LeagueRow(name: String, sub: String, rank: Int?, everyone: Boolean = false, onClick: () -> Unit) {
     val accent = LocalAccent.current
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(C.card).border(1.dp, if (everyone) C.gold.copy(alpha = 0.4f) else C.line, RoundedCornerShape(20.dp))
         .clickable(onClick = onClick).padding(16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
