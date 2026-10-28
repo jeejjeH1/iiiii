@@ -227,6 +227,8 @@ export class League extends DurableObject {
     for (const t of ['picks', 'members', 'tokens', 'backups', 'fmembers', 'fteams', 'fpoints']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
     this.sql.exec('DELETE FROM users WHERE id = ?', me);
     for (const l of mine) if (!this.one('SELECT 1 AS x FROM members WHERE league = ?', l)) this.sql.exec('DELETE FROM leagues WHERE id = ?', l);
+    // fantasy leagues nobody is left in go too
+    this.sql.exec('DELETE FROM fleagues WHERE id NOT IN (SELECT DISTINCT league FROM fmembers)');
     return { ok: true };
   }
 
