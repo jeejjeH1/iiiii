@@ -293,7 +293,8 @@ private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
             )
             // the ball on the bar, rolling with the pill and hopping between tabs
             val hop = kotlin.math.abs(kotlin.math.sin(Math.PI * pos)).toFloat()
-            Canvas(Modifier.align(Alignment.TopStart).offset(x = 6.dp + tw * (pos + 0.5f) - 10.dp, y = (-13).dp - 9.dp * hop).size(20.dp)) {
+            // (inside a page, with no tab chosen, the ball leaves with the pill)
+            Canvas(Modifier.align(Alignment.TopStart).offset(x = 6.dp + tw * (pos + 0.5f) - 10.dp, y = (-13).dp - 9.dp * hop).size(20.dp).graphicsLayer { alpha = shown }) {
                 val r = size.minDimension / 2
                 // its shadow on the bar's edge, smaller as it rises
                 drawOval(Color.Black.copy(alpha = 0.35f * (1 - hop * 0.6f)), Offset(r * (0.25f + 0.25f * hop), size.height + (9.dp.toPx() * hop) - r * 0.25f),

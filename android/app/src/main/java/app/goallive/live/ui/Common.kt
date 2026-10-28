@@ -3,6 +3,7 @@ package app.goallive.live.ui
 import app.goallive.live.L
 
 import androidx.compose.foundation.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.*
 import androidx.compose.runtime.*
@@ -344,19 +345,27 @@ fun Pill(text: String, kind: PillKind = PillKind.Plain, onClick: (() -> Unit)? =
 @Composable
 fun Seg(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, badge: Map<String, Int> = emptyMap(),
         icons: Map<String, ImageVector> = emptyMap(), onSelect: (String) -> Unit) {
-    Row(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(18.dp)).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        for ((k, label) in options) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val idx = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
+    val pos by androidx.compose.animation.core.animateFloatAsState(idx.toFloat(), androidx.compose.animation.core.spring(0.8f, 420f), label = "seg")
+    BoxWithConstraints(modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(C.card).border(1.dp, C.line, RoundedCornerShape(18.dp)).padding(4.dp)) {
+    // the selected option's pill slides from one option to the next
+    val n = options.size.coerceAtLeast(1)
+    val segW = (maxWidth - 4.dp * (n - 1)) / n
+    Box(Modifier.align(Alignment.CenterStart).offset(x = (segW + 4.dp) * pos).width(segW).height(36.dp).clip(RoundedCornerShape(14.dp)).background(C.ink))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        for ((i, o) in options.withIndex()) {
+            val (k, label) = o
             val on = k == selected
+            // the ink turns as the pill arrives under the option
+            val ink = androidx.compose.ui.graphics.lerp(C.mute, C.bg, (1f - kotlin.math.abs(pos - i)).coerceIn(0f, 1f))
             Row(
-                Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(14.dp)).background(if (on) C.ink else Color.Transparent)
-                    .clickable { onSelect(k) }.padding(horizontal = 8.dp),
+                Modifier.weight(1f).height(36.dp).clip(RoundedCornerShape(14.dp))
+                    .clickable { if (!on) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove); onSelect(k) }.padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
             ) {
-                icons[k]?.let { Icon(it, null, Modifier.size(15.dp), tint = if (on) C.bg else C.mute); Spacer(Modifier.width(5.dp)) }
-                T(label, 12, FontWeight.ExtraBold, if (on) C.bg else C.mute, maxLines = 1)
+                icons[k]?.let { Icon(it, null, Modifier.size(15.dp), tint = ink); Spacer(Modifier.width(5.dp)) }
+                T(label, 12, FontWeight.ExtraBold, ink, maxLines = 1)
                 badge[k]?.takeIf { it > 0 }?.let { n ->
                     Spacer(Modifier.width(6.dp))
                     Box(Modifier.heightIn(min = 18.dp).widthIn(min = 18.dp).clip(RoundedCornerShape(50)).background(C.live).padding(horizontal = 5.dp),
@@ -365,9 +374,11 @@ fun Seg(options: List<Pair<String, String>>, selected: String, modifier: Modifie
             }
         }
     }
+    }
 }
 
 /** ".tabs": page tabs; the selected one is an accent chip with a glow. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifier = Modifier, onSelect: (String) -> Unit) {
     val accent = LocalAccent.current
@@ -380,7 +391,26 @@ fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifi
     val w by androidx.compose.animation.core.animateFloatAsState(at?.width ?: 0f, spring, label = "tabW")
     // the pill and the row share one box the row's own size, so a tab's place in the row is its place for the pill too
     // (a wider box would set the row at its start, the right edge in Persian, and the pill would land on the wrong tab)
-    Box(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 14.dp, vertical = 8.dp)) { Box {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val sc = rememberScrollState()
+    // the chosen tab is always in sight: a page opened on a later tab, or a tab picked at the edge, scrolls the row to it
+    val bring = remember { HashMap<String, androidx.compose.foundation.relocation.BringIntoViewRequester>() }
+    LaunchedEffect(selected, at != null) { if (at != null) runCatching { bring[selected]?.bringIntoView() } }
+    Box(modifier.fillMaxWidth()
+        // the row's ends fade out where there are more tabs to scroll to
+        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val f = 30.dp.toPx()
+            val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+            val left = if (rtl) sc.canScrollForward else sc.canScrollBackward
+            val right = if (rtl) sc.canScrollBackward else sc.canScrollForward
+            if (left) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), 0f, f), Offset.Zero, Size(f, size.height),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+            if (right) drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), size.width - f, size.width), Offset(size.width - f, 0f), Size(f, size.height),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+        }
+        .horizontalScroll(sc).padding(horizontal = 14.dp, vertical = 8.dp)) { Box {
         if (at != null) Box(Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft)
             .absoluteOffset { androidx.compose.ui.unit.IntOffset(x.roundToInt(), at.top.roundToInt()) }
             .size(with(density) { w.toDp() }, with(density) { at.height.toDp() })
@@ -389,10 +419,14 @@ fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifi
             for ((k, label) in options) {
                 val on = k == selected
                 val ink by androidx.compose.animation.animateColorAsState(if (on) LocalAccentInk.current else C.mute, label = "tabInk")
+                val req = remember(k) { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+                bring[k] = req
                 Box(
                     Modifier.onGloballyPositioned { spots[k] = androidx.compose.ui.geometry.Rect(it.positionInParent(), it.size.toSize()) }
+                        .bringIntoViewRequester(req)
                         .clip(RoundedCornerShape(14.dp)).background(if (on && at == null) accent else Color.Transparent)
-                        .clickable { onSelect(k) }.padding(horizontal = 14.dp, vertical = 8.dp),
+                        .clickable { if (!on) haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove); onSelect(k) }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
                 ) { T(label, 13, FontWeight.ExtraBold, ink, maxLines = 1) }
             }
         }
@@ -518,8 +552,19 @@ fun EmptyView(text: String, icon: ImageVector? = null, hint: String? = null, act
     val accent = LocalAccent.current
     Column(Modifier.fillMaxWidth().padding(vertical = 40.dp, horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         if (icon != null) {
-            Box(Modifier.size(76.dp).clip(CircleShape).background(accent.copy(alpha = 0.10f)).border(1.dp, accent.copy(alpha = 0.25f), CircleShape),
-                contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(34.dp), tint = accent) }
+            // the icon on a round patch of pitch: mown bands, the halfway line and centre circle, faint
+            Box(Modifier.size(84.dp).clip(CircleShape).background(accent.copy(alpha = 0.10f))
+                .drawBehind {
+                    val band = size.width / 6
+                    for (k in 0 until 6) if (k % 2 == 0) drawRect(accent.copy(alpha = 0.05f), Offset(k * band, 0f), Size(band, size.height))
+                    val ln = accent.copy(alpha = 0.22f); val st = 1.2.dp.toPx()
+                    drawLine(ln, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), st)
+                    drawCircle(ln, size.width * 0.24f, center, style = Stroke(st))
+                }
+                .border(1.dp, accent.copy(alpha = 0.3f), CircleShape),
+                contentAlignment = Alignment.Center) {
+                Box(Modifier.size(50.dp).clip(CircleShape).background(C.bg.copy(alpha = 0.75f)), contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(28.dp), tint = accent) }
+            }
             Spacer(Modifier.height(14.dp))
         }
         T(text, 15, FontWeight.ExtraBold, align = TextAlign.Center)
