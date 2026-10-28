@@ -68,6 +68,8 @@ jobs:
           # the league: an account, and whether sms.ir answers this server (its credit, never a message)
           curl -s -X POST "$url/p/guest" -H 'content-type: application/json' -d '{"name":"CI"}' -o /dev/null -w "%{http_code} /p/guest\n"
           if [ -n "$DASH" ]; then curl -s "$url/p/sms?key=$DASH" -w "  /p/sms\n"; fi
+          # Google sign-in: on once the GOOGLE_CLIENT_ID secret is set (the client id is public)
+          curl -s "$url/p/config" -w "  /p/config\n"
           curl -sf "$url/api/fm?e=suggest&term=persepolis" -o /dev/null
           curl -sf "$url/v1/matches?date=today" -o /dev/null
           curl -sf "$url/v1/leagues/47/table" -o /dev/null
