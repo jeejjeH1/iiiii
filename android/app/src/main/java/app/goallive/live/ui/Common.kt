@@ -431,7 +431,8 @@ fun StarButton(on: Boolean, onToggle: () -> Unit, size: Dp = 18.dp, tint: Color 
     }, contentAlignment = Alignment.Center) {
         val t = k.value
         if (t < 1f) Canvas(Modifier.size(box)) {
-            val c = center; val r0 = size.minDimension * 0.18f; val r1 = size.minDimension * 0.5f
+            // (this.size: the canvas's, not the star's size parameter)
+            val c = center; val r0 = this.size.minDimension * 0.18f; val r1 = this.size.minDimension * 0.5f
             val e = 1 - (1 - t) * (1 - t)
             for (i in 0 until 8) {
                 val a = Math.toRadians(i * 45.0 + 22.5)
