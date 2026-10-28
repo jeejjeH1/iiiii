@@ -84,6 +84,7 @@ private fun invite(ctx: android.content.Context, name: String, code: String) {
 /* ---------- logging in with a phone number ---------- */
 
 /** The number, then the five-digit code sent to it (shown right here while the server is in test mode). */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PhoneSheet(onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
@@ -138,6 +139,7 @@ fun PhoneSheet(onClose: () -> Unit) {
 }
 
 /** One question with a box: a league's name, a code, the player's name. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 private fun AskSheet(title: String, sub: String, hint: String, action: String, initial: String = "", code: Boolean = false, onDone: suspend (String) -> Unit, onClose: () -> Unit) {
     val scope = rememberCoroutineScope()
