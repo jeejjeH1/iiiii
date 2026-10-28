@@ -108,6 +108,9 @@ object EmojiIcons {
     }
     private val pause by lazy { line("pause", "M9 5v14M15 5v14") }
     private val medal by lazy { line("medal", "M7 15a5 5 0 1 0 10 0a5 5 0 1 0 -10 0", "M8 3l3 7M16 3l-3 7M8 3h8") }
+    private val phone by lazy { line("phone", "M8 3h8a1.5 1.5 0 0 1 1.5 1.5v15a1.5 1.5 0 0 1 -1.5 1.5H8a1.5 1.5 0 0 1 -1.5 -1.5v-15A1.5 1.5 0 0 1 8 3z", "M11 18h2") }
+    private val cloud by lazy { line("cloud", "M7 18a4 4 0 0 1 -.5 -7.97A5.5 5.5 0 0 1 17.2 9.1A4.5 4.5 0 0 1 17 18z") }
+    private val globe by lazy { line("globe", CIRCLE, "M3 12h18", "M12 3c2.5 2.6 3.5 5.6 3.5 9s-1 6.4 -3.5 9c-2.5 -2.6 -3.5 -5.6 -3.5 -9s1 -6.4 3.5 -9z") }
     private val radar by lazy { line("radar", CIRCLE, "M12 12l6-5M7.5 12A4.5 4.5 0 0 1 12 7.5M12 12h.01") }
 
     private val map0 by lazy {
@@ -122,6 +125,7 @@ object EmojiIcons {
             "↩" to undo, "🚀" to rocket, "🅰" to assist, "✈" to plane, "❤" to heart, "💚" to heart, "💙" to heart, "💛" to heart,
             "🤔" to Ic.help, "🔎" to Ic.search, "🔍" to Ic.search, "👟" to boot, "🗺" to mapIcon, "♟" to pawn, "📍" to Ic.pin,
             "🤖" to robot, "⏸" to pause, "🎤" to Ic.mic, "📅" to Ic.cal, "📺" to Ic.tv, "👥" to Ic.people,
+            "📱" to phone, "☁" to cloud, "🌍" to globe,
         )
     }
 

@@ -45,8 +45,9 @@ jobs:
           SMSIR_KEY: ${{ secrets.SMSIR_KEY }}
           SMSIR_TEMPLATE: ${{ secrets.SMSIR_TEMPLATE }}
           SMSIR_PARAM: ${{ secrets.SMSIR_PARAM }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         run: |
-          for k in SMSIR_KEY SMSIR_TEMPLATE SMSIR_PARAM; do
+          for k in SMSIR_KEY SMSIR_TEMPLATE SMSIR_PARAM GOOGLE_CLIENT_ID; do
             v="${!k}"
             if [ -n "$v" ]; then printf '%s' "$v" | npx -y wrangler@4 secret put "$k"; else echo "no $k secret (the league runs in test mode without SMSIR_KEY)"; fi
           done

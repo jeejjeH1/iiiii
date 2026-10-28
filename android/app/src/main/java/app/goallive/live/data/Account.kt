@@ -15,7 +15,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /** The player in the prediction league, as the server knows them; [phone] is shown masked, null until a number is added. */
-data class Player(val id: Int, val name: String, val phone: String?, val picks: Int, val points: Int, val exact: Int)
+data class Player(val id: Int, val name: String, val phone: String?, val picks: Int, val points: Int, val exact: Int, val email: String? = null)
 
 /** An answer the server turned down: [code] is its reason ("wrong", "expired", "limit", "login"…). */
 class LeagueError(val code: String, val http: Int) : Exception(code)
@@ -37,7 +37,39 @@ object Account {
     val signedIn get() = token != null
 
     private fun player(o: JSONObject) = Player(o.optInt("id"), o.optString("name"), o.optString("phone").takeIf { it.isNotEmpty() && it != "null" },
-        o.optInt("picks"), o.optInt("points"), o.optInt("exact"))
+        o.optInt("picks"), o.optInt("points"), o.optInt("exact"), o.optString("email").takeIf { it.isNotEmpty() && it != "null" })
+
+    /** Whether the account can come back on another phone (a number or a Google account). */
+    val kept get() = me?.phone != null || me?.email != null
+
+    /** The server's Google sign-in client; null while Google sign-in is not set up (the button stays hidden). */
+    var googleClient by mutableStateOf(Store.prefs().getString("league.google", null)); private set
+
+    /** Asks the server whether Google sign-in is on. */
+    fun loadConfig() {
+        scope.launch {
+            runCatching { call("/config") }.onSuccess { j ->
+                googleClient = j.optString("google").takeIf { it.isNotEmpty() && it != "null" }
+                Store.prefs().edit().putString("league.google", googleClient).apply()
+            }
+        }
+    }
+
+    /** Logs in with a Google account picked on the phone; as with a number, an account seen before comes back here. */
+    suspend fun google(activity: android.app.Activity) {
+        val client = googleClient ?: throw LeagueError("google", 0)
+        val option = com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption.Builder(client).build()
+        val cred = androidx.credentials.CredentialManager.create(activity)
+            .getCredential(activity, androidx.credentials.GetCredentialRequest.Builder().addCredentialOption(option).build()).credential
+        if (cred !is androidx.credentials.CustomCredential || cred.type != com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL)
+            throw LeagueError("google", 0)
+        val g = com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(cred.data)
+        val j = call("/google", JSONObject().put("token", g.idToken).put("name", g.displayName ?: ""))
+        keep(j.getString("token"), j.getJSONObject("user"))
+        pullPicks()
+        pushAll()
+        Backup.restore()
+    }
 
     private fun keep(t: String?, u: JSONObject?) {
         token = t ?: token

@@ -38,6 +38,11 @@ jobs:
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
         run: if [ -n "$KEYSTORE_B64" ]; then echo "$KEYSTORE_B64" | base64 -d > release.jks; fi
+      # the key's public fingerprint, for the Google sign-in client (Android, package app.goallive.live)
+      - name: Key fingerprint
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: if [ -f release.jks ]; then keytool -list -v -keystore release.jks -storepass "$KEYSTORE_PASS" -alias goallive | grep -E 'SHA1:|SHA256:'; fi
       - name: Build APK
         env:
           KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}

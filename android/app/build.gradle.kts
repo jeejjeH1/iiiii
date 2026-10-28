@@ -13,8 +13,8 @@ android {
         applicationId = "app.goallive.live"
         minSdk = 24
         targetSdk = 35
-        versionCode = 109
-        versionName = "2.7.2"
+        versionCode = 110
+        versionName = "2.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -74,6 +74,10 @@ dependencies {
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    // signing in with a Google account
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
 
     testImplementation(bom)

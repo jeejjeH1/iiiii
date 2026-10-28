@@ -1808,3 +1808,14 @@
 1807|Your friends see you by this name in leagues
 1808|Logging in is optional; the whole app works without it.
 1809|Log in with your mobile number so your team, follows, fantasy, predictions, tactics and settings stay with you on any phone.
+1810|Log in with your number or Google
+1811|Optional; a name is enough to start
+1812|Everything stays with your account
+1813|Your team, follows, fantasy, predictions, tactics and settings come back on any phone
+1814|Google sign-in failed; log in with your number
+1815|No Google account on this phone
+1816|or
+1817|Continue with Google
+1818|Google: {0}
+1819|Log in with the same number or Google account and everything comes back.
+1820|Log in with your mobile number or Google account to keep your team, follows, fantasy, predictions, tactics and settings on any phone.

@@ -48,6 +48,8 @@ private fun errorText(e: Throwable) = when ((e as? LeagueError)?.code) {
     "name" -> L("نام دست کم دو حرف باشد")
     "code" -> L("لیگی با این کد پیدا نشد")
     "full" -> L("این لیگ پر شده است")
+    "google" -> L("ورود با گوگل ممکن نشد؛ با شماره وارد شو")
+    "noaccount" -> L("حساب گوگلی روی این گوشی نیست")
     else -> if ((e as? LeagueError)?.code?.startsWith("sms") == true) L("فرستادن پیامک ممکن نشد؛ کمی بعد دوباره امتحان کن")
     else L("ارتباط برقرار نشد؛ اینترنت را بررسی کن")
 }
@@ -72,6 +74,40 @@ private fun BigButton(text: String, modifier: Modifier = Modifier, enabled: Bool
         .then(if (plain) Modifier.border(1.dp, C.line2, RoundedCornerShape(16.dp)) else Modifier)
         .clickable(enabled = enabled && !busy, onClick = onClick), contentAlignment = Alignment.Center) {
         T(if (busy) L("صبر کنید…") else text, 15, FontWeight.Black, if (plain || !enabled) C.ink else LocalAccentInk.current)
+    }
+}
+
+/** "Or" and the Google sign-in button, only when the server has Google sign-in on; [onDone] after logging in. */
+@Composable
+private fun GoogleButton(onError: (String?) -> Unit, onDone: () -> Unit) {
+    if (Account.googleClient == null) return
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.weight(1f).height(1.dp).background(C.line2)); T(L("یا"), 13, color = C.mute); Box(Modifier.weight(1f).height(1.dp).background(C.line2))
+    }
+    Row(Modifier.fillMaxWidth().height(52.dp).clip(RoundedCornerShape(16.dp)).background(Color.White).clickable(enabled = !busy) {
+        val activity = generateSequence(ctx) { (it as? android.content.ContextWrapper)?.baseContext }.filterIsInstance<android.app.Activity>().firstOrNull() ?: return@clickable
+        busy = true; onError(null)
+        scope.launch {
+            runCatching { Account.google(activity) }.onSuccess { onDone() }.onFailure { e ->
+                when (e) {
+                    is androidx.credentials.exceptions.GetCredentialCancellationException -> {}
+                    is androidx.credentials.exceptions.NoCredentialException -> onError(errorText(LeagueError("noaccount", 0)))
+                    is LeagueError -> onError(errorText(e))
+                    else -> onError(errorText(LeagueError("google", 0)))
+                }
+            }
+            busy = false
+        }
+    }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        if (busy) T(L("صبر کنید…"), 15, FontWeight.Black, Color(0xFF1F1F1F))
+        else {
+            T("G", 20, FontWeight.Black, Color(0xFF4285F4))
+            Spacer(Modifier.width(10.dp))
+            T(L("ورود با حساب گوگل"), 15, FontWeight.Black, Color(0xFF1F1F1F))
+        }
     }
 }
 
@@ -119,6 +155,7 @@ fun PhoneSheet(onClose: () -> Unit) {
                 if (step == 0) {
                     LField(phone, L("مثلاً ۰۹۱۲۳۴۵۶۷۸۹"), number = true) { phone = it.take(14) }
                     BigButton(L("گرفتن کد"), enabled = phone.count { it.isDigit() } >= 10, busy = busy) { ask() }
+                    GoogleButton({ error = it }) { onClose() }
                 } else {
                     LField(code, "– – – – –", number = true, big = true) { v ->
                         code = v.filter { it.isDigit() }.take(5)
@@ -206,14 +243,14 @@ fun PredictLeagueScreen() {
                     }
                     Column(Modifier.weight(1f)) {
                         T(me?.name ?: "", 17, FontWeight.Black, maxLines = 1)
-                        T(me?.phone?.let { L("شماره: {0}", fa(it)) } ?: L("بدون شماره؛ فقط روی همین گوشی"), 12, color = C.mute)
+                        T(me?.phone?.let { L("شماره: {0}", fa(it)) } ?: me?.email?.let { L("گوگل: {0}", it) } ?: L("بدون شماره؛ فقط روی همین گوشی"), 12, color = C.mute)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         T(fa(me?.points ?: 0), 22, FontWeight.Black, C.gold); T(L("امتیاز"), 12, color = C.mute)
                     }
                 }
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (me?.phone == null) Pill(L("ثبت شماره"), PillKind.Accent, onClick = { sheet = "phone" })
+                    if (!Account.kept) Pill(L("ثبت شماره"), PillKind.Accent, onClick = { sheet = "phone" })
                     Pill(L("تغییر نام"), PillKind.Plain, onClick = { sheet = "name" })
                     Pill(L("پیش‌بینی‌های من"), PillKind.Plain, onClick = { nav.predictions() })
                 }
@@ -256,7 +293,7 @@ fun PredictLeagueScreen() {
     val scope = rememberCoroutineScope()
     if (sheet == "out" || sheet == "delete") androidx.compose.material3.AlertDialog(onDismissRequest = { sheet = "" }, containerColor = C.cardSolid,
         title = { T(if (sheet == "out") L("خروج از حساب لیگ؟") else L("حذف حساب لیگ؟"), 16, FontWeight.Black) },
-        text = { T(if (sheet == "out") (if (Account.me?.phone != null) L("هر وقت با همین شماره وارد شوی، همه چیز برمی‌گردد.") else L("حسابت شماره ندارد؛ با خروج دیگر به آن برنمی‌گردی.")) 
+        text = { T(if (sheet == "out") (if (Account.kept) L("هر وقت با همین شماره یا حساب گوگل وارد شوی، همه چیز برمی‌گردد.") else L("حسابت شماره ندارد؛ با خروج دیگر به آن برنمی‌گردی.")) 
             else L("حساب، امتیازها و عضویتت در لیگ‌ها برای همیشه پاک می‌شود. پیش‌بینی‌های روی این گوشی می‌ماند."), 14) },
         confirmButton = { androidx.compose.material3.TextButton({
             val del = sheet == "delete"; sheet = ""
@@ -297,6 +334,8 @@ private fun StartCard(onPhone: () -> Unit) {
         }
         Spacer(Modifier.height(8.dp))
         BigButton(L("ورود با شماره موبایل"), plain = true, onClick = onPhone)
+        Spacer(Modifier.height(8.dp))
+        GoogleButton({ error = it }) {}
         error?.let { T(it, 13, FontWeight.Bold, C.live, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) }
         T(L("ورود با شماره اختیاری است؛ با آن حسابت روی هر گوشی می‌ماند و با همان شماره برمی‌گردد."), 12, color = C.mute, modifier = Modifier.padding(top = 10.dp))
     }
@@ -468,7 +507,7 @@ fun LoginGate(onDone: () -> Unit) {
             Spacer(Modifier.height(22.dp))
             T(when (step) { 0 -> L("ورود به گل‌لایو"); 1 -> L("کد تأیید"); else -> L("نام تو در جدول") }, 26, FontWeight.Black, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             T(when (step) {
-                0 -> L("با شماره‌ی موبایل وارد شو تا تیم محبوب، دنبال‌شده‌ها، فانتزی، پیش‌بینی‌ها، تاکتیک‌ها و تنظیماتت روی هر گوشی بماند.")
+                0 -> L("با شماره‌ی موبایل یا حساب گوگل وارد شو تا تیم محبوب، دنبال‌شده‌ها، فانتزی، پیش‌بینی‌ها، تاکتیک‌ها و تنظیماتت روی هر گوشی بماند.")
                 1 -> L("کد ۵ رقمی که به {0} پیامک شد را بنویس", fa(phone))
                 else -> L("دوستانت در لیگ‌ها تو را با این نام می‌بینند")
             }, 14, color = C.mute, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 22.dp))
@@ -477,6 +516,8 @@ fun LoginGate(onDone: () -> Unit) {
                     LField(phone, L("مثلاً ۰۹۱۲۳۴۵۶۷۸۹"), number = true) { phone = it.take(14) }
                     Spacer(Modifier.height(12.dp))
                     BigButton(L("گرفتن کد"), enabled = phone.count { it.isDigit() } >= 10, busy = busy) { ask() }
+                    Spacer(Modifier.height(8.dp))
+                    GoogleButton({ error = it }) { if (Account.me?.name?.startsWith("بازیکن") == true) step = 2 else finish() }
                 }
                 1 -> {
                     LField(code, "– – – – –", number = true, big = true) { v ->

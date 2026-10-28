@@ -71,6 +71,10 @@ export class League extends DurableObject {
       CREATE TABLE IF NOT EXISTS otps2 (phone TEXT PRIMARY KEY, prev TEXT, prev_expires INTEGER);
       CREATE TABLE IF NOT EXISTS smslog (at INTEGER, phone TEXT, ok INTEGER, http INTEGER, status INTEGER, message TEXT, id TEXT, body TEXT);
     `);
+    // accounts can also be a Google account (its id and address)
+    const cols = this.q('PRAGMA table_info(users)').map((c) => c.name);
+    if (!cols.includes('google')) this.sql.exec('ALTER TABLE users ADD COLUMN google TEXT; ALTER TABLE users ADD COLUMN email TEXT');
+    this.sql.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_google ON users (google)');
     // once, before the app with the league is out: the accounts the first test runs left behind
     if (!this.one("SELECT v FROM meta WHERE k = 'launch'")) {
       for (const t of ['users', 'tokens', 'otps', 'picks', 'leagues', 'members']) this.sql.exec(`DELETE FROM ${t}`);
@@ -84,10 +88,11 @@ export class League extends DurableObject {
   /* ---------- accounts ---------- */
 
   user(id) {
-    const u = this.one('SELECT id, name, phone FROM users WHERE id = ?', id);
+    const u = this.one('SELECT id, name, phone, email FROM users WHERE id = ?', id);
     if (!u) return null;
     const p = this.one(`SELECT COUNT(*) AS n, ${POINTS_SUM} AS pts, ${EXACT_SUM} AS exact FROM picks p JOIN matches m ON m.id = p.match WHERE p.user = ?`, id);
-    return { id: u.id, name: u.name, phone: u.phone ? u.phone.slice(0, 4) + '•••' + u.phone.slice(-3) : null, picks: p.n, points: p.pts || 0, exact: p.exact || 0 };
+    return { id: u.id, name: u.name, phone: u.phone ? u.phone.slice(0, 4) + '•••' + u.phone.slice(-3) : null,
+      email: u.email ? u.email.slice(0, 2) + '•••' + u.email.slice(u.email.indexOf('@')) : null, picks: p.n, points: p.pts || 0, exact: p.exact || 0 };
   }
 
   async newToken(user) {
@@ -161,12 +166,7 @@ export class League extends DurableObject {
     let id = this.one('SELECT id FROM users WHERE phone = ?', phone)?.id;
     if (id && me && me !== id) {
       // the number already has an account: this phone's guest picks and leagues join it
-      this.sql.exec('INSERT OR IGNORE INTO picks (user, match, h, a, at) SELECT ?, match, h, a, at FROM picks WHERE user = ?', id, me);
-      this.sql.exec('INSERT OR IGNORE INTO members (league, user, joined) SELECT league, ?, joined FROM members WHERE user = ?', id, me);
-      this.sql.exec('UPDATE leagues SET owner = ? WHERE owner = ?', id, me);
-      this.sql.exec('INSERT OR IGNORE INTO backups (user, data, updated) SELECT ?, data, updated FROM backups WHERE user = ?', id, me);
-      for (const t of ['picks', 'members', 'tokens', 'backups']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
-      this.sql.exec('DELETE FROM users WHERE id = ?', me);
+      this.absorb(id, me);
     } else if (!id && me) {
       this.sql.exec('UPDATE users SET phone = ? WHERE id = ?', phone, me);
       id = me;
@@ -174,6 +174,31 @@ export class League extends DurableObject {
       id = this.one('INSERT INTO users (name, phone, created) VALUES (?, ?, ?) RETURNING id', cleanName(b.name) || 'بازیکن ' + phone.slice(-4), phone, Date.now()).id;
     }
     return { token: await this.newToken(id), user: this.user(id) };
+  }
+
+  /** Logs in with a Google account: its sign-in token is checked with Google, then the same as a number (a returning account comes back). */
+  async google(b, me) {
+    const client = this.env.GOOGLE_CLIENT_ID;
+    if (!client) throw new Http(404, 'google');
+    const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(String(b.token || '')), { signal: AbortSignal.timeout(10000) }).catch(() => null);
+    const t = r && r.ok ? await r.json().catch(() => ({})) : {};
+    if (t.aud !== client || !t.sub || !['accounts.google.com', 'https://accounts.google.com'].includes(t.iss) || +t.exp * 1000 < Date.now()) throw new Http(401, 'google');
+    const email = t.email_verified === 'true' || t.email_verified === true ? String(t.email || '').toLowerCase() : null;
+    let id = this.one('SELECT id FROM users WHERE google = ?', t.sub)?.id;
+    if (id && me && me !== id) this.absorb(id, me);
+    else if (!id && me) { this.sql.exec('UPDATE users SET google = ?, email = ? WHERE id = ?', t.sub, email, me); id = me; }
+    else if (!id) id = this.one('INSERT INTO users (name, google, email, created) VALUES (?, ?, ?, ?) RETURNING id', cleanName(b.name || t.name) || 'بازیکن', t.sub, email, Date.now()).id;
+    return { token: await this.newToken(id), user: this.user(id) };
+  }
+
+  /** This phone's account [me] joins the account [id] that logged in: its picks, leagues and kept things, then it goes. */
+  absorb(id, me) {
+    this.sql.exec('INSERT OR IGNORE INTO picks (user, match, h, a, at) SELECT ?, match, h, a, at FROM picks WHERE user = ?', id, me);
+    this.sql.exec('INSERT OR IGNORE INTO members (league, user, joined) SELECT league, ?, joined FROM members WHERE user = ?', id, me);
+    this.sql.exec('UPDATE leagues SET owner = ? WHERE owner = ?', id, me);
+    this.sql.exec('INSERT OR IGNORE INTO backups (user, data, updated) SELECT ?, data, updated FROM backups WHERE user = ?', id, me);
+    for (const t of ['picks', 'members', 'tokens', 'backups']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
+    this.sql.exec('DELETE FROM users WHERE id = ?', me);
   }
 
   setName(b, me) {
@@ -342,6 +367,8 @@ export class League extends DurableObject {
         case '/p/guest': out = await this.guest(body); break;
         case '/p/otp': out = await this.otp(body, ip); break;
         case '/p/verify': out = await this.verify(body, me); break;
+        case '/p/google': out = await this.google(body, me); break;
+        case '/p/config': out = { google: this.env.GOOGLE_CLIENT_ID || null }; break;
         case '/p/me': out = { user: this.user(need()) }; break;
         case '/p/name': out = this.setName(body, need()); break;
         case '/p/delete': out = this.deleteMe(need()); break;
