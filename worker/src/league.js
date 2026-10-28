@@ -66,6 +66,7 @@ export class League extends DurableObject {
       CREATE INDEX IF NOT EXISTS picks_match ON picks (match);
       CREATE INDEX IF NOT EXISTS members_user ON members (user);
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+      CREATE TABLE IF NOT EXISTS smslog (at INTEGER, phone TEXT, ok INTEGER, http INTEGER, status INTEGER, message TEXT, id TEXT, body TEXT);
     `);
     // once, before the app with the league is out: the accounts the first test runs left behind
     if (!this.one("SELECT v FROM meta WHERE k = 'launch'")) {
@@ -128,6 +129,10 @@ export class League extends DurableObject {
     // without the sms.ir key the server is in test mode: the code comes back to the app instead of by SMS
     if (!this.env.SMSIR_KEY) return { ok: true, wait: RESEND_MS / 1000, test: code };
     const sent = await sendSms(this.env, phone, code);
+    // what sms.ir said, for /p/sms (the number without its middle, never the code)
+    this.sql.exec('INSERT INTO smslog (at, phone, ok, http, status, message, id, body) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', now, phone.slice(0, 4) + '***' + phone.slice(-3),
+      sent.ok ? 1 : 0, sent.http || 0, sent.status ?? null, sent.message || sent.error || '', String(sent.id || ''), String(sent.body || '').slice(0, 300));
+    this.sql.exec('DELETE FROM smslog WHERE at < ?', now - 7 * 86400000);
     if (!sent.ok) { this.sql.exec('DELETE FROM otps WHERE phone = ?', phone); throw new Http(502, 'sms: ' + sent.error); }
     return { ok: true, wait: RESEND_MS / 1000 };
   }
@@ -321,6 +326,7 @@ export class League extends DurableObject {
         case '/p/leave': out = this.leave(body, need()); break;
         case '/p/league': out = await this.league(url, need()); break;
         case '/p/settle': out = { checked: await this.settle(20) }; break;
+        case '/p/smslog': out = this.q('SELECT at, phone, ok, http, status, message, id, body FROM smslog ORDER BY at DESC LIMIT 10'); break;
         default: throw new Http(404, 'not found');
       }
       return Response.json(out);
@@ -360,8 +366,11 @@ async function sendSms(env, phone, code) {
       body: JSON.stringify({ mobile: phone, templateId: +(env.SMSIR_TEMPLATE || 123456), parameters: [{ name: env.SMSIR_PARAM || 'Code', value: code }] }),
       signal: AbortSignal.timeout(10000),
     });
-    const j = await r.json().catch(() => ({}));
-    return j.status === 1 ? { ok: true } : { ok: false, error: `${r.status} ${j.message || ''}`.trim() };
+    const text = await r.text();
+    let j = {};
+    try { j = JSON.parse(text); } catch {}
+    const info = { http: r.status, status: j.status, message: j.message, id: j.data?.messageId, body: text };
+    return j.status === 1 ? { ok: true, ...info } : { ok: false, error: `${r.status} ${j.message || ''}`.trim(), ...info };
   } catch (e) {
     return { ok: false, error: String(e.message || e) };
   }
@@ -384,8 +393,18 @@ export async function league(request, env, url) {
   if (url.pathname.startsWith('/j/')) return new Response(joinPage(url.pathname.slice(3).replace(/[^A-Za-z0-9]/g, '').slice(0, 8)), { headers: { 'content-type': 'text/html; charset=utf-8' } });
   if (url.pathname === '/p/sms' ) {
     if (!env.DASH_KEY || url.searchParams.get('key') !== env.DASH_KEY) return new Response('wrong key', { status: 403 });
-    return Response.json(await smsCheck(env));
+    const stub = env.LEAGUE.get(env.LEAGUE.idFromName('main'));
+    const log = await (await stub.fetch('https://p/p/smslog')).json().catch(() => []);
+    for (const l of log.slice(0, 5)) if (l.id) {
+      try {
+        const r = await fetch('https://api.sms.ir/v1/send/' + l.id, { headers: { accept: 'application/json', 'x-api-key': env.SMSIR_KEY }, signal: AbortSignal.timeout(8000) });
+        l.report = (await r.text()).slice(0, 400);
+      } catch (e) { l.report = String(e.message || e); }
+    }
+    return Response.json({ ...(await smsCheck(env)), template: env.SMSIR_TEMPLATE || null, param: env.SMSIR_PARAM || null, log });
   }
+  // the log and the scheduled run are for this server only
+  if (url.pathname === '/p/smslog' || url.pathname === '/p/settle') return new Response('not found', { status: 404 });
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (+request.headers.get('content-length') > 32768) return new Response('too big', { status: 413 });
   const stub = env.LEAGUE.get(env.LEAGUE.idFromName('main'));
