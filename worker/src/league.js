@@ -398,7 +398,9 @@ export async function league(request, env, url) {
     for (const l of log.slice(0, 5)) if (l.id) {
       try {
         const r = await fetch('https://api.sms.ir/v1/send/' + l.id, { headers: { accept: 'application/json', 'x-api-key': env.SMSIR_KEY }, signal: AbortSignal.timeout(8000) });
-        l.report = (await r.text()).slice(0, 400);
+        // only the delivery state: never the number or the text (it holds the code)
+        const j = await r.json().catch(() => ({}));
+        l.report = { status: j.status, message: j.message, line: j.data?.lineNumber, delivery: j.data?.deliveryState ?? null, deliveredAt: j.data?.deliveryDateTime ?? null };
       } catch (e) { l.report = String(e.message || e); }
     }
     return Response.json({ ...(await smsCheck(env)), template: env.SMSIR_TEMPLATE || null, param: env.SMSIR_PARAM || null, log });
