@@ -397,18 +397,15 @@ fun Tabs(options: List<Pair<String, String>>, selected: String, modifier: Modifi
     val bring = remember { HashMap<String, androidx.compose.foundation.relocation.BringIntoViewRequester>() }
     LaunchedEffect(selected, at != null) { if (at != null) runCatching { bring[selected]?.bringIntoView() } }
     Box(modifier.fillMaxWidth()
-        // the row's ends fade out where there are more tabs to scroll to
-        .graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        // the row's ends fade into the page where there are more tabs to scroll to
         .drawWithContent {
             drawContent()
-            val f = 30.dp.toPx()
+            val f = 34.dp.toPx()
             val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
             val left = if (rtl) sc.canScrollForward else sc.canScrollBackward
             val right = if (rtl) sc.canScrollBackward else sc.canScrollForward
-            if (left) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), 0f, f), Offset.Zero, Size(f, size.height),
-                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
-            if (right) drawRect(Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), size.width - f, size.width), Offset(size.width - f, 0f), Size(f, size.height),
-                blendMode = androidx.compose.ui.graphics.BlendMode.DstIn)
+            if (left) drawRect(Brush.horizontalGradient(listOf(C.bg, C.bg.copy(alpha = 0f)), 0f, f), Offset.Zero, Size(f, size.height))
+            if (right) drawRect(Brush.horizontalGradient(listOf(C.bg.copy(alpha = 0f), C.bg), size.width - f, size.width), Offset(size.width - f, 0f), Size(f, size.height))
         }
         .horizontalScroll(sc).padding(horizontal = 14.dp, vertical = 8.dp)) { Box {
         if (at != null) Box(Modifier.align(androidx.compose.ui.AbsoluteAlignment.TopLeft)
