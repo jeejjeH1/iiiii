@@ -500,16 +500,14 @@ private fun FantasyBody(lg: FLeague, st: FState, changed: () -> Unit, reset: () 
                 }
             }
         }
+        // with no team yet, the pitch itself offers the one-tap team
+        val auto: (() -> Unit)? = if (!locked && picks.isEmpty()) ({
+            val (a, b) = autoTeam(lg)
+            if (a.isNotEmpty()) { st.setTeam(a.map { it.id }, a.filter { it.id !in b }.maxByOrNull { it.rating ?: 0.0 }?.id ?: a.first().id, b); changed() }
+        }) else null
         item { FPitch(xiPicks, captain, locked, livePts?.mapValues { it.value.first }, lg, big = xiPicks.size == 11, faded = week?.let { picks.map { it.id }.toSet() - it.counted } ?: emptySet(),
-            marked = setOfNotNull(swapFrom?.id)) { tapPlayer(it) } }
+            marked = setOfNotNull(swapFrom?.id), onAuto = auto) { tapPlayer(it) } }
         if (benchPicks.isNotEmpty() || picks.size >= 11) item { BenchRow(benchPicks, locked, livePts?.mapValues { it.value.first }, week?.cameOn ?: emptySet(), setOfNotNull(swapFrom?.id)) { tapPlayer(it) } }
-        if (!locked && picks.isEmpty()) item {
-            // one tap to a sensible team within budget, to edit from there
-            Pill(L("✨ چیدن خودکار تیم"), PillKind.Accent, onClick = {
-                val (auto, b) = autoTeam(lg)
-                if (auto.isNotEmpty()) { st.setTeam(auto.map { it.id }, auto.filter { it.id !in b }.maxByOrNull { it.rating ?: 0.0 }?.id ?: auto.first().id, b); changed() }
-            })
-        }
         if (picks.size >= 11) item { TeamFacts(picks, lg) }
         if (picks.isNotEmpty()) item { Fixtures(picks, lg) }
         if (!locked) item {
@@ -609,7 +607,7 @@ private fun Stat(big: String, small: String, modifier: Modifier, color: Color) {
 /** The eleven by line: forwards at the top, goalkeeper at the bottom. Shows price before the deadline and points after. */
 @Composable
 private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map<Int, Int>?, lg: FLeague, big: Boolean = false,
-                   faded: Set<Int> = emptySet(), marked: Set<Int> = emptySet(), onOpen: (FPlayer) -> Unit) {
+                   faded: Set<Int> = emptySet(), marked: Set<Int> = emptySet(), onAuto: (() -> Unit)? = null, onOpen: (FPlayer) -> Unit) {
     val disc = if (big) 54.dp else 42.dp
     BoxWithConstraints(
         Modifier.fillMaxWidth().aspectRatio(if (big) 68f / 104f else 68f / 84f).clip(RoundedCornerShape(18.dp)).drawBehind {
@@ -622,7 +620,29 @@ private fun FPitch(picks: List<FPlayer>, captain: Int, locked: Boolean, pts: Map
         },
     ) {
         val w = maxWidth; val h = maxHeight
-        if (picks.isEmpty()) T(L("هنوز بازیکنی نخریده‌ای؛ از کادر «چیدن تیم» شروع کن"), 13, FontWeight.Bold, Color.White, Modifier.align(Alignment.Center).padding(24.dp), align = TextAlign.Center)
+        if (picks.isEmpty()) {
+            // an empty team sheet: the eleven places (4-4-2) waiting in dashed rings, the hint at the top and the one-tap team in the middle
+            val ring = Color.White.copy(alpha = 0.4f)
+            androidx.compose.foundation.Canvas(Modifier.matchParentSize()) {
+                val r = disc.toPx() / 2
+                val dash = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(7f, 6f))
+                for ((pos, n) in listOf(0 to 1, 1 to 4, 2 to 4, 3 to 2)) {
+                    val y = size.height * listOf(0.86f, 0.62f, 0.38f, 0.14f)[pos]
+                    for (j in 0 until n) {
+                        val c = Offset(size.width * (j + 1f) / (n + 1f), y)
+                        drawCircle(Color.Black.copy(alpha = 0.12f), r, c)
+                        drawCircle(ring, r, c, style = Stroke(1.6.dp.toPx(), pathEffect = dash))
+                        val k = r * 0.32f
+                        drawLine(ring, Offset(c.x - k, c.y), Offset(c.x + k, c.y), 1.6.dp.toPx()); drawLine(ring, Offset(c.x, c.y - k), Offset(c.x, c.y + k), 1.6.dp.toPx())
+                    }
+                }
+            }
+            T(L("هنوز بازیکنی نخریده‌ای"), 12, FontWeight.Bold, Color.White.copy(alpha = 0.85f), Modifier.align(Alignment.TopCenter).padding(top = 6.dp), align = TextAlign.Center)
+            if (onAuto != null) Box(Modifier.align(Alignment.Center).glow(LocalAccent.current.copy(alpha = 0.45f), 10.dp, RoundedCornerShape(50)).clip(RoundedCornerShape(50))
+                .background(LocalAccent.current).clickable(onClick = onAuto).padding(horizontal = 18.dp, vertical = 10.dp)) {
+                T(L("✨ چیدن خودکار تیم"), 14, FontWeight.Black, LocalAccentInk.current, maxLines = 1)
+            }
+        }
         for (pos in 0..3) {
             val row = picks.filter { it.pos == pos }
             val y = listOf(0.86f, 0.62f, 0.38f, 0.14f)[pos]
