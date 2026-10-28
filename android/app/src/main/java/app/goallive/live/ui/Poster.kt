@@ -71,8 +71,8 @@ private fun lift(c: Int, min: Double = 0.16): Int {
     return x
 }
 
-/** Text on [c]: white on a dark colour, near-black on a light one. */
-private fun inkFor(c: Int) = if (ColorUtils.calculateLuminance(c or 0xFF000000.toInt()) > 0.45) 0xFF0B0F14.toInt() else WHITE
+/** Text on a plate of colour [c]: white on a dark colour, near-black on a light one. */
+private fun plateInk(c: Int) = if (ColorUtils.calculateLuminance(c or 0xFF000000.toInt()) > 0.45) 0xFF0B0F14.toInt() else WHITE
 
 /**
  * The name plates in the team's own colour (a soft sheen from top to bottom, its highlight along the foot), the number
@@ -81,7 +81,7 @@ private fun inkFor(c: Int) = if (ColorUtils.calculateLuminance(c or 0xFF000000.t
 private fun teamPlates(lk: PosterLook, pl: Palette, rings: Boolean): PosterLook {
     val m = pl.main or 0xFF000000.toInt()
     val top = ColorUtils.blendARGB(m, WHITE, 0.16f); val bottom = ColorUtils.blendARGB(m, 0xFF000000.toInt(), 0.22f)
-    return lk.copy(plateTop = top, plateBottom = bottom, plateInk = inkFor(ColorUtils.blendARGB(top, bottom, 0.5f)), plateEdge = pl.accent,
+    return lk.copy(plateTop = top, plateBottom = bottom, plateInk = plateInk(ColorUtils.blendARGB(top, bottom, 0.5f)), plateEdge = pl.accent,
         badge = WHITE, badgeInk = if (ColorUtils.calculateLuminance(m) > 0.6) pl.deep else m, badgeEdge = pl.accent,
         ring = if (rings) lift(m, 0.2) else lk.ring)
 }
