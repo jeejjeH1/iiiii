@@ -650,7 +650,7 @@ private fun Picker(lg: FLeague, pos: Int, picks: List<FPlayer>, spent: Double, r
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun PlayerActions(p: FPlayer, lg: FLeague, isCaptain: Boolean, editable: Boolean, pts: Pair<Int, List<String>>?, onClose: () -> Unit, onCaptain: () -> Unit, onRemove: () -> Unit,
                           onBench: (() -> Unit)? = null, onBenchUp: (() -> Unit)? = null, onBenchLabel: String = "", canCaptain: Boolean = true) {
