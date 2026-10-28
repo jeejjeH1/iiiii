@@ -19,7 +19,7 @@
 import { DurableObject } from 'cloudflare:workers';
 
 const BAZAAR = 'https://cafebazaar.ir/app/app.goallive.live';
-const CODE_TTL = 3 * 60 * 1000;       // a login code lasts 3 minutes
+const CODE_TTL = 10 * 60 * 1000;      // a login code lasts 10 minutes (SMS can be slow to arrive)
 const RESEND_MS = 90 * 1000;          // and another can be asked for after a minute and a half
 const PER_PHONE_DAY = 6, PER_IP_DAY = 20, ALL_DAY = 800;
 
@@ -66,6 +66,7 @@ export class League extends DurableObject {
       CREATE INDEX IF NOT EXISTS picks_match ON picks (match);
       CREATE INDEX IF NOT EXISTS members_user ON members (user);
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+      CREATE TABLE IF NOT EXISTS otps2 (phone TEXT PRIMARY KEY, prev TEXT, prev_expires INTEGER);
       CREATE TABLE IF NOT EXISTS smslog (at INTEGER, phone TEXT, ok INTEGER, http INTEGER, status INTEGER, message TEXT, id TEXT, body TEXT);
     `);
     // once, before the app with the league is out: the accounts the first test runs left behind
@@ -124,6 +125,9 @@ export class League extends DurableObject {
     if (prev && now - prev.sent < RESEND_MS) return { ok: false, wait: Math.ceil((RESEND_MS - (now - prev.sent)) / 1000) };
     if (!this.bump('p:' + phone, PER_PHONE_DAY) || !this.bump('i:' + ip, PER_IP_DAY) || !this.bump('all', ALL_DAY)) throw new Http(429, 'limit');
     const code = String(10000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 90000));
+    // the code before stays good until it runs out: a late SMS still logs in after "send again"
+    const before = this.one('SELECT hash, expires FROM otps WHERE phone = ?', phone);
+    if (before && before.expires > now) this.sql.exec('INSERT OR REPLACE INTO otps2 (phone, prev, prev_expires) VALUES (?, ?, ?)', phone, before.hash, before.expires);
     this.sql.exec('INSERT INTO otps (phone, hash, expires, tries, sent) VALUES (?, ?, ?, 0, ?) ON CONFLICT(phone) DO UPDATE SET hash = excluded.hash, expires = excluded.expires, tries = 0, sent = excluded.sent',
       phone, await sha(phone + ':' + code + ':' + (this.env.SMSIR_KEY || 'test')), now + CODE_TTL, now);
     // without the sms.ir key the server is in test mode: the code comes back to the app instead of by SMS
@@ -144,11 +148,14 @@ export class League extends DurableObject {
     const o = this.one('SELECT hash, expires, tries FROM otps WHERE phone = ?', phone);
     if (!o || o.expires < Date.now()) throw new Http(410, 'expired');
     if (o.tries >= 5) throw new Http(429, 'tries');
-    if (o.hash !== await sha(phone + ':' + code + ':' + (this.env.SMSIR_KEY || 'test'))) {
+    const h = await sha(phone + ':' + code + ':' + (this.env.SMSIR_KEY || 'test'));
+    const p2 = this.one('SELECT prev, prev_expires FROM otps2 WHERE phone = ?', phone);
+    if (o.hash !== h && !(p2 && p2.prev === h && p2.prev_expires > Date.now())) {
       this.sql.exec('UPDATE otps SET tries = tries + 1 WHERE phone = ?', phone);
       throw new Http(401, 'wrong');
     }
     this.sql.exec('DELETE FROM otps WHERE phone = ?', phone);
+    this.sql.exec('DELETE FROM otps2 WHERE phone = ?', phone);
     let id = this.one('SELECT id FROM users WHERE phone = ?', phone)?.id;
     if (id && me && me !== id) {
       // the number already has an account: this phone's guest picks and leagues join it
