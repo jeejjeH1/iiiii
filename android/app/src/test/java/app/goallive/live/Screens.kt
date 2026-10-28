@@ -116,6 +116,8 @@ class Screens {
 
         rule.setContent { Root(mutableIntStateOf(0)) }
         settle(2500); shot("00-intro")
+        // the first screen: log in with a number, or later
+        settle(2500); shot("00b-login"); tap("بعداً", exact = true); settle(1500)
         settle(9000); shot("01-home")
         if (match != null) {
             NavHook.nav?.match(match.id); settle(9000); shot("02-match-summary")

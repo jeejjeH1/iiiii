@@ -187,7 +187,10 @@ fun Root(openMatch: MutableIntState) {
             }
             // first launch: the welcome steps (team, leagues, alerts) instead of separate pop-ups
             var welcome by remember { mutableStateOf(!Store.onboarded) }
-            if (welcome) Welcome { welcome = false } else {
+            // before anything else: logging in with a phone number, once (it can be put off)
+            var login by remember { mutableStateOf(!app.goallive.live.data.Account.signedIn && !Store.prefs().getBoolean("login.asked", false)) }
+            if (login) LoginGate { login = false }
+            else if (welcome) Welcome { welcome = false } else {
                 AskNotifications()
                 // after an update: what's new; after some days of use: a rating on Cafe Bazaar
                 WhatsNew(nav)

@@ -416,3 +416,95 @@ fun PredictLeagueTable(id: Int) {
         confirmButton = { androidx.compose.material3.TextButton({ leaving = false; scope.launch { runCatching { Account.leave(id) }; nav.back() } }) { T(L("خروج"), 14, FontWeight.Bold, C.live) } },
         dismissButton = { androidx.compose.material3.TextButton({ leaving = false }) { T(L("انصراف"), 14, color = C.mute) } })
 }
+
+/* ---------- the first screen: log in with a number, or later ---------- */
+
+/**
+ * Shown when the app opens and nobody is logged in yet (until it is answered once): the phone number, the code sent to it,
+ * then a name for the tables when the account is new. "بعداً" skips it; the league screen has the same way in later.
+ */
+@Composable
+fun LoginGate(onDone: () -> Unit) {
+    val accent = LocalAccent.current
+    val scope = rememberCoroutineScope()
+    var step by remember { mutableIntStateOf(0) }
+    var phone by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var wait by remember { mutableIntStateOf(0) }
+    var test by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    fun finish() { app.goallive.live.data.Store.prefs().edit().putBoolean("login.asked", true).apply(); onDone() }
+    LaunchedEffect(wait) { if (wait > 0) { delay(1000); wait-- } }
+    fun ask() {
+        busy = true; error = null
+        scope.launch {
+            runCatching { Account.askCode(phone) }.onSuccess { (w, t) -> step = 1; wait = w; test = t; code = "" }.onFailure { error = errorText(it) }
+            busy = false
+        }
+    }
+    fun check(c: String) {
+        busy = true; error = null
+        scope.launch {
+            runCatching { Account.verify(phone, c, null) }.onSuccess {
+                // a new account gets a default name: ask for a real one; a returning number goes straight in
+                if (Account.me?.name?.startsWith("بازیکن") == true) step = 2 else finish()
+            }.onFailure { error = errorText(it) }
+            busy = false
+        }
+    }
+    androidx.activity.compose.BackHandler { finish() }
+    Box(Modifier.fillMaxSize().background(C.bg).clickable(enabled = false) {}) {
+        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(C.gold.copy(alpha = 0.18f), accent.copy(alpha = 0.06f), Color.Transparent))))
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding().padding(horizontal = 22.dp)) {
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) {
+                if (step < 2) T(L("بعداً"), 15, FontWeight.Bold, C.mute, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { finish() }.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
+            Spacer(Modifier.weight(0.6f))
+            Box(Modifier.align(Alignment.CenterHorizontally).size(92.dp).clip(RoundedCornerShape(26.dp)).background(Color.White), contentAlignment = Alignment.Center) {
+                androidx.compose.foundation.Image(androidx.compose.ui.res.painterResource(app.goallive.live.R.drawable.logo), null, Modifier.size(70.dp))
+            }
+            Spacer(Modifier.height(22.dp))
+            T(when (step) { 0 -> L("ورود به گل‌لایو"); 1 -> L("کد تأیید"); else -> L("نام تو در جدول") }, 26, FontWeight.Black, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            T(when (step) {
+                0 -> L("با شماره‌ی موبایل وارد شو تا پیش‌بینی‌ها، امتیازها و لیگ‌هایت روی هر گوشی بماند.")
+                1 -> L("کد ۵ رقمی که به {0} پیامک شد را بنویس", fa(phone))
+                else -> L("دوستانت در لیگ‌ها تو را با این نام می‌بینند")
+            }, 14, color = C.mute, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 22.dp))
+            when (step) {
+                0 -> {
+                    LField(phone, L("مثلاً ۰۹۱۲۳۴۵۶۷۸۹"), number = true) { phone = it.take(14) }
+                    Spacer(Modifier.height(12.dp))
+                    BigButton(L("گرفتن کد"), enabled = phone.count { it.isDigit() } >= 10, busy = busy) { ask() }
+                }
+                1 -> {
+                    LField(code, "– – – – –", number = true, big = true) { v ->
+                        code = v.filter { it.isDigit() }.take(5)
+                        if (code.length == 5 && !busy) check(code)
+                    }
+                    test?.let { T(L("حالت آزمایشی: کد {0}", fa(it)), 13, FontWeight.Bold, C.gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) }
+                    Spacer(Modifier.height(12.dp))
+                    BigButton(L("ورود"), enabled = code.length == 5, busy = busy) { check(code) }
+                    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        T(L("شماره را عوض کن"), 13, FontWeight.Bold, C.mute, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { step = 0; error = null }.padding(6.dp))
+                        if (wait > 0) T(L("ارسال دوباره تا {0} ثانیه", fa(wait)), 13, color = C.faint, modifier = Modifier.padding(6.dp))
+                        else T(L("ارسال دوباره"), 13, FontWeight.Bold, accent, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = !busy) { ask() }.padding(6.dp))
+                    }
+                }
+                else -> {
+                    LField(name, L("مثلاً علی")) { name = it.take(24) }
+                    Spacer(Modifier.height(12.dp))
+                    BigButton(L("ثبت"), enabled = name.trim().length >= 2, busy = busy) {
+                        busy = true; error = null
+                        scope.launch { runCatching { Account.rename(name.trim()) }.onSuccess { finish() }.onFailure { error = errorText(it) }; busy = false }
+                    }
+                    T(L("بعداً"), 14, FontWeight.Bold, C.mute, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(8.dp)).clickable { finish() }.padding(8.dp))
+                }
+            }
+            error?.let { T(it, 13, FontWeight.Bold, C.live, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp)) }
+            Spacer(Modifier.weight(1f))
+            T(L("ورود اختیاری است؛ بدون آن هم همه‌ی اپ کار می‌کند."), 12, color = C.faint, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp))
+        }
+    }
+}
