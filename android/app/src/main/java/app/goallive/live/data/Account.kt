@@ -70,6 +70,7 @@ object Account {
         val j = call("/guest", JSONObject().put("name", name))
         keep(j.getString("token"), j.getJSONObject("user"))
         pushAll()
+        Backup.upload()
     }
 
     /** Asks for a login code; returns the seconds to wait before another, and the code itself while the server is in test mode. */
@@ -85,6 +86,8 @@ object Account {
         keep(j.getString("token"), j.getJSONObject("user"))
         pullPicks()
         pushAll()
+        // follows, my team, fantasy, tactics and settings from the account (or this phone's, sent up)
+        Backup.restore()
     }
 
     suspend fun refresh() { if (signedIn) keep(null, call("/me").getJSONObject("user")) }
@@ -120,6 +123,10 @@ object Account {
     }
 
     private fun pickJson(p: Pick) = JSONObject().put("m", p.matchId).put("h", p.home).put("a", p.away)
+
+    /** The account's copy of the app's other things (see [Backup]); null when it has none yet. */
+    suspend fun getBackup(): String? = call("/backup").let { j -> if (j.isNull("data")) null else j.optString("data") }
+    suspend fun putBackup(data: String) { call("/backup", JSONObject().put("data", data)) }
 
     suspend fun leagues(): JSONObject = call("/leagues")
     suspend fun create(name: String): JSONObject = call("/leagues", JSONObject().put("name", name)).getJSONObject("league")

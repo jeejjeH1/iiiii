@@ -1807,3 +1807,4 @@
 1806|Log in with your mobile number so your predictions, points and leagues stay with you on any phone.
 1807|Your friends see you by this name in leagues
 1808|Logging in is optional; the whole app works without it.
+1809|Log in with your mobile number so your team, follows, fantasy, predictions, tactics and settings stay with you on any phone.

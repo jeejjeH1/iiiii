@@ -468,7 +468,7 @@ fun LoginGate(onDone: () -> Unit) {
             Spacer(Modifier.height(22.dp))
             T(when (step) { 0 -> L("ورود به گل‌لایو"); 1 -> L("کد تأیید"); else -> L("نام تو در جدول") }, 26, FontWeight.Black, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
             T(when (step) {
-                0 -> L("با شماره‌ی موبایل وارد شو تا پیش‌بینی‌ها، امتیازها و لیگ‌هایت روی هر گوشی بماند.")
+                0 -> L("با شماره‌ی موبایل وارد شو تا تیم محبوب، دنبال‌شده‌ها، فانتزی، پیش‌بینی‌ها، تاکتیک‌ها و تنظیماتت روی هر گوشی بماند.")
                 1 -> L("کد ۵ رقمی که به {0} پیامک شد را بنویس", fa(phone))
                 else -> L("دوستانت در لیگ‌ها تو را با این نام می‌بینند")
             }, 14, color = C.mute, align = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 22.dp))

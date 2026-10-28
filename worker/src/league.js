@@ -6,6 +6,7 @@
 // POST /p/verify  {phone, code}              → {token, user}       with the bearer of a guest account, the phone is added to it
 // GET  /p/me                                 → {user}
 // POST /p/delete                             → {ok}                the account and its picks, gone
+// GET  /p/backup · POST /p/backup {data}     → {data, updated}     the app's other things (follows, my team, fantasy, tactics, settings)
 // POST /p/name    {name}                     → {user}
 // GET  /p/picks                              → {picks}             everything this account predicted (for a new phone)
 // POST /p/picks   {picks:[{m,h,a,…}]}        → {saved}             picks of matches not started yet
@@ -66,6 +67,7 @@ export class League extends DurableObject {
       CREATE INDEX IF NOT EXISTS picks_match ON picks (match);
       CREATE INDEX IF NOT EXISTS members_user ON members (user);
       CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT);
+      CREATE TABLE IF NOT EXISTS backups (user INTEGER PRIMARY KEY, data TEXT, updated INTEGER);
       CREATE TABLE IF NOT EXISTS otps2 (phone TEXT PRIMARY KEY, prev TEXT, prev_expires INTEGER);
       CREATE TABLE IF NOT EXISTS smslog (at INTEGER, phone TEXT, ok INTEGER, http INTEGER, status INTEGER, message TEXT, id TEXT, body TEXT);
     `);
@@ -162,7 +164,8 @@ export class League extends DurableObject {
       this.sql.exec('INSERT OR IGNORE INTO picks (user, match, h, a, at) SELECT ?, match, h, a, at FROM picks WHERE user = ?', id, me);
       this.sql.exec('INSERT OR IGNORE INTO members (league, user, joined) SELECT league, ?, joined FROM members WHERE user = ?', id, me);
       this.sql.exec('UPDATE leagues SET owner = ? WHERE owner = ?', id, me);
-      for (const t of ['picks', 'members', 'tokens']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
+      this.sql.exec('INSERT OR IGNORE INTO backups (user, data, updated) SELECT ?, data, updated FROM backups WHERE user = ?', id, me);
+      for (const t of ['picks', 'members', 'tokens', 'backups']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
       this.sql.exec('DELETE FROM users WHERE id = ?', me);
     } else if (!id && me) {
       this.sql.exec('UPDATE users SET phone = ? WHERE id = ?', phone, me);
@@ -183,10 +186,25 @@ export class League extends DurableObject {
   /** The account and everything in it, gone (its leagues stay for the others; one nobody is left in goes too). */
   deleteMe(me) {
     const mine = this.q('SELECT league FROM members WHERE user = ?', me).map((r) => r.league);
-    for (const t of ['picks', 'members', 'tokens']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
+    for (const t of ['picks', 'members', 'tokens', 'backups']) this.sql.exec(`DELETE FROM ${t} WHERE user = ?`, me);
     this.sql.exec('DELETE FROM users WHERE id = ?', me);
     for (const l of mine) if (!this.one('SELECT 1 AS x FROM members WHERE league = ?', l)) this.sql.exec('DELETE FROM leagues WHERE id = ?', l);
     return { ok: true };
+  }
+
+  /* ---------- everything else the app keeps: follows, my team, fantasy, saved tactics, settings ---------- */
+
+  getBackup(me) {
+    const b = this.one('SELECT data, updated FROM backups WHERE user = ?', me);
+    return b ? { data: b.data, updated: b.updated } : { data: null, updated: 0 };
+  }
+
+  putBackup(b, me) {
+    const data = typeof b.data === 'string' ? b.data : '';
+    if (!data || data.length > 262144) throw new Http(413, 'size');
+    const now = Date.now();
+    this.sql.exec('INSERT INTO backups (user, data, updated) VALUES (?, ?, ?) ON CONFLICT(user) DO UPDATE SET data = excluded.data, updated = excluded.updated', me, data, now);
+    return { updated: now };
   }
 
   /* ---------- picks ---------- */
@@ -327,6 +345,7 @@ export class League extends DurableObject {
         case '/p/me': out = { user: this.user(need()) }; break;
         case '/p/name': out = this.setName(body, need()); break;
         case '/p/delete': out = this.deleteMe(need()); break;
+        case '/p/backup': out = request.method === 'POST' ? this.putBackup(body, need()) : this.getBackup(need()); break;
         case '/p/picks': out = request.method === 'POST' ? await this.savePicks(body, need()) : this.picks(need()); break;
         case '/p/leagues': out = request.method === 'POST' ? this.newLeague(body, need()) : this.leagues(need()); break;
         case '/p/join': out = this.join(body, need()); break;
@@ -415,7 +434,7 @@ export async function league(request, env, url) {
   // the log and the scheduled run are for this server only
   if (url.pathname === '/p/smslog' || url.pathname === '/p/settle') return new Response('not found', { status: 404 });
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
-  if (+request.headers.get('content-length') > 32768) return new Response('too big', { status: 413 });
+  if (+request.headers.get('content-length') > (url.pathname === '/p/backup' ? 300000 : 32768)) return new Response('too big', { status: 413 });
   const stub = env.LEAGUE.get(env.LEAGUE.idFromName('main'));
   const headers = new Headers(request.headers);
   headers.set('x-ip', request.headers.get('cf-connecting-ip') || '?');
