@@ -208,7 +208,7 @@ class Screens {
         tap("+ افزودن"); settle(2500); shot("18-fantasy-picker")
         // a whole squad in one tap: the eleven, the bench and the leagues card
         NavHook.nav?.fantasy(); settle(4000)
-        tap("✨ چیدن خودکار تیم"); settle(3000); shot("17b-fantasy-squad")
+        tap("چیدن خودکار تیم"); settle(3000); shot("17b-fantasy-squad")
         repeat(3) { k -> runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(startY = bottom * 0.75f, endY = bottom * 0.35f, durationMillis = 500) } }; settle(1500); shot("17c-fantasy-down$k") }
         // the assistant: one typed question through an example chip
         NavHook.nav?.assistant(); settle(2000); shot("22-assistant")
