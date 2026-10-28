@@ -195,7 +195,8 @@ private fun addTo(st: FState, p: FPlayer, lg: FLeague) {
     val after = xi + p
     val count = (0..3).map { pos -> after.count { it.pos == pos } }
     val missing = (0..3).sumOf { pos -> (POS_RANGE[pos].first - count[pos]).coerceAtLeast(0) }
-    val fits = xi.size < 11 && count[p.pos] <= POS_RANGE[p.pos].last && 11 - after.size >= missing
+    // a full bench means the pitch takes him whatever the shape (the swaps put it right)
+    val fits = xi.size < 11 && (bench.size >= 4 || count[p.pos] <= POS_RANGE[p.pos].last && 11 - after.size >= missing)
     if (!fits) { if (p.pos == 0) bench.add(0, p.id) else bench.add(p.id) }
     st.setTeam(team, if (st.captain == 0 && fits) p.id else st.captain, bench)
 }
