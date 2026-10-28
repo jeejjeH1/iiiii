@@ -505,6 +505,17 @@ export class League extends DurableObject {
         case '/p/fjoin': out = this.joinFantasy(body, need()); break;
         case '/p/fleave': out = this.leaveFantasy(body, need()); break;
         case '/p/fleague': out = this.fantasyLeague(url, need()); break;
+        case '/p/counts': out = {
+          accounts: this.one('SELECT COUNT(*) AS n FROM users').n,
+          withPhone: this.one('SELECT COUNT(*) AS n FROM users WHERE phone IS NOT NULL').n,
+          withGoogle: this.one('SELECT COUNT(*) AS n FROM users WHERE google IS NOT NULL').n,
+          predictors: this.one('SELECT COUNT(DISTINCT user) AS n FROM picks').n,
+          picks: this.one('SELECT COUNT(*) AS n FROM picks').n,
+          leagues: this.one('SELECT COUNT(*) AS n FROM leagues').n,
+          fantasyPlayers: this.one('SELECT COUNT(DISTINCT user) AS n FROM fteams').n,
+          fantasyLeagues: this.one('SELECT COUNT(*) AS n FROM fleagues').n,
+          backups: this.one('SELECT COUNT(*) AS n FROM backups').n,
+        }; break;
         case '/p/settle': out = { checked: await this.settle(20) }; break;
         case '/p/smslog': out = this.q('SELECT at, phone, ok, http, status, message, id, body FROM smslog ORDER BY at DESC LIMIT 10'); break;
         default: throw new Http(404, 'not found');
@@ -585,8 +596,14 @@ export async function league(request, env, url) {
     }
     return Response.json({ ...(await smsCheck(env)), template: env.SMSIR_TEMPLATE || null, param: env.SMSIR_PARAM || null, log });
   }
-  // the log and the scheduled run are for this server only
-  if (url.pathname === '/p/smslog' || url.pathname === '/p/settle') return new Response('not found', { status: 404 });
+  // the owner's numbers, behind the dashboard key (counts only: no names or numbers)
+  if (url.pathname === '/p/stats') {
+    if (!env.DASH_KEY || url.searchParams.get('key') !== env.DASH_KEY) return new Response('wrong key', { status: 403 });
+    const stub = env.LEAGUE.get(env.LEAGUE.idFromName('main'));
+    return new Response((await stub.fetch('https://p/p/counts')).body, { headers: { 'content-type': 'application/json' } });
+  }
+  // the log, the counts and the scheduled run are for this server only
+  if (url.pathname === '/p/smslog' || url.pathname === '/p/settle' || url.pathname === '/p/counts') return new Response('not found', { status: 404 });
   if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
   if (+request.headers.get('content-length') > (url.pathname === '/p/backup' ? 300000 : 32768)) return new Response('too big', { status: 413 });
   const stub = env.LEAGUE.get(env.LEAGUE.idFromName('main'));
