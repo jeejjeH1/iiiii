@@ -148,9 +148,10 @@ fun SettingsScreen() {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         LookCard("classic", L("کلاسیک"), L("نور ورزشگاه"), Modifier.weight(1f))
                         LookCard("pitch", L("زمین فوتبال"), L("سبز و فوتبالی"), Modifier.weight(1f))
+                        LookCard("vip", "VIP", L("نئون و پرانیمیشن"), Modifier.weight(1f))
                     }
-                    // day or night belongs to the classic look; the pitch is always a night match
-                    if (!Look.pitch) Seg(listOf("dark" to L("بازی شبانه"), "light" to L("بازی روز"), "auto" to L("مثل گوشی")), Store.theme,
+                    // day or night belongs to the classic look; the pitch and VIP looks are always night
+                    if (!Look.pitch && !Look.vip) Seg(listOf("dark" to L("بازی شبانه"), "light" to L("بازی روز"), "auto" to L("مثل گوشی")), Store.theme,
                         icons = mapOf("dark" to Ic.moon, "light" to Ic.sun)) { Store.pickTheme(it); Look.mode = it }
                 }
                 SubHead("زبان · Language")
@@ -362,7 +363,19 @@ private fun LookCard(key: String, title: String, sub: String, modifier: Modifier
         Box(Modifier.fillMaxWidth().height(96.dp).clip(RoundedCornerShape(12.dp))) {
             Canvas(Modifier.fillMaxSize()) {
                 val w = size.width; val h = size.height
-                if (key == "pitch") {
+                if (key == "vip") {
+                    drawRect(androidx.compose.ui.graphics.Color(0xFF05060D))
+                    drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0x6645E3FF), androidx.compose.ui.graphics.Color.Transparent),
+                        androidx.compose.ui.geometry.Offset(w * 0.2f, h * 0.2f), w * 0.7f), w * 0.7f, androidx.compose.ui.geometry.Offset(w * 0.2f, h * 0.2f))
+                    drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0x668B5CF6), androidx.compose.ui.graphics.Color.Transparent),
+                        androidx.compose.ui.geometry.Offset(w * 0.85f, h * 0.8f), w * 0.7f), w * 0.7f, androidx.compose.ui.geometry.Offset(w * 0.85f, h * 0.8f))
+                    val cr = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx())
+                    drawRoundRect(androidx.compose.ui.graphics.Color(0xCC0D1020), androidx.compose.ui.geometry.Offset(w * 0.1f, h * 0.36f), androidx.compose.ui.geometry.Size(w * 0.8f, h * 0.44f), cr)
+                    drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color(0xFF45E3FF), androidx.compose.ui.graphics.Color(0xFF8B5CF6))),
+                        androidx.compose.ui.geometry.Offset(w * 0.1f, h * 0.36f), androidx.compose.ui.geometry.Size(w * 0.8f, h * 0.44f), cr, style = androidx.compose.ui.graphics.drawscope.Stroke(1.5.dp.toPx()))
+                    drawRoundRect(androidx.compose.ui.graphics.Brush.linearGradient(listOf(androidx.compose.ui.graphics.Color(0xFF45E3FF), androidx.compose.ui.graphics.Color(0xFF8B5CF6))),
+                        androidx.compose.ui.geometry.Offset(w * 0.55f, h * 0.1f), androidx.compose.ui.geometry.Size(w * 0.35f, h * 0.14f), cr)
+                } else if (key == "pitch") {
                     drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color(0xFF16602F), androidx.compose.ui.graphics.Color(0xFF0A2915))))
                     val b = h / 6
                     for (k in 0 until 6 step 2) drawRect(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.06f), androidx.compose.ui.geometry.Offset(0f, k * b), androidx.compose.ui.geometry.Size(w, b))

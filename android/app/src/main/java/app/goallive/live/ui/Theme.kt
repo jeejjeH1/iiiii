@@ -32,14 +32,20 @@ object Look {
     /** "classic" (the floodlit night or the day match) or "pitch": the whole app on a football pitch at night, in its own greens. */
     var style by mutableStateOf("classic")
     val pitch get() = style == "pitch"
-    /** The pitch look is a night look of its own, whatever the light/dark choice. */
-    val light get() = !pitch && (if (mode == "auto") !systemDark else mode == "light")
+    /** "vip": obsidian night with electric cyan and violet light, glass cards with a light running round their edges, everything animated. */
+    val vip get() = style == "vip"
+    /** The pitch and VIP looks are night looks of their own, whatever the light/dark choice. */
+    val light get() = !pitch && !vip && (if (mode == "auto") !systemDark else mode == "light")
 }
 
 /** The pitch look's accent: the bright lime-yellow of a broadcast graphic, sharp on the grass. */
 val PitchAccent = Color(0xFFE4FF3A)
 
-private fun pick(dark: Long, light: Long, pitch: Long = dark) = when {
+/** The VIP look's accent: electric cyan (its gradients run on into violet). */
+val VipGold = Color(0xFF45E3FF)
+
+private fun pick(dark: Long, light: Long, pitch: Long = dark, vip: Long = dark) = when {
+    Look.vip -> Color(vip)
     Look.pitch -> Color(pitch)
     Look.light -> Color(light)
     else -> Color(dark)
@@ -47,28 +53,28 @@ private fun pick(dark: Long, light: Long, pitch: Long = dark) = when {
 
 // The site's "floodlights" palette (assets/app.css :root) and its day-match variant (:root[data-theme="light"]).
 object C {
-    val bg get() = pick(0xFF05070A, 0xFFE9EEE9, 0xFF0A2915)
-    val bg2 get() = pick(0xFF0A0E13, 0xFFF4F7F3, 0xFF0D311A)
-    val card get() = pick(0xFF0E1318, 0xFFFFFFFF, 0xF0061C0F)          // --card-solid at 92% over --bg
-    val cardSolid get() = pick(0xFF0F141A, 0xFFFFFFFF, 0xFF071E10)
-    val card2 get() = pick(0x12FFFFFF, 0x0D0A1E0F, 0x16FFFFFF)         // rgba(255,255,255,.07)
-    val ink get() = pick(0xFFF3F6F8, 0xFF0B130D, 0xFFF3FFF5)
+    val bg get() = pick(0xFF05070A, 0xFFE9EEE9, 0xFF0A2915, 0xFF05060D)
+    val bg2 get() = pick(0xFF0A0E13, 0xFFF4F7F3, 0xFF0D311A, 0xFF090B16)
+    val card get() = pick(0xFF0E1318, 0xFFFFFFFF, 0xF0061C0F, 0xD90D1020)          // --card-solid at 92% over --bg
+    val cardSolid get() = pick(0xFF0F141A, 0xFFFFFFFF, 0xFF071E10, 0xFF0C0F1D)
+    val card2 get() = pick(0x12FFFFFF, 0x0D0A1E0F, 0x16FFFFFF, 0x1445E3FF)         // rgba(255,255,255,.07)
+    val ink get() = pick(0xFFF3F6F8, 0xFF0B130D, 0xFFF3FFF5, 0xFFF1F5FF)
     val text get() = ink
     // a little brighter than the site's greys so small text stays readable
-    val mute get() = pick(0xFF9AA4AF, 0xFF56645A, 0xFFA6C6AF)
-    val faint get() = pick(0xFF6E7883, 0xFF7E8A82, 0xFF78A084)
-    val line get() = pick(0x14FFFFFF, 0x140A1E0F, 0x1FFFFFFF)          // .08
-    val line2 get() = pick(0x24FFFFFF, 0x240A1E0F, 0x33FFFFFF)         // .14
+    val mute get() = pick(0xFF9AA4AF, 0xFF56645A, 0xFFA6C6AF, 0xFFA4ADCA)
+    val faint get() = pick(0xFF6E7883, 0xFF7E8A82, 0xFF78A084, 0xFF717A99)
+    val line get() = pick(0x14FFFFFF, 0x140A1E0F, 0x1FFFFFFF, 0x2645E3FF)          // .08
+    val line2 get() = pick(0x24FFFFFF, 0x240A1E0F, 0x33FFFFFF, 0x408B5CF6)         // .14
     val live = Color(0xFFFF3358)
     val liveSoft = Color(0x24FF3358)
-    val gold get() = pick(0xFFFFC53D, 0xFFD99A00, 0xFFFFD43B)
-    val win get() = pick(0xFF2FD673, 0xFF16A34A, 0xFF52E38F)
+    val gold get() = pick(0xFFFFC53D, 0xFFD99A00, 0xFFFFD43B, 0xFFFFC53D)
+    val win get() = pick(0xFF2FD673, 0xFF16A34A, 0xFF52E38F, 0xFF3DE89A)
     val draw = Color(0xFF7D8792)
     val loss = Color(0xFFFF4D6A)
     val home = Color(0xFF4F8BFF)
     val away = Color(0xFFFF8A3D)
-    val pitch get() = pick(0xFF1F7A3E, 0xFF2A9A52, 0xFF1E8A44)
-    val pitch2 get() = pick(0xFF23874A, 0xFF30A85B, 0xFF249A4E)
+    val pitch get() = pick(0xFF1F7A3E, 0xFF2A9A52, 0xFF1E8A44, 0xFF1E7A42)
+    val pitch2 get() = pick(0xFF23874A, 0xFF30A85B, 0xFF249A4E, 0xFF22874A)
     val yellow get() = gold
     val red = live
 }
@@ -146,6 +152,7 @@ fun GoalLiveTheme(accent: Color, content: @Composable () -> Unit) {
 
 /** The site's light theme swaps the lime default for green, and very light club colors get darker so they read on white. */
 fun accentForLook(c: Color): Color = when {
+    Look.vip -> VipGold
     Look.pitch -> PitchAccent
     !Look.light -> c
     c == Lime -> Color(0xFF16A34A)

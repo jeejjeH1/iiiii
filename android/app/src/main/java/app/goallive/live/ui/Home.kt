@@ -137,13 +137,20 @@ fun HomeScreen() {
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 4.dp, bottom = BottomSpace)) {
         // a calmer top: the shortcuts, my team and the big games; the live ticker and the competition banner are gone
         // (the «زنده» filter and the match list already show both)
+        // the VIP look opens the day with its banner: a greeting, the date and the day in numbers
+        if (day == 0 && Look.vip) item(key = "vip") {
+            val all = list?.flatMap { it.matches }.orEmpty()
+            VipHero(all.size, all.count { it.live }, all.count { it.finished })
+            // what is on now, as a turning carousel (the day's big games when nothing is live)
+            VipCarousel(all.filter { it.live }.take(8).ifEmpty { featured(list.orEmpty()) })
+        }
         if (day == 0) item(key = "stories") { StoryRow() }
         if (day == 0) Store.myTeam?.let { t -> item(key = "my") { MyTeamCard(t.id, t.name, list) } }
         if (list != null) {
             // my team's match already has its own card above
             val mine = if (day == 0) Store.myTeam?.id else null
             val picks = featured(list).filter { mine == null || (it.home.id != mine && it.away.id != mine) }
-            if (picks.isNotEmpty()) {
+            if (picks.isNotEmpty() && !Look.vip) {
                 item(key = "featT") { SectionTitle(L("بازی‌های بزرگ")) }
                 item(key = "feat") { Featured(picks) }
             }
@@ -193,8 +200,11 @@ fun HomeScreen() {
                         .sortedByDescending { (b, ms) -> leagueWeight(b, ms) }
                     if (shown.isEmpty()) item { empty() }
                     items(shown) { (b, ms) ->
-                        val isCollapsed = collapsed[b.id] == true && filter == "all"
-                        LeagueCard(b, ms, isCollapsed, { collapsed[b.id] = !isCollapsed }, flash)
+                        if (Look.vip) VipLeague(b, ms, flash)
+                        else {
+                            val isCollapsed = collapsed[b.id] == true && filter == "all"
+                            LeagueCard(b, ms, isCollapsed, { collapsed[b.id] = !isCollapsed }, flash)
+                        }
                     }
                 }
             }

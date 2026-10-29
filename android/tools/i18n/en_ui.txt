@@ -1951,3 +1951,11 @@
 1950|Green and football
 1951|New look: the football pitch
 1952|The whole app on a football pitch at night: mown stripes, chalk lines, floodlights and greens; pick it in Settings › Look
+1953|Good morning
+1954|Good afternoon
+1955|Good evening
+1956|Good night
+1957|Today's matches
+1958|Neon, full of motion
+1959|The VIP look
+1960|A new app: a neon night with moving light, glass cards with light running round them, a new home with a carousel of live matches and tiles, a floating dock and film-like transitions; in Settings › Look

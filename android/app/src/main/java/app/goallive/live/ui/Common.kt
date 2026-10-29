@@ -124,6 +124,7 @@ fun flagLogo(ccode: String) = "$IMG/logo/teamlogo/${ccode.lowercase()}.png"
 fun Stadium(accent: Color) {
     Canvas(Modifier.fillMaxSize()) {
         // the football-pitch look: the whole app on a pitch at night
+        if (Look.vip) { vipBackdrop(); return@Canvas }
         if (Look.pitch) { pitchBackdrop(accent); return@Canvas }
         drawRect(C.bg)
         val stripe = 64.dp.toPx()
@@ -254,8 +255,10 @@ private val CardShape = RoundedCornerShape(22.dp)
 @Composable
 fun Card(modifier: Modifier = Modifier, pad: PaddingValues = PaddingValues(0.dp), content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.fillMaxWidth().clip(CardShape).background(C.card)
-            .border(1.dp, if (Look.pitch) Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), C.line)) else SolidColor(C.line), CardShape).padding(pad),
+        // the VIP look: every card rises into place as it appears, and a light runs round its glowing edge
+        modifier.fillMaxWidth().then(if (Look.vip) Modifier.vipEnter() else Modifier).clip(CardShape).background(C.card)
+            .then(if (Look.vip) Modifier.vipEdge(CardShape)
+                else Modifier.border(1.dp, if (Look.pitch) Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), C.line)) else SolidColor(C.line), CardShape)).padding(pad),
         content = content,
     )
 }
@@ -282,9 +285,10 @@ fun CardTitle(text: String, modifier: Modifier = Modifier, sub: String? = null, 
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     val accent = LocalAccent.current
     Row(modifier.padding(start = 4.dp, end = 4.dp, top = 22.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (Look.pitch) Canvas(Modifier.size(15.dp)) { football(center, size.minDimension / 2, -20f) }
+        if (Look.vip) Canvas(Modifier.size(14.dp)) { vipDiamond() }
+        else if (Look.pitch) Canvas(Modifier.size(15.dp)) { football(center, size.minDimension / 2, -20f) }
         else Box(Modifier.size(4.dp, 16.dp).glow(accent, 6.dp, RoundedCornerShape(2.dp)).clip(RoundedCornerShape(2.dp)).background(accent))
-        Spacer(Modifier.width(if (Look.pitch) 8.dp else 10.dp))
+        Spacer(Modifier.width(if (Look.pitch || Look.vip) 8.dp else 10.dp))
         T(text, 13, FontWeight.Black)
     }
 }

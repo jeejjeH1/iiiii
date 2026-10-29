@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.*
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -121,10 +122,13 @@ fun Root(openMatch: MutableIntState) {
     val activity = LocalContext.current as? ComponentActivity
     val light = Look.light
     val pitchLook = Look.pitch
-    LaunchedEffect(light, pitchLook) {
+    val vipLook = Look.vip
+    // the VIP look's moving parts all read one clock
+    if (vipLook) VipClockDriver()
+    LaunchedEffect(light, pitchLook, vipLook) {
         activity?.enableEdgeToEdge(
             statusBarStyle = if (light) SystemBarStyle.light(0, 0) else SystemBarStyle.dark(0),
-            navigationBarStyle = if (light) SystemBarStyle.light(0xFFE9EEE9.toInt(), 0) else SystemBarStyle.dark(if (pitchLook) 0xFF06190D.toInt() else 0xFF0B0F14.toInt()),
+            navigationBarStyle = if (light) SystemBarStyle.light(0xFFE9EEE9.toInt(), 0) else SystemBarStyle.dark(when { vipLook -> 0xFF05060D.toInt(); pitchLook -> 0xFF06190D.toInt(); else -> 0xFF0B0F14.toInt() }),
         )
     }
 
@@ -143,10 +147,12 @@ fun Root(openMatch: MutableIntState) {
                     NavHost(
                         nc, "home", Modifier.fillMaxSize(),
                         // the site's view transition: fade in while rising a little
-                        enterTransition = { fadeIn(tween(300)) + slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 40 } },
-                        exitTransition = { fadeOut(tween(150)) },
-                        popEnterTransition = { fadeIn(tween(250)) },
-                        popExitTransition = { fadeOut(tween(150)) },
+                        // the VIP look moves like a film: the new page comes forward out of depth, the old one recedes
+                        enterTransition = { if (Look.vip) fadeIn(tween(420)) + androidx.compose.animation.scaleIn(tween(520, easing = FastOutSlowInEasing), initialScale = 0.9f)
+                            else fadeIn(tween(300)) + slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 40 } },
+                        exitTransition = { if (Look.vip) fadeOut(tween(260)) + androidx.compose.animation.scaleOut(tween(380), targetScale = 1.06f) else fadeOut(tween(150)) },
+                        popEnterTransition = { if (Look.vip) fadeIn(tween(380)) + androidx.compose.animation.scaleIn(tween(460, easing = FastOutSlowInEasing), initialScale = 1.06f) else fadeIn(tween(250)) },
+                        popExitTransition = { if (Look.vip) fadeOut(tween(240)) + androidx.compose.animation.scaleOut(tween(360), targetScale = 0.9f) else fadeOut(tween(150)) },
                     ) {
                         screen("home") { HomeScreen() }
                         screen("leagues") { LeaguesScreen() }
@@ -236,7 +242,7 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
             Image(painterResource(R.drawable.logo), null, Modifier.size(if (canBack) 26.dp else 28.dp).clip(RoundedCornerShape(10.dp)))
             if (!canBack) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 T(L("گل‌لایو"), 18, FontWeight.Black)
-                Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(C.live))
+                if (Look.vip) VipChip() else Box(Modifier.size(7.dp).graphicsLayer { alpha = pulse }.clip(CircleShape).background(C.live))
             }
         }
         Spacer(Modifier.weight(1f))
@@ -255,6 +261,7 @@ private fun TopBar(canBack: Boolean, nav: Nav) {
  */
 @Composable
 private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
+    if (Look.vip) { VipDock(route, nav, modifier); return }
     val accent = LocalAccent.current
     val ink = LocalAccentInk.current
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
@@ -281,13 +288,18 @@ private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
             // the bar
             Box(
                 Modifier.matchParentSize().shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black).clip(shape)
-                    .background(if (Look.pitch) Brush.verticalGradient(listOf(Color(0xFF16602F), Color(0xFF0C4020)))
+                    .background(if (Look.vip) Brush.verticalGradient(listOf(Color(0xF0121633), Color(0xF5070818)))
+                        else if (Look.pitch) Brush.verticalGradient(listOf(Color(0xFF16602F), Color(0xFF0C4020)))
                         else Brush.verticalGradient(listOf(C.cardSolid, androidx.compose.ui.graphics.lerp(C.cardSolid, C.bg, 0.55f))))
                     .drawBehind {
                         // the pitch look's bar is a strip of real grass, mown in bands
                         if (Look.pitch) { val b = size.width / 10; for (k in 0 until 10 step 2) drawRect(Color.White.copy(alpha = 0.05f), Offset(k * b, 0f), androidx.compose.ui.geometry.Size(b, size.height)) }
-                        pitchLines(lines)
+                        // the VIP bar: a cone of light falls from its top edge onto the chosen tab
+                        if (Look.vip) { val w1 = (size.width - 12.dp.toPx()) / TABS.size; val cx = 6.dp.toPx() + w1 * (pos + 0.5f)
+                            vipSpot(if (rtl) size.width - cx else cx, w1) }
+                        else pitchLines(lines)
                     }
+                    .then(if (Look.vip) Modifier.vipEdge(shape) else Modifier)
                     .border(1.dp, Brush.verticalGradient(listOf(if (Look.light) C.line2 else Color.White.copy(alpha = 0.16f), C.line)), shape)
             )
             // the pill under the selected tab
@@ -295,12 +307,13 @@ private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
                 Modifier.align(Alignment.CenterStart).offset(x = 6.dp + tw * pos).width(tw).fillMaxHeight().padding(vertical = 6.dp)
                     .graphicsLayer { alpha = shown }
                     .glow(accent.copy(alpha = 0.45f), 10.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp))
-                    .background(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(accent, Color.White, 0.18f), accent)))
+                    .background(if (Look.vip) Brush.linearGradient(listOf(Color(0xFF45E3FF), Color(0xFF8B5CF6))) else Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(accent, Color.White, 0.18f), accent)))
+                    .then(if (Look.vip) Modifier.vipSheen() else Modifier)
             )
             // the ball on the bar, rolling with the pill and hopping between tabs
             val hop = kotlin.math.abs(kotlin.math.sin(Math.PI * pos)).toFloat()
             // (inside a page, with no tab chosen, the ball leaves with the pill)
-            Canvas(Modifier.align(Alignment.TopStart).offset(x = 6.dp + tw * (pos + 0.5f) - 10.dp, y = (-13).dp - 9.dp * hop).size(20.dp).graphicsLayer { alpha = shown }) {
+            Canvas(Modifier.align(Alignment.TopStart).offset(x = 6.dp + tw * (pos + 0.5f) - 10.dp, y = (-13).dp - 9.dp * hop).size(20.dp).graphicsLayer { alpha = if (Look.vip) 0f else shown }) {
                 val r = size.minDimension / 2
                 // its shadow on the bar's edge, smaller as it rises
                 drawOval(Color.Black.copy(alpha = 0.35f * (1 - hop * 0.6f)), Offset(r * (0.25f + 0.25f * hop), size.height + (9.dp.toPx() * hop) - r * 0.25f),
@@ -325,6 +338,44 @@ private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
                         Icon(icon(), null, Modifier.size(21.dp).graphicsLayer { scaleX = bounce.value; scaleY = bounce.value }, tint = c)
                         Spacer(Modifier.height(1.dp))
                         T(label, 12, FontWeight.Bold, c, maxLines = 1)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The VIP look's navigation: a small floating dock in the middle of the bottom edge. The tabs are bare icons; the chosen one
+ * opens into a glowing capsule with its name, and the dock reshapes itself around it.
+ */
+@Composable
+private fun VipDock(route: String?, nav: Nav, modifier: Modifier) {
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val shape = RoundedCornerShape(30.dp)
+    Box(modifier.fillMaxWidth().drawBehind {
+            drawRect(Brush.verticalGradient(listOf(C.bg.copy(alpha = 0f), C.bg.copy(alpha = 0.85f)), -24.dp.toPx(), size.height), Offset(0f, -24.dp.toPx()),
+                androidx.compose.ui.geometry.Size(size.width, size.height + 24.dp.toPx()))
+        }.navigationBarsPadding().padding(bottom = 14.dp, top = 10.dp), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier.shadow(24.dp, shape, ambientColor = Color(0xFF45E3FF), spotColor = Color(0xFF8B5CF6)).clip(shape)
+                .background(Brush.verticalGradient(listOf(Color(0xF2141938), Color(0xF7070818)))).vipEdge(shape)
+                .padding(6.dp).animateContentSize(androidx.compose.animation.core.spring(0.75f, 380f)),
+            horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TABS.forEach { (r, label, icon) ->
+                val on = r == route
+                Row(
+                    Modifier.height(50.dp).semantics(mergeDescendants = true) { role = Role.Tab; selected = on; contentDescription = label }
+                        .clip(RoundedCornerShape(25.dp))
+                        .then(if (on) Modifier.background(Brush.linearGradient(listOf(Color(0xFF45E3FF), Color(0xFF8B5CF6)))).vipSheen() else Modifier)
+                        .clickable { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove); if (!on) nav.tab(r) else nav.root(r) }
+                        .padding(horizontal = if (on) 16.dp else 13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(icon(), null, Modifier.size(22.dp), tint = if (on) Color(0xFF06101E) else C.mute)
+                    AnimatedVisibility(on, enter = fadeIn() + androidx.compose.animation.expandHorizontally(), exit = fadeOut() + androidx.compose.animation.shrinkHorizontally()) {
+                        Row { Spacer(Modifier.width(8.dp)); T(label, 13, FontWeight.Black, Color(0xFF06101E), maxLines = 1) }
                     }
                 }
             }
