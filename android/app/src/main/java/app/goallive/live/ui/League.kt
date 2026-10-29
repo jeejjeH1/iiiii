@@ -166,7 +166,9 @@ private fun DetailedRows(rows: List<JSONObject>, highlight: List<Int>) {
     Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         T("#", 11, FontWeight.Bold, C.faint, Modifier.width(32.dp), align = TextAlign.Center)
         T(L("تیم"), 11, FontWeight.Bold, C.faint, Modifier.weight(1f).padding(start = 6.dp))
-        for (c in if (app.goallive.live.Lang.en) listOf("P", "W", "D", "L") else listOf("بازی", "برد", "تساوی", "باخت")) T(c, 10, FontWeight.Bold, C.faint, Modifier.width(narrow), align = TextAlign.Center, maxLines = 1)
+        for (c in if (app.goallive.live.Lang.en) listOf("P", "W", "D", "L") else listOf("بازی", "برد", "مساوی", "باخت"))
+            // small headings set directly (the text helper never goes under 12sp), so «مساوی» fits its narrow column
+            Text(c, Modifier.width(narrow), color = C.faint, style = vz(9.5.sp, FontWeight.Bold), textAlign = TextAlign.Center, maxLines = 1, softWrap = false)
         T(L("گل"), 10, FontWeight.Bold, C.faint, Modifier.width(44.dp), align = TextAlign.Center)
         T("+/-", 10, FontWeight.Bold, C.faint, Modifier.width(32.dp), align = TextAlign.Center)
         T(L("امتیاز"), 10, FontWeight.Bold, C.faint, Modifier.width(40.dp), align = TextAlign.Center, maxLines = 1)
