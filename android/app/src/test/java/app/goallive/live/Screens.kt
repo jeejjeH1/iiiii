@@ -367,6 +367,7 @@ class Screens {
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(1500); shot("19p-home-pitch-down")
         if (match != null) { NavHook.nav?.match(match.id); settle(6000); shot("20p-match-pitch") }
         NavHook.nav?.tab("leagues"); settle(4000); shot("20p-leagues-pitch")
+        NavHook.nav?.league(47); settle(9000); shot("20p-table-pitch")
         NavHook.nav?.tab("more"); settle(2000); shot("20p-more-pitch")
         NavHook.nav?.tab("settings"); settle(1500); shot("21p-settings-pitch")
         // the VIP look
@@ -375,6 +376,7 @@ class Screens {
         runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(1500); shot("19v-home-vip-down")
         if (match != null) { NavHook.nav?.match(match.id); settle(6000); shot("20v-match-vip") }
         NavHook.nav?.tab("leagues"); settle(4000); shot("20v-leagues-vip")
+        NavHook.nav?.league(47); settle(9000); shot("20v-table-vip")
         NavHook.nav?.tab("settings"); settle(1500); shot("21v-settings-vip")
         Store.pickStyle("classic"); Look.style = "classic"
     }
