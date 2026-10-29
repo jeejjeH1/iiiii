@@ -36,6 +36,8 @@ object Store {
     /** Online commentator: "farid" (male) or "dilara" (female). */
     var voiceName by mutableStateOf("farid"); private set
     var theme by mutableStateOf("dark"); private set
+    /** The look: "classic" or "pitch" (the football-pitch look). */
+    var style by mutableStateOf("classic"); private set
 
     /** Called whenever follows change, so the alert checker can start or stop. */
     var onFollowChange: (() -> Unit)? = null
@@ -63,6 +65,7 @@ object Store {
         voice = p.getString("voice", "auto")!!
         voiceName = p.getString("voiceName", "farid")!!
         theme = p.getString("theme", "dark")!!
+        style = p.getString("style", "classic")!!
     }
 
     fun useFaNames(on: Boolean) { faNames = on; p.edit().putBoolean("faNames", on).apply() }
@@ -71,6 +74,7 @@ object Store {
         p.edit().putString("voice", mode).putString("voiceName", name).apply()
     }
     fun pickTheme(t: String) { theme = t; p.edit().putString("theme", t).apply() }
+    fun pickStyle(t: String) { style = t; p.edit().putString("style", t).apply() }
 
     /** One-time how-to sheets. */
     fun tipSeen(key: String) = p.getBoolean("tip_$key", false)

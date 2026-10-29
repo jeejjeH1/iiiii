@@ -145,3 +145,38 @@ internal fun MiniScore(m: MatchData) {
         }
     }
 }
+
+/**
+ * The pitch look's page: a pitch at night as the TV camera sees it. Mown bands across it, wider towards the bottom as if
+ * nearer; the chalk markings faint (touchlines, halfway line and centre circle, both boxes with their D and the corner arcs);
+ * floodlight falling from the top corners, a little of the accent's light at the top, darker at the edges.
+ */
+internal fun DrawScope.pitchBackdrop(accent: Color) {
+    val w = size.width; val h = size.height
+    drawRect(Brush.verticalGradient(listOf(Color(0xFF113F22), Color(0xFF0A2915), Color(0xFF06190D))))
+    var y = 0f; var band = 44.dp.toPx(); var k = 0
+    while (y < h) { if (k % 2 == 0) drawRect(Color.White.copy(alpha = 0.035f), Offset(0f, y), Size(w, band)); y += band; band *= 1.045f; k++ }
+    val chalk = Color.White.copy(alpha = 0.08f); val st = Stroke(2.dp.toPx()); val m = 12.dp.toPx()
+    drawRect(chalk, Offset(m, m), Size(w - 2 * m, h - 2 * m), style = st)
+    val mid = h * 0.5f
+    drawLine(chalk, Offset(m, mid), Offset(w - m, mid), 2.dp.toPx())
+    drawCircle(chalk, w * 0.22f, Offset(w / 2, mid), style = st)
+    drawCircle(chalk, 3.dp.toPx(), Offset(w / 2, mid))
+    val bw = w * 0.64f; val bh = h * 0.12f; val sw = w * 0.3f; val sh = h * 0.045f; val r = w * 0.13f
+    for (top in listOf(true, false)) {
+        val y0 = if (top) m else h - m - bh
+        drawRect(chalk, Offset((w - bw) / 2, y0), Size(bw, bh), style = st)
+        drawRect(chalk, Offset((w - sw) / 2, if (top) m else h - m - sh), Size(sw, sh), style = st)
+        val spot = if (top) m + bh * 0.72f else h - m - bh * 0.72f
+        drawCircle(chalk, 2.5.dp.toPx(), Offset(w / 2, spot))
+        drawArc(chalk, if (top) 36f else 216f, 108f, false, Offset(w / 2 - r, spot - r), Size(2 * r, 2 * r), style = st)
+        val cy = if (top) m else h - m
+        for (cx in listOf(m, w - m)) drawCircle(chalk, 10.dp.toPx(), Offset(cx, cy), style = st)
+    }
+    // floodlights from the top corners, and the light they lay on the grass
+    for (cx in listOf(-w * 0.05f, w * 1.05f)) {
+        drawRect(Brush.radialGradient(listOf(Color(0x30E8FFF0), Color.Transparent), Offset(cx, -h * 0.03f), w * 0.95f))
+    }
+    drawRect(Brush.radialGradient(listOf(accent.copy(alpha = 0.07f), Color.Transparent), Offset(w / 2, -h * 0.05f), h * 0.55f))
+    drawRect(Brush.radialGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.42f)), Offset(w / 2, h * 0.42f), h * 0.8f))
+}

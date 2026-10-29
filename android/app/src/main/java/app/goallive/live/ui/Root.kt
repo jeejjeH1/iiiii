@@ -120,10 +120,11 @@ fun Root(openMatch: MutableIntState) {
     // status bar icons: light on the night look, dark on the day look
     val activity = LocalContext.current as? ComponentActivity
     val light = Look.light
-    LaunchedEffect(light) {
+    val pitchLook = Look.pitch
+    LaunchedEffect(light, pitchLook) {
         activity?.enableEdgeToEdge(
             statusBarStyle = if (light) SystemBarStyle.light(0, 0) else SystemBarStyle.dark(0),
-            navigationBarStyle = if (light) SystemBarStyle.light(0xFFE9EEE9.toInt(), 0) else SystemBarStyle.dark(0xFF0B0F14.toInt()),
+            navigationBarStyle = if (light) SystemBarStyle.light(0xFFE9EEE9.toInt(), 0) else SystemBarStyle.dark(if (pitchLook) 0xFF06190D.toInt() else 0xFF0B0F14.toInt()),
         )
     }
 
@@ -265,7 +266,7 @@ private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
     val idx = if (sel >= 0) sel else last
     val pos by androidx.compose.animation.core.animateFloatAsState(idx.toFloat(), androidx.compose.animation.core.spring(0.78f, 260f), label = "tab")
     val shown by androidx.compose.animation.core.animateFloatAsState(if (sel >= 0) 1f else 0f, tween(250), label = "pill")
-    val lines = if (Look.light) Color.Black.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.055f)
+    val lines = when { Look.pitch -> Color.White.copy(alpha = 0.2f); Look.light -> Color.Black.copy(alpha = 0.06f); else -> Color.White.copy(alpha = 0.055f) }
     Box(
         modifier.fillMaxWidth().drawBehind {
             // the list fades into the page above the bar
@@ -280,8 +281,13 @@ private fun BottomNav(route: String?, nav: Nav, modifier: Modifier) {
             // the bar
             Box(
                 Modifier.matchParentSize().shadow(18.dp, shape, ambientColor = Color.Black, spotColor = Color.Black).clip(shape)
-                    .background(Brush.verticalGradient(listOf(C.cardSolid, androidx.compose.ui.graphics.lerp(C.cardSolid, C.bg, 0.55f))))
-                    .drawBehind { pitchLines(lines) }
+                    .background(if (Look.pitch) Brush.verticalGradient(listOf(Color(0xFF16602F), Color(0xFF0C4020)))
+                        else Brush.verticalGradient(listOf(C.cardSolid, androidx.compose.ui.graphics.lerp(C.cardSolid, C.bg, 0.55f))))
+                    .drawBehind {
+                        // the pitch look's bar is a strip of real grass, mown in bands
+                        if (Look.pitch) { val b = size.width / 10; for (k in 0 until 10 step 2) drawRect(Color.White.copy(alpha = 0.05f), Offset(k * b, 0f), androidx.compose.ui.geometry.Size(b, size.height)) }
+                        pitchLines(lines)
+                    }
                     .border(1.dp, Brush.verticalGradient(listOf(if (Look.light) C.line2 else Color.White.copy(alpha = 0.16f), C.line)), shape)
             )
             // the pill under the selected tab

@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -122,6 +123,8 @@ fun flagLogo(ccode: String) = "$IMG/logo/teamlogo/${ccode.lowercase()}.png"
 @Composable
 fun Stadium(accent: Color) {
     Canvas(Modifier.fillMaxSize()) {
+        // the football-pitch look: the whole app on a pitch at night
+        if (Look.pitch) { pitchBackdrop(accent); return@Canvas }
         drawRect(C.bg)
         val stripe = 64.dp.toPx()
         var x = 0f
@@ -251,7 +254,8 @@ private val CardShape = RoundedCornerShape(22.dp)
 @Composable
 fun Card(modifier: Modifier = Modifier, pad: PaddingValues = PaddingValues(0.dp), content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier.fillMaxWidth().clip(CardShape).background(C.card).border(1.dp, C.line, CardShape).padding(pad),
+        modifier.fillMaxWidth().clip(CardShape).background(C.card)
+            .border(1.dp, if (Look.pitch) Brush.verticalGradient(listOf(Color.White.copy(alpha = 0.22f), C.line)) else SolidColor(C.line), CardShape).padding(pad),
         content = content,
     )
 }
@@ -278,8 +282,9 @@ fun CardTitle(text: String, modifier: Modifier = Modifier, sub: String? = null, 
 fun SectionTitle(text: String, modifier: Modifier = Modifier) {
     val accent = LocalAccent.current
     Row(modifier.padding(start = 4.dp, end = 4.dp, top = 22.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(4.dp, 16.dp).glow(accent, 6.dp, RoundedCornerShape(2.dp)).clip(RoundedCornerShape(2.dp)).background(accent))
-        Spacer(Modifier.width(10.dp))
+        if (Look.pitch) Canvas(Modifier.size(15.dp)) { football(center, size.minDimension / 2, -20f) }
+        else Box(Modifier.size(4.dp, 16.dp).glow(accent, 6.dp, RoundedCornerShape(2.dp)).clip(RoundedCornerShape(2.dp)).background(accent))
+        Spacer(Modifier.width(if (Look.pitch) 8.dp else 10.dp))
         T(text, 13, FontWeight.Black)
     }
 }

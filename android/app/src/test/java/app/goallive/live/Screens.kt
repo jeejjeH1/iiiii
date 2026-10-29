@@ -361,5 +361,14 @@ class Screens {
         NavHook.nav?.tab("home"); settle(500); NavHook.nav?.root("home"); settle(6000); shot("19-home-light")
         if (match != null) { NavHook.nav?.match(match.id); settle(6000); shot("20-match-light") }
         NavHook.nav?.tab("settings"); settle(1500); shot("21-settings-light")
+        // the football-pitch look
+        Store.pickTheme("dark"); Look.mode = "dark"; Store.pickStyle("pitch"); Look.style = "pitch"
+        NavHook.nav?.tab("home"); settle(500); NavHook.nav?.root("home"); settle(6000); shot("19p-home-pitch")
+        runCatching { rule.onAllNodes(androidx.compose.ui.test.hasScrollAction())[0].performTouchInput { swipeUp(durationMillis = 400) } }; settle(1500); shot("19p-home-pitch-down")
+        if (match != null) { NavHook.nav?.match(match.id); settle(6000); shot("20p-match-pitch") }
+        NavHook.nav?.tab("leagues"); settle(4000); shot("20p-leagues-pitch")
+        NavHook.nav?.tab("more"); settle(2000); shot("20p-more-pitch")
+        NavHook.nav?.tab("settings"); settle(1500); shot("21p-settings-pitch")
+        Store.pickStyle("classic"); Look.style = "classic"
     }
 }

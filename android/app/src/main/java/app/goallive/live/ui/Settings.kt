@@ -143,8 +143,14 @@ fun SettingsScreen() {
                     runCatching { ctx.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${ctx.packageName}"))) }
                 }
                 SubHead(L("ظاهر"))
-                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    Seg(listOf("dark" to L("بازی شبانه"), "light" to L("بازی روز"), "auto" to L("مثل گوشی")), Store.theme,
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // the two looks side by side, each as a small picture of itself
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        LookCard("classic", L("کلاسیک"), L("نور ورزشگاه"), Modifier.weight(1f))
+                        LookCard("pitch", L("زمین فوتبال"), L("سبز و فوتبالی"), Modifier.weight(1f))
+                    }
+                    // day or night belongs to the classic look; the pitch is always a night match
+                    if (!Look.pitch) Seg(listOf("dark" to L("بازی شبانه"), "light" to L("بازی روز"), "auto" to L("مثل گوشی")), Store.theme,
                         icons = mapOf("dark" to Ic.moon, "light" to Ic.sun)) { Store.pickTheme(it); Look.mode = it }
                 }
                 SubHead("زبان · Language")
@@ -339,4 +345,52 @@ fun openAutoStart(ctx: android.content.Context) {
         if (runCatching { ctx.startActivity(i) }.isSuccess) return
     }
     runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+}
+
+/** One look to pick: a small picture of it (the floodlit night, or the pitch with its stripes, lines and a ball), its name, a tick when chosen. */
+@Composable
+private fun LookCard(key: String, title: String, sub: String, modifier: Modifier) {
+    val on = Store.style == key
+    val accent = LocalAccent.current
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier.clip(shape).background(C.card).border(if (on) 2.dp else 1.dp, if (on) accent else C.line, shape)
+            .clickable { if (!on) { haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove); Store.pickStyle(key); Look.style = key } }
+            .padding(8.dp),
+    ) {
+        Box(Modifier.fillMaxWidth().height(96.dp).clip(RoundedCornerShape(12.dp))) {
+            Canvas(Modifier.fillMaxSize()) {
+                val w = size.width; val h = size.height
+                if (key == "pitch") {
+                    drawRect(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color(0xFF16602F), androidx.compose.ui.graphics.Color(0xFF0A2915))))
+                    val b = h / 6
+                    for (k in 0 until 6 step 2) drawRect(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.06f), androidx.compose.ui.geometry.Offset(0f, k * b), androidx.compose.ui.geometry.Size(w, b))
+                    pitchLines(androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f))
+                    football(androidx.compose.ui.geometry.Offset(w * 0.62f, h * 0.6f), h * 0.13f, 18f)
+                } else {
+                    drawRect(androidx.compose.ui.graphics.Color(0xFF05070A))
+                    drawRect(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0x33D6F0FF), androidx.compose.ui.graphics.Color.Transparent),
+                        androidx.compose.ui.geometry.Offset(0f, 0f), w * 0.8f))
+                    drawRect(androidx.compose.ui.graphics.Brush.radialGradient(listOf(androidx.compose.ui.graphics.Color(0x33D6F0FF), androidx.compose.ui.graphics.Color.Transparent),
+                        androidx.compose.ui.geometry.Offset(w, 0f), w * 0.8f))
+                    // two small cards and a lime chip, as the classic look draws them
+                    val cr = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx())
+                    drawRoundRect(androidx.compose.ui.graphics.Color(0xFF0F141A), androidx.compose.ui.geometry.Offset(w * 0.1f, h * 0.3f), androidx.compose.ui.geometry.Size(w * 0.8f, h * 0.24f), cr)
+                    drawRoundRect(androidx.compose.ui.graphics.Color(0xFF0F141A), androidx.compose.ui.geometry.Offset(w * 0.1f, h * 0.6f), androidx.compose.ui.geometry.Size(w * 0.8f, h * 0.24f), cr)
+                    drawRoundRect(Lime, androidx.compose.ui.geometry.Offset(w * 0.6f, h * 0.09f), androidx.compose.ui.geometry.Size(w * 0.3f, h * 0.14f), cr)
+                }
+            }
+            if (on) Box(Modifier.align(Alignment.TopStart).padding(6.dp).size(22.dp).clip(CircleShape).background(accent), contentAlignment = Alignment.Center) {
+                val ink = LocalAccentInk.current
+                Canvas(Modifier.size(12.dp)) {
+                    val p = androidx.compose.ui.graphics.Path().apply { moveTo(size.width * 0.1f, size.height * 0.55f); lineTo(size.width * 0.4f, size.height * 0.82f); lineTo(size.width * 0.92f, size.height * 0.2f) }
+                    drawPath(p, ink, style = androidx.compose.ui.graphics.drawscope.Stroke(2.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        T(title, 14, FontWeight.Black, if (on) C.ink else C.mute, maxLines = 1)
+        T(sub, 12, color = C.faint, maxLines = 1)
+    }
 }

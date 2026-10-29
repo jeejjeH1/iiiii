@@ -21,6 +21,7 @@ class GoalLiveApp : Application(), ImageLoaderFactory {
         app.goallive.live.data.Account.loadConfig()
         app.goallive.live.data.Translate.init(this)
         app.goallive.live.ui.Look.mode = Store.theme
+        app.goallive.live.ui.Look.style = Store.style
         LiveAlerts.channels(this)
         LiveAlerts.start(this)
         Store.onFollowChange = { LiveAlerts.start(this) }
