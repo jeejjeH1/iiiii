@@ -13,8 +13,8 @@ android {
         applicationId = "app.goallive.live"
         minSdk = 24
         targetSdk = 35
-        versionCode = 123
-        versionName = "3.7"
+        versionCode = 124
+        versionName = "3.8"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Google sign-in's client, built in so the button is there on the very first screen (the server can still change it)
         buildConfigField("String", "GOOGLE_CLIENT", "\"" + (System.getenv("GOOGLE_CLIENT_ID") ?: "") + "\"")

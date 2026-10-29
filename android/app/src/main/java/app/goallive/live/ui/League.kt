@@ -9,6 +9,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.draw.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -108,6 +109,7 @@ fun TableRows(rows: List<JSONObject>, kind: String, legend: List<JSONObject>, hi
     val nav = LocalNav.current
     val accent = LocalAccent.current
     val xg = kind == "xg"
+    if (!xg) { DetailedRows(rows, highlight); return }
     val cols: List<Pair<String, Dp>> = if (xg) listOf("xG" to 40.dp, "xGA" to 40.dp, "xPts" to 40.dp, L("امتیاز") to 40.dp)
     else listOf(L("بازی") to 34.dp, L("گل") to 48.dp, L("تفاضل") to 40.dp, L("امتیاز") to 40.dp)
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -144,6 +146,92 @@ fun TableRows(rows: List<JSONObject>, kind: String, legend: List<JSONObject>, hi
                 val diff = r.i("goalConDiff") ?: 0
                 Ltr(fa(if (diff > 0) "+$diff" else "$diff"), Modifier.width(40.dp), style = vz(13.sp), color = if (diff > 0) C.win else if (diff < 0) C.loss else C.ink, align = TextAlign.Center)
                 T("${r.i("pts") ?: 0}", 13, FontWeight.Black, modifier = Modifier.width(40.dp), align = TextAlign.Center)
+            }
+        }
+    }
+}
+
+/**
+ * The full standings: the place in a badge in its qualification colour, the club with a thin bar of its wins, draws and
+ * losses under its name, played / won / drawn / lost, goals, difference and the points in a pill. A tap opens the row:
+ * points and goals a game, the share of wins, the gap to the top and the way to the club's page.
+ */
+@Composable
+private fun DetailedRows(rows: List<JSONObject>, highlight: List<Int>) {
+    val nav = LocalNav.current
+    val accent = LocalAccent.current
+    var open by rememberSaveable { mutableStateOf(-1) }
+    val top = rows.maxOfOrNull { it.i("pts") ?: 0 } ?: 0
+    val narrow = 29.dp
+    Row(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        T("#", 11, FontWeight.Bold, C.faint, Modifier.width(32.dp), align = TextAlign.Center)
+        T(L("تیم"), 11, FontWeight.Bold, C.faint, Modifier.weight(1f).padding(start = 6.dp))
+        for (c in if (app.goallive.live.Lang.en) listOf("P", "W", "D", "L") else listOf("بازی", "برد", "تساوی", "باخت")) T(c, 10, FontWeight.Bold, C.faint, Modifier.width(narrow), align = TextAlign.Center, maxLines = 1)
+        T(L("گل"), 10, FontWeight.Bold, C.faint, Modifier.width(44.dp), align = TextAlign.Center)
+        T("+/-", 10, FontWeight.Bold, C.faint, Modifier.width(32.dp), align = TextAlign.Center)
+        T(L("امتیاز"), 10, FontWeight.Bold, C.faint, Modifier.width(40.dp), align = TextAlign.Center, maxLines = 1)
+    }
+    rows.forEachIndexed { i, r ->
+        val id = r.i("id") ?: 0
+        val hl = id in highlight
+        val qual = r.s("qualColor")?.let { parseColor(it) }
+        val p = r.i("played") ?: 0; val w = r.i("wins") ?: 0; val d = r.i("draws") ?: 0; val l = r.i("losses") ?: 0
+        val pts = r.i("pts") ?: 0; val diff = r.i("goalConDiff") ?: 0
+        val gf = r.s("scoresStr")?.substringBefore('-')?.trim()?.toIntOrNull() ?: 0
+        val ga = r.s("scoresStr")?.substringAfter('-')?.trim()?.toIntOrNull() ?: 0
+        val isOpen = open == i
+        Column(Modifier.fillMaxWidth()
+            .background(when { hl -> accent.copy(alpha = 0.13f); i % 2 == 1 -> C.card2.copy(alpha = C.card2.alpha * 0.6f); else -> Color.Transparent })
+            .animateContentSize()) {
+            Row(Modifier.fillMaxWidth().clickable { open = if (isOpen) -1 else i }.padding(start = 6.dp, end = 6.dp, top = 9.dp, bottom = 9.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                // the place, in its qualification colour
+                Box(Modifier.width(32.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(24.dp).clip(RoundedCornerShape(8.dp)).background(qual?.copy(alpha = 0.22f) ?: C.card2)
+                        .border(1.dp, qual ?: Color.Transparent, RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                        T("${r.i("idx") ?: (i + 1)}", 12, FontWeight.Black, if (qual != null) C.ink else C.mute)
+                    }
+                }
+                Column(Modifier.weight(1f).padding(start = 6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Crest(id, 22.dp)
+                        TeamText(id, r.s("name") ?: "", Modifier.weight(1f, false), 13, FontWeight.ExtraBold, if (hl) accent else C.ink, short = r.s("shortName"))
+                        if (r.optBoolean("ongoing")) LiveDot()
+                    }
+                    // won, drawn, lost as one thin bar
+                    if (p > 0) Row(Modifier.padding(top = 5.dp, end = 4.dp).fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp))) {
+                        if (w > 0) Box(Modifier.weight(w.toFloat()).fillMaxHeight().background(C.win))
+                        if (d > 0) Box(Modifier.weight(d.toFloat()).fillMaxHeight().background(C.draw))
+                        if (l > 0) Box(Modifier.weight(l.toFloat()).fillMaxHeight().background(C.loss))
+                    }
+                }
+                for ((v, c) in listOf(p to C.mute, w to C.ink, d to C.ink, l to C.ink)) T("$v", 12, FontWeight.Bold, c, Modifier.width(narrow), align = TextAlign.Center)
+                Ltr(fa(r.s("scoresStr") ?: ""), Modifier.width(44.dp), style = vz(12.sp, FontWeight.Bold), color = C.mute, align = TextAlign.Center)
+                Ltr(fa(if (diff > 0) "+$diff" else "$diff"), Modifier.width(32.dp), style = vz(12.sp, FontWeight.Bold),
+                    color = if (diff > 0) C.win else if (diff < 0) C.loss else C.mute, align = TextAlign.Center)
+                Box(Modifier.width(40.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (hl) accent else accent.copy(alpha = 0.16f)).padding(horizontal = 7.dp, vertical = 2.dp)) {
+                        T("$pts", 13, FontWeight.Black, if (hl) LocalAccentInk.current else C.ink)
+                    }
+                }
+            }
+            // the row opened: the season in a few numbers
+            if (isOpen) Column(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                val per = { x: Int -> if (p > 0) fa(dec(x.toDouble() / p, 2)) else "–" }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    for ((v, label) in listOf(per(pts) to L("امتیاز در هر بازی"), per(gf) to L("گل زده در هر بازی"), per(ga) to L("گل خورده در هر بازی"),
+                        (if (p > 0) fa((w * 100 / p)) + "٪" else "–") to L("درصد برد"))) {
+                        Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(C.card2).padding(vertical = 8.dp, horizontal = 4.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally) {
+                            T(v, 15, FontWeight.Black)
+                            T(label, 10, FontWeight.Bold, C.mute, maxLines = 2, align = TextAlign.Center)
+                        }
+                    }
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    T(if (pts >= top) L("صدرنشین") else L("{0} امتیاز تا صدر", fa(top - pts)), 12, FontWeight.Bold, if (pts >= top) C.gold else C.mute, Modifier.weight(1f))
+                    Pill(L("صفحه‌ی تیم ›"), PillKind.Accent, onClick = { nav.team(id) })
+                }
             }
         }
     }

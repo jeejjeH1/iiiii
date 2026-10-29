@@ -1959,3 +1959,10 @@
 1958|Neon, full of motion
 1959|The VIP look
 1960|A new app: a neon night with moving light, glass cards with light running round them, a new home with a carousel of live matches and tiles, a floating dock and film-like transitions; in Settings › Look
+1961|Points per match
+1962|Win rate
+1963|Top of the table
+1964|{0} points off the top
+1965|Team page ›
+1966|The full league table
+1967|Won, drawn and lost, each team's results bar, places in their qualification colours; tap a team for points and goals per match, win rate and the gap to the top
