@@ -627,12 +627,11 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
     val ps = Perspective(RectF(0f, pitchTop, W.toFloat(), pr.bottom + 20f))
     // 3D: the panel laid back about its foot, stretched so its far edge stays where the flat one began
     val tiltM: android.graphics.Matrix? = if ((o.tilt || theme == "gl3d") && theme != "cards" && theme != "stadium") {
-        val cam = android.graphics.Camera(); cam.setLocation(0f, 0f, -26f); cam.rotateX(30f)
+        // a true perspective: the panel's rectangle onto a trapezoid, its far edge narrower, its near edge a little wider
         android.graphics.Matrix().also { m ->
-            cam.getMatrix(m); m.preTranslate(-W / 2f, -pr.bottom); m.postTranslate(W / 2f, pr.bottom)
-            val t = floatArrayOf(W / 2f, pr.top); m.mapPoints(t)
-            val sy = (pr.bottom - pr.top) / (pr.bottom - t[1]).coerceAtLeast(1f)
-            m.postScale(1.06f, sy, W / 2f, pr.bottom)
+            val farHalf = pr.width() * 0.33f; val nearHalf = pr.width() * 0.53f; val cx = W / 2f
+            m.setPolyToPoly(floatArrayOf(pr.left, pr.top, pr.right, pr.top, pr.right, pr.bottom, pr.left, pr.bottom), 0,
+                floatArrayOf(cx - farHalf, pr.top + 10f, cx + farHalf, pr.top + 10f, cx + nearHalf, pr.bottom, cx - nearHalf, pr.bottom), 0, 4)
         }
     } else null
     val tiltTop = tiltM?.let { m -> val t = floatArrayOf(W / 2f, pr.top); m.mapPoints(t); t[1] } ?: pr.top
