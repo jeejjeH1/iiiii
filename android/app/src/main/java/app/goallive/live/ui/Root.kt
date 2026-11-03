@@ -168,6 +168,7 @@ fun Root(openMatch: MutableIntState) {
                             CompareScreen(it.arguments?.getInt("a") ?: 0, it.arguments?.getInt("b") ?: 0)
                         }
                         screen("quiz") { QuizScreen() }
+                        screen("mycard") { MyCardScreen() }
                         screen("fantasy") { FantasyScreen() }
                         screen("calendar") { CalendarScreen() }
                         screen("assistant") { AssistantScreen() }

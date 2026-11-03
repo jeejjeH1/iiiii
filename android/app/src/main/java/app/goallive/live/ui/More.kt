@@ -53,6 +53,7 @@ private fun shortcuts(): List<Shortcut> {
         Shortcut("fantasy", L("فانتزی"), fantasy, null, "⚽", C.win, !fantasy.startsWith(L("مجموع"))),
         Shortcut("rank", L("برترین‌ها"), L("رتبه‌بندی جهان، توپ طلا و کفش طلا"), null, "🏆", C.gold, !Store.tipSeen("rankings")),
         Shortcut("board", L("تخته تاکتیک"), L("ترکیب بچین، فلش بکش و بفرست"), null, "📋", C.home, false),
+        Shortcut("mycard", L("کارت خودت"), L("کارت بازیکن با عکس و نمره‌ی خودت؛ رایگان"), Ic.starOn, null, C.gold, !Store.tipSeen("mycard")),
         Shortcut("quiz", L("کوئیز امروز"), if (answered >= 6) L("انجام شد · فردا دوباره") else if (answered > 0) L("ادامه بده") else L("۶ سؤال تازه"), null, "?", accent, answered < 6),
         Shortcut("calendar", L("تقویم"), Store.myTeam?.let { L("بازی‌های ") + (Clubs.get(it.id)?.fa ?: it.name) } ?: L("بازی‌های تیم‌های دنبال‌شده"), Ic.cal, null, C.home, false),
         Store.myTeam?.let { Shortcut("my", Clubs.get(it.id)?.fa ?: it.name, L("صفحه تیم من"), null, null, accentFor(Clubs.get(it.id), it.color), false) },
@@ -67,6 +68,7 @@ private fun go(key: String, nav: Nav, tv: () -> Unit) = when (key) {
     "rank" -> { Store.markTip("rankings"); nav.rankings() }
     "board" -> nav.board()
     "quiz" -> nav.quiz()
+    "mycard" -> { Store.markTip("mycard"); nav.myCard() }
     "calendar" -> nav.calendar()
     "ai" -> { Store.markTip("assistant"); nav.assistant() }
     "my" -> Store.myTeam?.let { nav.team(it.id) } ?: Unit
@@ -150,7 +152,7 @@ fun MoreScreen() {
             T(L("بیشتر"), 16, FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 4.dp, vertical = 10.dp))
         }
         // two groups instead of one long list: tools, then games
-        for ((title, keys) in listOf(L("ابزارها") to listOf("my", "tv", "rank", "ai", "calendar"), L("بازی و سرگرمی") to listOf("predict", "fantasy", "quiz", "board"))) item {
+        for ((title, keys) in listOf(L("ابزارها") to listOf("my", "tv", "rank", "ai", "calendar"), L("بازی و سرگرمی") to listOf("mycard", "predict", "fantasy", "quiz", "board"))) item {
             val group = all.filter { it.key in keys }.sortedBy { keys.indexOf(it.key) }
             if (group.isNotEmpty()) SectionTitle(title)
             if (group.isNotEmpty()) Card {

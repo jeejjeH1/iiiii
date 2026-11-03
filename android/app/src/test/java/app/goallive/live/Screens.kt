@@ -356,6 +356,8 @@ class Screens {
         // Iran's league: a match of the day and the league page
         list.firstOrNull { it.primaryId == 523 }?.matches?.firstOrNull()?.let { NavHook.nav?.match(it.id); settle(20000); shot("24-iran-match") }
         NavHook.nav?.league(523); settle(9000); shot("25-iran-league")
+        // «کارت خودت»
+        NavHook.nav?.myCard(); settle(5000); shot("22m-mycard")
         // the day look ("بازی روز")
         Store.pickTheme("light"); Look.mode = "light"
         NavHook.nav?.tab("home"); settle(500); NavHook.nav?.root("home"); settle(6000); shot("19-home-light")

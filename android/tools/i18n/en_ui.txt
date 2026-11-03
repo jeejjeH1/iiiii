@@ -1966,3 +1966,25 @@
 1965|Team page ›
 1966|The full league table
 1967|Won, drawn and lost, each team's results bar, places in their qualification colours; tap a team for points and goals per match, win rate and the gap to the top
+1968|Your own card
+1969|A player card with your photo and your rating; free
+1970|Make a player card with your own photo; your rating comes from predictions, fantasy and the quiz; every frame free
+1971|Silver
+1972|Icon
+1973|Accuracy
+1974|Quiz
+1975|Fan
+1976|My card on GoalLive
+1977|Rated on predictions, fantasy and the quiz
+1978|Make your own card on GoalLive · Cafe Bazaar
+1979|Your photo, your team and the rating your predictions, fantasy and quiz earn you; every frame free
+1980|Your card
+1981|Pick a photo
+1982|Change photo
+1983|Share to story
+1984|Name on the card
+1985|Write your name
+1986|Frame
+1987|Your rating is {0}
+1988|Right predictions, fantasy, the daily quiz and following teams raise your rating.
+1989|My card on GoalLive; make your own

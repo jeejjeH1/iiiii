@@ -15,6 +15,7 @@ class Nav(private val c: NavHostController?) {
     /** A fantasy league's table (0: everyone playing competition [comp]). */
     fun fantasyLeague(id: Int, comp: Int) { c?.navigate("fleague/$id/$comp") }
     fun quiz() { c?.navigate("quiz") }
+    fun myCard() { c?.navigate("mycard") }
     fun calendar() { c?.navigate("calendar") }
     fun assistant() { c?.navigate("assistant") }
     fun predictions() { c?.navigate("predictions") }
