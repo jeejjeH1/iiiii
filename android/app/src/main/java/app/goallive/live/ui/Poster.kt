@@ -21,16 +21,22 @@ import kotlin.math.sin
 /* ---------- line-ups as posters: the match line-up (one team or both) and the team of the week ---------- */
 
 /** The poster designs, in the studio's order. */
-internal val POSTER_THEMES = listOf("team", "cards", "stadium", "neon", "gold", "light", "pitch", "minimal")
+internal val POSTER_THEMES = listOf("team", "goallive", "glspecial", "gl3d", "cards", "stadium", "tv", "neon", "gold", "retro", "light", "pitch", "minimal")
 
 /** The designs marked new in the studio. */
-internal val NEW_POSTERS = setOf("cards", "stadium")
+internal val NEW_POSTERS = setOf("goallive", "glspecial", "gl3d", "tv", "retro")
+
+/** GoalLive's own designs: its lime on black, the plain one, the special one and the one in 3D. */
+private val GL_THEMES = setOf("goallive", "glspecial", "gl3d")
+private const val LIME = 0xFFC6FF3D.toInt()
+private const val CYAN = 0xFF3DE8FF.toInt()
 
 /** The designs painted in the club's own colours. */
 private val CLUB_THEMES = setOf("team", "cards", "stadium")
 
 internal fun posterThemeName(k: String) = when (k) {
-    "team" -> L("رنگ تیم"); "cards" -> L("کارت"); "stadium" -> L("ورزشگاه"); "neon" -> L("نئون"); "gold" -> L("طلایی"); "light" -> L("روشن"); "pitch" -> L("چمن"); else -> L("مینیمال")
+    "team" -> L("رنگ تیم"); "goallive" -> L("گل‌لایو"); "glspecial" -> L("گل‌لایو ویژه"); "gl3d" -> L("گل‌لایو سه‌بعدی")
+    "tv" -> L("تلویزیونی"); "retro" -> L("رترو"); "cards" -> L("کارت"); "stadium" -> L("ورزشگاه"); "neon" -> L("نئون"); "gold" -> L("طلایی"); "light" -> L("روشن"); "pitch" -> L("چمن"); else -> L("مینیمال")
 }
 
 /** Someone in the strip under the pitch: a substitute who came on (at [inAt]), the coach, or a league's best player ([note] names the league). */
@@ -106,6 +112,15 @@ private fun posterLook(theme: String, pl: Palette): PosterLook {
             d, WHITE, ca(0xFF0B1430.toInt(), 0.06f), d, WHITE, ca(0xFF0B1430.toInt(), 0.1f), 0x1F000000, formInk = ca(d, 0.85f))
         "pitch" -> teamPlates(PosterLook(WHITE, 0xB8FFFFFF.toInt(), WHITE, 0xFFEEF1F6.toInt(), d, a, d, WHITE, a, WHITE, m, d, WHITE, 0, 0xBFFFFFFF.toInt(),
             WHITE, 0xFF0B2614.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x24FFFFFF, 0x66000000), pl, rings = false)
+        "goallive", "gl3d" -> PosterLook(WHITE, 0xB8FFFFFF.toInt(), LIME, 0xFF8FCC1A.toInt(), 0xFF0B1200.toInt(), WHITE, 0xFF0B0F14.toInt(), LIME, LIME, LIME,
+            0xFF1A2410.toInt(), 0xFF07090C.toInt(), LIME, 40, ca(LIME, 0.55f), LIME, 0xFF0B1200.toInt(), 0x1AFFFFFF, WHITE, 0x12FFFFFF, 0x2EC6FF3D, ca(LIME, 0.5f))
+        "glspecial" -> PosterLook(WHITE, 0xB8FFFFFF.toInt(), LIME, CYAN, 0xFF06121A.toInt(), WHITE, 0xFF05060A.toInt(), CYAN, LIME, CYAN,
+            0xFF12203A.toInt(), 0xFF05060A.toInt(), CYAN, 60, ca(CYAN, 0.6f), LIME, 0xFF0B1200.toInt(), 0x1AFFFFFF, WHITE, 0x14FFFFFF, 0x333DE8FF, ca(CYAN, 0.6f))
+        "tv" -> PosterLook(WHITE, 0xC0FFFFFF.toInt(), WHITE, 0xFFDDE6F5.toInt(), 0xFF0A1F47.toInt(), CYAN, 0xFF0A1F47.toInt(), WHITE, CYAN, WHITE,
+            0xFF1C3F80.toInt(), 0xFF0A1F47.toInt(), WHITE, 30, 0xB3FFFFFF.toInt(), CYAN, 0xFF06121A.toInt(), 0x1AFFFFFF, WHITE, 0x14FFFFFF, 0x2EFFFFFF, ca(CYAN, 0.45f))
+        "retro" -> PosterLook(0xFF3A2416.toInt(), 0xB33A2416.toInt(), 0xFF8E2F22.toInt(), 0xFF5E1D15.toInt(), 0xFFF4E8D0.toInt(), 0xFFD9A441.toInt(), 0xFFF4E8D0.toInt(), 0xFF5E1D15.toInt(),
+            0xFF5E1D15.toInt(), 0xFF5E1D15.toInt(), 0xFFE9DCC2.toInt(), 0xFFCDBB98.toInt(), 0xFF3A2416.toInt(), 0, 0xB3F4E8D0.toInt(), 0xFF8E2F22.toInt(), 0xFFF4E8D0.toInt(),
+            0x143A2416, 0xFF3A2416.toInt(), 0x143A2416, 0x263A2416, 0x00000000, formInk = 0xFF3A2416.toInt())
         "minimal" -> PosterLook(WHITE, 0xA6FFFFFF.toInt(), 0xF51E1F23.toInt(), 0xF51E1F23.toInt(), WHITE, a, 0xFF0E0F11.toInt(), a, 0x40FFFFFF, 0xD9FFFFFF.toInt(),
             0xFF2A2C31.toInt(), 0xFF141518.toInt(), WHITE, 0, 0x1FFFFFFF, WHITE, 0xFF0E0F11.toInt(), 0x14FFFFFF, WHITE, 0x0FFFFFFF, 0x1FFFFFFF, 0, minimal = true)
         "cards", "stadium" -> teamPlates(dark, pl, rings = true)
@@ -138,6 +153,42 @@ private fun outer(c: Canvas, theme: String, pl: Palette, W: Int, H: Int, mark: B
         "light" -> { p.color = 0xFFF4F1EA.toInt(); c.drawRect(0f, 0f, w, h, p); blob(250f, 190f, 450f, ca(pl.accent, 0.35f)); blob(w + 190, h - 250, 450f, ca(pl.main, 0.25f)) }
         "pitch" -> lin(0xFF0B2614.toInt(), 0xFF06150B.toInt(), x1 = 0f)
         "minimal" -> { p.color = 0xFF0E0F11.toInt(); c.drawRect(0f, 0f, w, h, p) }
+        "goallive", "gl3d" -> {
+            // GoalLive's black, lime light from above, its stripes, the mark huge and faint in the middle
+            lin(0xFF0B0F0A.toInt(), 0xFF05070A.toInt(), 0xFF080B06.toInt(), x1 = 0f)
+            blob(w / 2, 0f, h * 0.55f, ca(LIME, 0.22f))
+            p.color = ca(LIME, 0.05f); var x = -h; while (x < w) { c.drawRect(x, 0f, x + 46f, h, p); x += 130f }
+            if (theme == "gl3d") { blob(-w * 0.05f, -40f, w * 0.9f, 0x40E8FFE0); blob(w * 1.05f, -40f, w * 0.9f, 0x40E8FFE0) }
+            mark?.let { c.drawBitmap(it, null, RectF(w / 2 - 430, h * 0.42f - 430, w / 2 + 430, h * 0.42f + 430), Paint(Paint.FILTER_BITMAP_FLAG).apply { alpha = 14 }) }
+            sparkles(c, W, H, 26, LIME, 13)
+        }
+        "glspecial" -> {
+            // the special one: black under drifting lime, cyan and violet light, rays, holographic bands, sparkles, the mark
+            p.color = 0xFF05060A.toInt(); c.drawRect(0f, 0f, w, h, p)
+            blob(w * 0.15f, h * 0.15f, w * 0.85f, ca(LIME, 0.28f)); blob(w * 0.9f, h * 0.45f, w * 0.85f, ca(CYAN, 0.26f)); blob(w * 0.3f, h * 0.85f, w * 0.85f, 0x478B5CF6)
+            rays(c, W, H, LIME, 1.1f)
+            for (k in 0 until 5) {
+                p.shader = LinearGradient(0f, 0f, w, h, intArrayOf(0, ca(if (k % 2 == 0) CYAN else LIME, 0.07f), 0), floatArrayOf(0.1f * k, 0.1f * k + 0.08f, 0.1f * k + 0.16f), Shader.TileMode.CLAMP)
+                c.drawRect(0f, 0f, w, h, p); p.shader = null
+            }
+            mark?.let { c.drawBitmap(it, null, RectF(w / 2 - 470, h * 0.42f - 470, w / 2 + 470, h * 0.42f + 470), Paint(Paint.FILTER_BITMAP_FLAG).apply { alpha = 18 }) }
+            sparkles(c, W, H, 60, CYAN, 17)
+        }
+        "tv" -> {
+            // a broadcast graphic: navy, a fine grid, light from the top, scan lines
+            lin(0xFF143A7A.toInt(), 0xFF0A1F47.toInt(), 0xFF061430.toInt(), x1 = 0f)
+            p.color = 0x0DFFFFFF; var x = 0f; while (x < w) { c.drawRect(x, 0f, x + 2f, h, p); x += 60f }
+            var y = 0f; while (y < h) { c.drawRect(0f, y, w, y + 2f, p); y += 60f }
+            blob(w / 2, -60f, h * 0.5f, ca(CYAN, 0.25f))
+            p.color = 0x0A000000; y = 0f; while (y < h) { c.drawRect(0f, y, w, y + 3f, p); y += 7f }
+        }
+        "retro" -> {
+            // old paper: cream, browned at the edges, a halftone of dots
+            p.color = 0xFFF1E6D0.toInt(); c.drawRect(0f, 0f, w, h, p)
+            p.color = 0x143A2416; var y = 12f; var row = 0
+            while (y < h) { var x = if (row % 2 == 0) 12f else 30f; while (x < w) { c.drawCircle(x, y, 3f, p); x += 36f }; y += 32f; row++ }
+            p.shader = RadialGradient(w / 2, h * 0.45f, h * 0.75f, intArrayOf(0, 0, 0x553A2416), floatArrayOf(0f, 0.6f, 1f), Shader.TileMode.CLAMP); c.drawRect(0f, 0f, w, h, p); p.shader = null
+        }
         else -> {
             if (pl.pale) lin(0xFFF7F8FB.toInt(), 0xFFDFE3EA.toInt(), 0xFFB9C0CC.toInt())
             else {
@@ -156,7 +207,7 @@ private fun outer(c: Canvas, theme: String, pl: Palette, W: Int, H: Int, mark: B
             }
         }
     }
-    grain(c, W, H, theme == "light" || (theme == "team" && pl.pale))
+    grain(c, W, H, theme == "light" || theme == "retro" || (theme == "team" && pl.pale))
 }
 
 /** The panel the players stand on, with its lines; [both] marks the halfway line for two teams. */
@@ -188,6 +239,13 @@ private fun panel(c: Canvas, theme: String, pl: Palette, lk: PosterLook, r: Rect
         "light" -> fill(WHITE, 0xFFF3F5F8.toInt())
         "pitch" -> { var y = r.top; var k = 0; while (y < r.bottom) { p.color = if (k % 2 == 0) 0xFF1E7A42.toInt() else 0xFF1A6E3B.toInt(); c.drawRect(r.left, y, r.right, y + 90f, p); y += 90f; k++ } }
         "minimal" -> { p.color = 0xFF141518.toInt(); c.drawRect(r, p) }
+        "goallive", "gl3d" -> {
+            fill(0xF0121A0C.toInt(), 0xF5080B07.toInt())
+            var y = r.top; var k = 0; while (y < r.bottom) { if (k % 2 == 0) { p.color = ca(LIME, 0.035f); c.drawRect(r.left, y, r.right, y + 80f, p) }; y += 80f; k++ }
+        }
+        "glspecial" -> fill(0xE60A1020.toInt(), 0xF005060A.toInt())
+        "tv" -> { fill(0xFF1A4590.toInt(), 0xFF0F2C63.toInt()); var y = r.top; var k = 0; while (y < r.bottom) { if (k % 2 == 0) { p.color = 0x0AFFFFFF; c.drawRect(r.left, y, r.right, y + 90f, p) }; y += 90f; k++ } }
+        "retro" -> { var y = r.top; var k = 0; while (y < r.bottom) { p.color = if (k % 2 == 0) 0xFF6E8A4E.toInt() else 0xFF647F46.toInt(); c.drawRect(r.left, y, r.right, y + 90f, p); y += 90f; k++ } }
         else -> {
             val lo = lower ?: pl
             if (lower != null) {
@@ -226,6 +284,7 @@ private fun panel(c: Canvas, theme: String, pl: Palette, lk: PosterLook, r: Rect
     if (lk.minimal) { p.strokeWidth = 1.5f; p.color = 0x2EFFFFFF }
     else {
         p.strokeWidth = 5f; p.color = lk.ring
+        if (theme == "glspecial") p.shader = LinearGradient(r.left, r.top, r.right, r.bottom, intArrayOf(LIME, CYAN, 0xFF8B5CF6.toInt()), null, Shader.TileMode.CLAMP)
         if (theme == "team" && lower != null) {
             val a = lift(pl.main, 0.2); val b = lift(lower.main, 0.2)
             p.shader = LinearGradient(0f, r.top, 0f, r.bottom, intArrayOf(a, a, b, b), floatArrayOf(0f, 0.44f, 0.56f, 1f), Shader.TileMode.CLAMP)
@@ -372,7 +431,7 @@ private fun man(c: Canvas, m: PitchMan, cx: Float, top: Float, d: Float, lk: Pos
 
 /** The eleven in a box: [PitchMan]'s x / y (as the in-app pitch has them) spread over it, forwards at the top, or at the bottom when [flip]. */
 private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, dMax: Float, lk: PosterLook, faces: Map<Int, Bitmap?>, crests: Map<Int, Bitmap?>,
-                     tf: Typeface, clk: Clock, start: Float, flip: Boolean = false) {
+                     tf: Typeface, clk: Clock, start: Float, flip: Boolean = false, scale: Float = 1f, tilt: android.graphics.Matrix? = null) {
     if (men.isEmpty()) return
     // the lines of the formation: players whose heights are close stand on one row, forwards first
     val rows = ArrayList<MutableList<PitchMan>>()
@@ -384,7 +443,8 @@ private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, dMax: Float, lk
     // a photo size that leaves every plate, diamond and mark clear of its neighbours, across and down
     val widest = rows.maxOf { it.size }
     val cell = (box.width() - 40) / widest
-    val d = minOf(dMax, cell * 0.7f, if (r > 1) box.height() / (1.24f * (r - 1) + 1.18f) else dMax)
+    // the user's size: larger players may brush their neighbours, smaller ones leave more grass
+    val d = minOf(dMax, cell * 0.7f, if (r > 1) box.height() / (1.24f * (r - 1) + 1.18f) else dMax) * scale.coerceIn(0.75f, 1.3f)
     val ph = Math.round(d * 0.3f); val block = d + ph * 0.6f
     val best = men.firstOrNull { it.star }
     var n = 0
@@ -398,7 +458,16 @@ private fun placeAll(c: Canvas, men: List<PitchMan>, box: RectF, dMax: Float, lk
             // and never past the panel's edge: the marks on the left of the photo, the diamond on the right of the plate
             val lo = box.left + d * 0.72f + 12; val hi = box.right - (d + 34) / 2 - d * 0.16f - 14
             val cx = (box.left + 20 + if (flip) box.width() - 40 - u else u).coerceIn(lo, maxOf(lo, hi))
-            c.pop(clk.at(start + n++ * 0.1f, 0.45f), cx, top + d / 2) {
+            if (tilt != null) {
+                // laid back in depth: the player stands where his spot lands on the tilted pitch, smaller further off, with a shadow
+                val pt = floatArrayOf(cx, top + d, cx + 50f, top + d); tilt.mapPoints(pt)
+                val k = (kotlin.math.hypot((pt[2] - pt[0]).toDouble(), (pt[3] - pt[1]).toDouble()) / 50.0).toFloat().coerceIn(0.4f, 1.2f)
+                val dd = d * k; val fx = pt[0]; val feet = pt[1]
+                c.pop(clk.at(start + n++ * 0.1f, 0.45f), fx, feet - dd * 0.5f) {
+                    feetShadow(c, fx, feet + dd * 0.06f, dd)
+                    man(c, m, fx, feet - dd * 1.1f, dd, lk, m === best, faces[m.id], m.crest?.let { crests[it] }, tf)
+                }
+            } else c.pop(clk.at(start + n++ * 0.1f, 0.45f), cx, top + d / 2) {
                 man(c, m, cx, top, d, lk, m === best, faces[m.id], m.crest?.let { crests[it] }, tf)
             }
         }
@@ -425,14 +494,26 @@ private fun posterCapsule(c: Canvas, s: String, cx: Float, top: Float, size: Flo
     return h
 }
 
-/** The formation's numbers, left to right as on a team sheet. */
-private fun formationText(c: Canvas, f: String, x: Float, top: Float, size: Float, color: Int, tf: Typeface) {
+/**
+ * The formation as a pill centred on ([cx], [cy]), on the panel's edge: its numbers left to right as on a team sheet, on a
+ * dark capsule with the design's edge colour, so it reads over any line, stand or board behind it.
+ */
+private fun formationPill(c: Canvas, f: String, cx: Float, cy: Float, size: Float, lk: PosterLook, tf: Typeface) {
     if (f.isBlank()) return
-    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf; this.color = color; letterSpacing = 0.08f }
-    var cx = x
-    f.split("-").forEachIndexed { i, part ->
-        if (i > 0) { c.drawText(" - ", cx, top + size, tp); cx += tp.measureText(" - ") }
-        c.drawText(part, cx, top + size, tp); cx += tp.measureText(part)
+    val parts = f.split("-").map { fa(it.trim()) }
+    val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = size; typeface = tf; color = WHITE }
+    val sep = "  ·  "
+    val w = parts.sumOf { tp.measureText(it).toDouble() }.toFloat() + tp.measureText(sep) * (parts.size - 1)
+    val h = size * 1.7f; val pw = w + size * 1.6f
+    val r = RectF(cx - pw / 2, cy - h / 2, cx + pw / 2, cy + h / 2)
+    val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xE60A0D14.toInt(); setShadowLayer(18f, 0f, 6f, 0x80000000.toInt()) }
+    c.drawRoundRect(r, h / 2, h / 2, p); p.clearShadowLayer()
+    p.style = Paint.Style.STROKE; p.strokeWidth = 3f; p.color = if (lk.minimal) 0x40FFFFFF else lk.ring; c.drawRoundRect(r, h / 2, h / 2, p)
+    val fm = tp.fontMetrics; val base = cy - (fm.ascent + fm.descent) / 2
+    var x = cx - w / 2
+    parts.forEachIndexed { i, part ->
+        if (i > 0) { tp.color = ca(WHITE, 0.45f); c.drawText(sep, x, base, tp); x += tp.measureText(sep) }
+        tp.color = WHITE; c.drawText(part, x, base, tp); x += tp.measureText(part)
     }
 }
 
@@ -544,6 +625,17 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
     // the stadium: the grass from a little under the header, the stands and floodlights above it
     val pitchTop = pr.top + (if (post) 70f else 110f)
     val ps = Perspective(RectF(0f, pitchTop, W.toFloat(), pr.bottom + 20f))
+    // 3D: the panel laid back about its foot, stretched so its far edge stays where the flat one began
+    val tiltM: android.graphics.Matrix? = if ((o.tilt || theme == "gl3d") && theme != "cards" && theme != "stadium") {
+        val cam = android.graphics.Camera(); cam.setLocation(0f, 0f, -26f); cam.rotateX(30f)
+        android.graphics.Matrix().also { m ->
+            cam.getMatrix(m); m.preTranslate(-W / 2f, -pr.bottom); m.postTranslate(W / 2f, pr.bottom)
+            val t = floatArrayOf(W / 2f, pr.top); m.mapPoints(t)
+            val sy = (pr.bottom - pr.top) / (pr.bottom - t[1]).coerceAtLeast(1f)
+            m.postScale(1.06f, sy, W / 2f, pr.bottom)
+        }
+    } else null
+    val tiltTop = tiltM?.let { m -> val t = floatArrayOf(W / 2f, pr.top); m.mapPoints(t); t[1] } ?: pr.top
     when (theme) {
         "cards" -> { cardsPage(bc, W, H, pl.main, pl.deep, badge); panel(bc, theme, pl, lk, pr, false) }
         "stadium" -> {
@@ -554,7 +646,10 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
             bc.drawRect(0f, pr.bottom - 60f, W.toFloat(), H.toFloat(), fp)
             grain(bc, W, H, false)
         }
-        else -> { outer(bc, theme, pl, W, H, if (theme == "team") badge else null); panel(bc, theme, pl, lk, pr, false) }
+        else -> {
+            outer(bc, theme, pl, W, H, if (theme == "team") badge else if (theme in GL_THEMES) a.logo else null)
+            if (tiltM != null) { bc.save(); bc.concat(tiltM); panel(bc, theme, pl, lk, pr, false); bc.restore() } else panel(bc, theme, pl, lk, pr, false)
+        }
     }
     val best = l.men.firstOrNull { it.star }
     val fg: (Canvas, Clock) -> Unit = { c, clk ->
@@ -577,13 +672,15 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
             l.score?.let { scoreChip(c, it, W / 2f, y, if (post) 30f else 36f, lk, tf, a.crests) }
         }
         // the formation in the panel's corner, then the players
-        c.enter(clk.at(0.4f), py, py + 80) { formationText(c, l.formation, pr.left + 28, pr.top + 18, if (post) 34f else 40f, lk.formInk, a.digits ?: tf) }
+        // the formation in a pill on the panel's top edge (the stadium's over the boards at the far end)
+        val fy = when { theme == "stadium" -> pitchTop - 50f; tiltM != null -> tiltTop; else -> pr.top }
+        c.enter(clk.at(0.4f), fy - 40, fy + 40, 30f) { formationPill(c, l.formation, W / 2f, fy, if (post) 26f else 30f, lk, a.digits ?: tf) }
         when (theme) {
             "cards" -> placeCards(c, l.men, RectF(pr.left, pr.top + (if (post) 54f else 66f), pr.right, pr.bottom - 6f), pl.main, a.faces, a.crests,
-                l.crest?.let { a.crests[it] }, tf, clk, 0.6f)
+                l.crest?.let { a.crests[it] }, tf, clk, 0.6f, maxW = 215f * o.scale)
             "stadium" -> {
                 stadiumLive(c, W, pitchTop, if (clk.still) LIVE_STILL_T else clk.t)
-                placeStanding(l.men, ps, if (post) 150f else 180f) { m, cx, feet, d, k ->
+                placeStanding(l.men, ps, (if (post) 150f else 180f) * o.scale) { m, cx, feet, d, k ->
                     c.pop(clk.at(0.6f + k * 0.1f, 0.45f), cx, feet - d * 0.5f) {
                         feetShadow(c, cx, feet + d * 0.06f, d)
                         man(c, m, cx, feet - d * 1.1f, d, lk, m === best, a.faces[m.id], m.crest?.let { a.crests[it] }, tf)
@@ -591,7 +688,7 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
                 }
             }
             else -> placeAll(c, l.men, RectF(pr.left, pr.top + (if (post) 56f else 70f), pr.right, pr.bottom - (if (post) 14f else 20f)), if (post) 150f else 176f,
-                lk, a.faces, a.crests, tf, clk, 0.6f)
+                lk, a.faces, a.crests, tf, clk, 0.6f, scale = o.scale, tilt = tiltM)
         }
         // under the pitch
         var y = pr.bottom
@@ -618,7 +715,7 @@ private fun onePoster(l: Story.Lineup, theme: String, o: CardOptions, a: Art, tf
                 c.enter(clk.at(2.2f), y, y + 100) { pill(c, "★ $s", W / 2f, y + 34, 32f, GOLD, 0x26F5C542, tf, 960, 0x66F5C542) }
                 y += 120
             }
-            if (cap) c.enter(clk.at(2.6f), y, y + 80) { captionLine(c, o.caption, y + 14, if (theme == "light" || (theme == "team" && pl.pale)) lk.ink else GOLD, tf, W) }
+            if (cap) c.enter(clk.at(2.6f), y, y + 80) { captionLine(c, o.caption, y + 14, if (theme == "light" || theme == "retro" || (theme == "team" && pl.pale)) lk.ink else GOLD, tf, W) }
             posterBrand(c, clk, W / 2f, 1836f, lk, tf, a.bold, a.logo)
         }
     }
@@ -651,10 +748,10 @@ private fun bothPoster(l: Story.Lineup, r: Story.Lineup, theme: String, o: CardO
         panel(bc, "pitch", pa, lk, pr, true)
         grain(bc, W, H, false)
     } else {
-        outer(bc, theme, pa, W, H, null)
+        outer(bc, theme, pa, W, H, if (theme in GL_THEMES) a.logo else null)
         panel(bc, theme, pa, lk, pr, true)
     }
-    val hdrInk = if (theme == "light") lk.ink else WHITE
+    val hdrInk = if (theme == "light" || theme == "retro") lk.ink else WHITE
     return Scene(W, H, bg, ph.main, pa.main) { c, clk ->
         c.enter(clk.at(0.1f), 0f, pr.top) {
             var y = 34f
@@ -669,16 +766,16 @@ private fun bothPoster(l: Story.Lineup, r: Story.Lineup, theme: String, o: CardO
             }
             if (s != null) line(c, if (Lang.en) fa("${s.hg} - ${s.ag}") else fa("${s.ag} - ${s.hg}"), W / 2f, mid, 84f, hdrInk, tf, 300f)
             else line(c, if (Lang.en) "vs" else "مقابل", W / 2f, mid, 50f, hdrInk, tf, 300f)
-            text(c, l.sub, W / 2f, mid + 62, 26f, if (theme == "light") lk.sub else 0xC0FFFFFF.toInt(), a.bold, W - 120)
+            text(c, l.sub, W / 2f, mid + 62, 26f, if (theme == "light" || theme == "retro") lk.sub else 0xC0FFFFFF.toInt(), a.bold, W - 120)
         }
         val half = pr.height() / 2
         c.enter(clk.at(0.4f), pr.top, pr.bottom) {
-            formationText(c, home.formation, pr.left + 22, pr.top + 14, 30f, lk.formInk, a.digits ?: tf)
-            formationText(c, away.formation, pr.left + 22, pr.bottom - 50, 30f, lk.formInk, a.digits ?: tf)
+            formationPill(c, home.formation, W / 2f, pr.top, 24f, lkHome, a.digits ?: tf)
+            formationPill(c, away.formation, W / 2f, pr.bottom, 24f, lk, a.digits ?: tf)
         }
-        placeAll(c, home.men, RectF(pr.left, pr.top + 14, pr.right, pr.top + half - 38), 108f, lkHome, a.faces, a.crests, tf, clk, 0.6f, flip = true)
-        placeAll(c, away.men, RectF(pr.left, pr.top + half + 38, pr.right, pr.bottom - 14), 108f, lk, a.faces, a.crests, tf, clk, 1.8f)
-        if (cap) c.enter(clk.at(2.8f), pr.bottom, pr.bottom + 80) { captionLine(c, o.caption, pr.bottom + 16, if (theme == "light") lk.ink else GOLD, tf, W) }
+        placeAll(c, home.men, RectF(pr.left, pr.top + 26, pr.right, pr.top + half - 38), 108f, lkHome, a.faces, a.crests, tf, clk, 0.6f, flip = true, scale = o.scale)
+        placeAll(c, away.men, RectF(pr.left, pr.top + half + 38, pr.right, pr.bottom - 26), 108f, lk, a.faces, a.crests, tf, clk, 1.8f, scale = o.scale)
+        if (cap) c.enter(clk.at(2.8f), pr.bottom, pr.bottom + 80) { captionLine(c, o.caption, pr.bottom + 16, if (theme == "light" || theme == "retro") lk.ink else GOLD, tf, W) }
         posterBrand(c, clk, W / 2f, 1848f, lk, tf, a.bold, a.logo)
     }
 }

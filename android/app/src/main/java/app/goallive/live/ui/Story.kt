@@ -966,6 +966,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
     val reel = story is Story.Reel
     var o by remember { mutableStateOf(if (match != null) loadOptions() else CardOptions(theme = story.theme)) }
     var video by remember { mutableStateOf(reel || Store.prefs().getBoolean("story.video", false)) }
+    var big by remember { mutableStateOf(false) }
     var reelSound by remember { mutableStateOf(Store.prefs().getString("reel.sound", "full") ?: "full") }
     var music by remember { mutableStateOf(Store.prefs().getString("story.music", "epic") ?: "epic") }
     var art by remember { mutableStateOf<Art?>(null) }
@@ -1097,6 +1098,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
         if (themed) add("look" to L("طرح"))
         if (reel || video) add("sound" to L("صدا"))
         if (lineup?.rival != null) add("teams" to L("تیم‌ها"))
+        if (lineup != null) add("layout" to L("چیدمان"))
         if (!video && (lineup != null || match != null)) add("size" to L("اندازه"))
         if (story !is Story.Lineup && !reel) add("sticker" to L("استیکر"))
         if (!reel) add("text" to L("نوشته"))
@@ -1141,7 +1143,8 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                 BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
                     val ratio = shape.format.w.toFloat() / shape.format.h
                     val h = minOf(maxHeight, maxWidth / ratio)
-                    StudioFrame(Modifier.height(h).width(h * ratio), glow, Color(tint), making != null || video) {
+                    StudioFrame(Modifier.height(h).width(h * ratio).clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null) { big = !big }, glow, Color(tint), making != null || video) {
                         preview?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), filterQuality = FilterQuality.High) }
                             ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { T(L("در حال ساختن…"), 13, color = C.mute) }
                         if (video && making == null) Row(Modifier.align(Alignment.TopStart).padding(10.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f))
@@ -1160,9 +1163,9 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                         }
                     }
                 }
-                // the groups of controls
-                StudioTabs(tabs, tab, accent) { tab = it }
-                Box(Modifier.fillMaxWidth().height(if (tab == "look") 196.dp else 150.dp)) {
+                // the groups of controls (put away while the picture is shown large)
+                if (!big) StudioTabs(tabs, tab, accent) { tab = it }
+                Box(Modifier.fillMaxWidth().height(if (big) 0.dp else if (tab == "look") 196.dp else 150.dp)) {
                     androidx.compose.animation.Crossfade(tab, label = "tab") { t ->
                         Column(Modifier.fillMaxSize().padding(top = 10.dp)) {
                             when (t) {
@@ -1190,6 +1193,18 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                                     }
                                 }
                                 "teams" -> StudioChips(listOf(false to L("فقط همین تیم"), true to L("هر دو تیم")), o.both) { o = o.copy(both = it, format = if (it) CardFormat.STORY else o.format) }
+                                "layout" -> Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    // the players' size: the slider moves freely, the picture is redrawn when it is let go
+                                    var sz by remember(o.scale) { mutableStateOf(o.scale) }
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        T(L("اندازه‌ی بازیکن‌ها"), 13, FontWeight.Bold, Color.White, Modifier.width(110.dp))
+                                        androidx.compose.material3.Slider(sz, { sz = it }, Modifier.weight(1f), valueRange = 0.8f..1.25f, onValueChangeFinished = { o = o.copy(scale = sz) },
+                                            colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent, inactiveTrackColor = Color.White.copy(alpha = 0.15f)))
+                                        T(fa((sz * 100).roundToInt()) + "٪", 12, FontWeight.Black, Color.White, Modifier.width(44.dp), align = androidx.compose.ui.text.style.TextAlign.Center)
+                                    }
+                                    StudioChips(listOf(false to L("زمین صاف"), true to L("زمین سه‌بعدی")), o.tilt) { o = o.copy(tilt = it) }
+                                    if (o.theme in setOf("cards", "stadium")) T(L("طرح‌های کارت و ورزشگاه خودشان چیدمان ویژه دارند"), 11, color = C.mute)
+                                }
                                 "size" -> {
                                     val sizes = if (lineup != null) listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست"))
                                         else listOf(CardFormat.STORY to L("استوری"), CardFormat.PORTRAIT to L("پست عمودی"), CardFormat.SQUARE to L("پست مربع"))
@@ -1256,7 +1271,7 @@ fun StorySheet(story: Story, onClose: () -> Unit) {
                         stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:telegram"); send(ctx, f, mime, story, TELEGRAM) }
                     }
                     RoundShare(L("ذخیره"), "save", null, ready) {
-                        stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:save"); save(ctx, f, mime); done = L("در گالری ذخیره شد") }
+                        stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:save"); saveToGallery(ctx, f, mime); done = L("در گالری ذخیره شد") }
                     }
                     RoundShare(L("بقیه"), "share", null, ready) {
                         stopMusic(); produce { f, mime -> app.goallive.live.data.Telemetry.event("share:other"); send(ctx, f, mime, story, emptyList()) }
@@ -1498,7 +1513,7 @@ private fun send(ctx: Context, f: File, mime: String, story: Story, apps: List<S
 }
 
 /** Saves into Pictures/GoalLive or Movies/GoalLive (no permission needed from Android 10). */
-private fun save(ctx: Context, f: File, mime: String) {
+internal fun saveToGallery(ctx: Context, f: File, mime: String) {
     val isVideo = mime.startsWith("video")
     val ok = runCatching {
         if (Build.VERSION.SDK_INT < 29) error("old")

@@ -176,6 +176,8 @@ class StoryShots {
                     for (t in app.goallive.live.ui.POSTER_THEMES) out += "77-poster-$tag-$t" to l.scene(CardOptions(theme = t), a).still(0.5f)
                     out += "77-poster-$tag-post" to l.scene(CardOptions(theme = "team", format = app.goallive.live.ui.CardFormat.PORTRAIT), a).still(0.5f)
                     if (tag == "home") for (t in listOf("team", "cards", "stadium", "neon", "light")) out += "77-poster-both-$t" to l.scene(CardOptions(theme = t, both = true), a).still(0.5f)
+                    if (tag == "home") for (t in listOf("team", "neon", "goallive")) out += "77-poster-home-3d-$t" to l.scene(CardOptions(theme = t, tilt = true), a).still(0.5f)
+                    if (tag == "home") out += "77-poster-home-big" to l.scene(CardOptions(theme = "team", scale = 1.2f), a).still(0.5f)
                     if (tag == "home") for (t in listOf("cards", "stadium")) out += "77-poster-home-post-$t" to l.scene(CardOptions(theme = t, format = app.goallive.live.ui.CardFormat.PORTRAIT), a).still(0.5f)
                     if (tag == "home") out += "77-poster-home-frame" to Bitmap.createBitmap(540, 960, Bitmap.Config.ARGB_8888).also { b -> val c = Canvas(b); c.scale(0.5f, 0.5f); l.scene(CardOptions(theme = "team"), a).frame(c, 1.4f) }
                     // two line-up videos frame by frame (30 a second), zipped, to be put together with their music and watched

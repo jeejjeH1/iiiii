@@ -13,8 +13,8 @@ android {
         applicationId = "app.goallive.live"
         minSdk = 24
         targetSdk = 35
-        versionCode = 125
-        versionName = "3.9"
+        versionCode = 126
+        versionName = "4.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Google sign-in's client, built in so the button is there on the very first screen (the server can still change it)
         buildConfigField("String", "GOOGLE_CLIENT", "\"" + (System.getenv("GOOGLE_CLIENT_ID") ?: "") + "\"")
@@ -75,6 +75,8 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.5")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // the player card cuts the person out of their photo, on the phone (the model ships inside the app)
+    implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     // signing in with a Google account
     implementation("androidx.credentials:credentials:1.3.0")

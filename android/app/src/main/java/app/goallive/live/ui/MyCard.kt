@@ -137,7 +137,8 @@ private const val CW = 1080
 private const val CH = 1920
 
 /** The card as a story picture. */
-internal fun drawMyCard(ctx: Context, name: String, pos: String, team: Int, teamName: String, teamColor: Int, frame: CardFrame, photo: Bitmap?, crest: Bitmap?): Bitmap {
+internal fun drawMyCard(ctx: Context, name: String, pos: String, team: Int, teamName: String, teamColor: Int, frame: CardFrame, photo: Bitmap?, crest: Bitmap?,
+                        cut: Bitmap? = null): Bitmap {
     val bmp = Bitmap.createBitmap(CW, CH, Bitmap.Config.ARGB_8888)
     val c = Canvas(bmp)
     val black = if (Lang.en) Typeface.create(Typeface.DEFAULT, Typeface.BOLD) else ResourcesCompat.getFont(ctx, R.font.vazir_black) ?: Typeface.DEFAULT_BOLD
@@ -177,7 +178,25 @@ internal fun drawMyCard(ctx: Context, name: String, pos: String, team: Int, team
     c.drawCircle(cx + cw * 0.08f, top + ch * 0.3f, cw * 0.5f, p); p.shader = null
     // the photo, fading into the card at its foot
     val ps = cw * 0.7f; val px = if (Lang.en) r - ps - cw * 0.03f else l + cw * 0.03f; val py = top + ch * 0.06f
-    if (photo != null) {
+    val nameY = top + ch * 0.6f
+    if (cut != null) {
+        // the person cut out of the background, standing on the name bar, as tall as the room above it allows, beside the rating column
+        val aL = if (Lang.en) l + cw * 0.3f else l + cw * 0.02f; val aW = cw * 0.68f
+        val aT = top + ch * 0.035f; val aB = nameY - cw * 0.075f
+        val sc = min(aW / cut.width, (aB - aT) / cut.height)
+        val dw = cut.width * sc; val dh = cut.height * sc
+        val dx = aL + (aW - dw) / 2; val dy = aB - dh
+        val dst = RectF(dx, dy, dx + dw, dy + dh)
+        // a glow of the frame's light behind, and the person's soft shadow
+        p.shader = RadialGradient(dst.centerX(), dst.top + dh * 0.4f, dw * 0.75f, intArrayOf(ColorUtils.setAlphaComponent(frame.edge, 120), 0), null, Shader.TileMode.CLAMP)
+        c.drawCircle(dst.centerX(), dst.top + dh * 0.4f, dw * 0.75f, p); p.shader = null
+        val sh = Paint(Paint.FILTER_BITMAP_FLAG).apply { colorFilter = android.graphics.PorterDuffColorFilter(0x99000000.toInt(), PorterDuff.Mode.SRC_IN); maskFilter = BlurMaskFilter(22f, BlurMaskFilter.Blur.NORMAL) }
+        c.drawBitmap(cut, null, RectF(dst.left + 10f, dst.top + 14f, dst.right + 10f, dst.bottom + 14f), sh)
+        val n = c.saveLayer(dst.left, dst.top, dst.right, dst.bottom, null)
+        c.drawBitmap(cut, null, dst, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        val mask = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN); shader = LinearGradient(0f, dst.bottom - dh * 0.12f, 0f, dst.bottom, 0xFFFFFFFF.toInt(), 0x00FFFFFF, Shader.TileMode.CLAMP) }
+        c.drawRect(dst, mask); c.restoreToCount(n)
+    } else if (photo != null) {
         val n = c.saveLayer(px, py, px + ps, py + ps, null)
         c.drawBitmap(photo, null, RectF(px, py, px + ps, py + ps), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
         val mask = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN); shader = LinearGradient(0f, py + ps * 0.6f, 0f, py + ps, 0xFFFFFFFF.toInt(), 0, Shader.TileMode.CLAMP) }
@@ -244,12 +263,15 @@ private fun fit(c: Canvas, s: String, cx: Float, cy: Float, size: Float, color: 
     val fm = tp.fontMetrics; c.drawText(t, cx, cy - (fm.ascent + fm.descent) / 2, tp)
 }
 
-/** The photo picked, as a centred square of at most 900 px, kept in the app's files. */
-private fun loadPhoto(ctx: Context, uri: Uri): Bitmap? = runCatching {
+/**
+ * The photo picked, turned upright: kept as a centred square (for the card without background removal) and, when a person
+ * is found in it, as that person cut out of the background and trimmed to them. Both are kept in the app's files.
+ */
+private suspend fun loadPhoto(ctx: Context, uri: Uri): Pair<Bitmap, Bitmap?>? = withContext(Dispatchers.IO) { runCatching {
     val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, opts) }
-    var s = 1; while (opts.outWidth / (s * 2) >= 900 && opts.outHeight / (s * 2) >= 900) s *= 2
-    val raw = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = s }) } ?: return null
+    var s = 1; while (opts.outWidth / (s * 2) >= 1100 && opts.outHeight / (s * 2) >= 1100) s *= 2
+    val raw = ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = s }) } ?: return@runCatching null
     // turned the way the camera held it
     val rot = runCatching { ctx.contentResolver.openInputStream(uri)?.use {
         when (android.media.ExifInterface(it).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)) { 6 -> 90; 3 -> 180; 8 -> 270; else -> 0 }
@@ -261,8 +283,52 @@ private fun loadPhoto(ctx: Context, uri: Uri): Bitmap? = runCatching {
     val sq = Bitmap.createBitmap(turned, (turned.width - side) / 2, y, side, side)
     val out = if (side > 900) Bitmap.createScaledBitmap(sq, 900, 900, true) else sq
     File(ctx.filesDir, "mycard.jpg").outputStream().use { out.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-    out
+    val cut = cutout(turned)
+    val cf = File(ctx.filesDir, "mycard_cut.png")
+    if (cut != null) cf.outputStream().use { cut.compress(Bitmap.CompressFormat.PNG, 100, it) } else cf.delete()
+    out to cut
+}.getOrNull() }
+
+/**
+ * The person in [src] cut out of the background, on the phone: the selfie model scores every pixel, the scores become a soft
+ * edge, and the picture is trimmed to the person with a little room. Null when no one is found.
+ */
+private suspend fun cutout(src: Bitmap): Bitmap? = runCatching {
+    val img = if (src.width > 1024 || src.height > 1024) {
+        val k = 1024f / maxOf(src.width, src.height); Bitmap.createScaledBitmap(src, (src.width * k).roundToInt(), (src.height * k).roundToInt(), true)
+    } else src
+    val seg = com.google.mlkit.vision.segmentation.Segmentation.getClient(
+        com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions.Builder()
+            .setDetectorMode(com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions.SINGLE_IMAGE_MODE).build())
+    val mask = kotlinx.coroutines.suspendCancellableCoroutine<com.google.mlkit.vision.segmentation.SegmentationMask?> { k ->
+        seg.process(com.google.mlkit.vision.common.InputImage.fromBitmap(img, 0))
+            .addOnSuccessListener { if (k.isActive) k.resumeWith(Result.success(it)) }
+            .addOnFailureListener { if (k.isActive) k.resumeWith(Result.success(null)) }
+    }
+    seg.close()
+    if (mask == null || mask.width != img.width || mask.height != img.height) return null
+    val w = img.width; val h = img.height
+    val conf = FloatArray(w * h); mask.buffer.rewind(); mask.buffer.asFloatBuffer().get(conf)
+    val px = IntArray(w * h); img.getPixels(px, 0, w, 0, 0, w, h)
+    var x0 = w; var y0 = h; var x1 = -1; var y1 = -1; var count = 0
+    for (i in 0 until w * h) {
+        val c = conf[i]
+        // a soft edge between "surely background" and "surely the person"
+        val a = ((c - 0.3f) / 0.45f).coerceIn(0f, 1f)
+        val al = (a * a * (3 - 2 * a) * 255).roundToInt()
+        px[i] = (px[i] and 0x00FFFFFF) or (al shl 24)
+        if (al > 128) { val x = i % w; val y = i / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; count++ }
+    }
+    if (count < w * h * 0.04f || x1 <= x0 || y1 <= y0) return null
+    val full = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
+    val m = ((x1 - x0) * 0.04f).roundToInt()
+    val cx0 = (x0 - m).coerceAtLeast(0); val cy0 = (y0 - m).coerceAtLeast(0)
+    val cx1 = (x1 + m).coerceAtMost(w - 1); val cy1 = y1
+    Bitmap.createBitmap(full, cx0, cy0, cx1 - cx0 + 1, cy1 - cy0 + 1)
 }.getOrNull()
+
+/** The cards the user kept, newest first. */
+private fun keptCards(ctx: Context): List<File> = File(ctx.filesDir, "cards").listFiles { f -> f.name.endsWith(".png") }?.sortedByDescending { it.lastModified() }.orEmpty()
 
 @Composable
 fun MyCardScreen() {
@@ -275,12 +341,27 @@ fun MyCardScreen() {
     var frameKey by remember { mutableStateOf(prefs.getString("mycard.frame", "gold")!!) }
     var team by remember { mutableIntStateOf(prefs.getInt("mycard.team", my?.id ?: 0)) }
     var photo by remember { mutableStateOf<Bitmap?>(null) }
+    var cut by remember { mutableStateOf<Bitmap?>(null) }
+    var noBg by remember { mutableStateOf(prefs.getBoolean("mycard.nobg", true)) }
+    var busy by remember { mutableStateOf(false) }
+    var kept by remember { mutableStateOf(keptCards(ctx)) }
+    var note by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(note) { if (note != null) { kotlinx.coroutines.delay(2200); note = null } }
     var crest by remember { mutableStateOf<Bitmap?>(null) }
     var card by remember { mutableStateOf<Bitmap?>(null) }
     var version by remember { mutableIntStateOf(0) }
-    LaunchedEffect(Unit) { photo = withContext(Dispatchers.IO) { File(ctx.filesDir, "mycard.jpg").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) } } }
+    LaunchedEffect(Unit) {
+        withContext(Dispatchers.IO) {
+            photo = File(ctx.filesDir, "mycard.jpg").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) }
+            cut = File(ctx.filesDir, "mycard_cut.png").takeIf { it.exists() }?.let { BitmapFactory.decodeFile(it.path) }
+        }
+    }
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) scope.launch { photo = withContext(Dispatchers.IO) { loadPhoto(ctx, uri) } ?: photo }
+        if (uri != null) scope.launch {
+            busy = true
+            loadPhoto(ctx, uri)?.let { (sq, c) -> photo = sq; cut = c; if (c == null && noBg) note = L("آدمی در عکس پیدا نشد؛ عکس با پس‌زمینه گذاشته شد") }
+            busy = false
+        }
     }
     val teams = buildList { my?.let { add(it.id to it.name) }; Store.teams.forEach { (id, n) -> if (none { it.first == id }) add(id to n) } }
     val teamName = teams.firstOrNull { it.first == team }?.let { teamName(it.first, it.second) } ?: ""
@@ -290,9 +371,10 @@ fun MyCardScreen() {
     LaunchedEffect(team) { crest = if (team > 0) image(ctx, teamLogo(team, true), 300) else null }
     // redrawn whenever something on it changes; it turns over each time
     val flip = remember { Animatable(1f) }
-    LaunchedEffect(name, pos, frameKey, team, photo, crest) {
-        prefs.edit().putString("mycard.name", name).putString("mycard.pos", pos).putString("mycard.frame", frameKey).putInt("mycard.team", team).apply()
-        card = withContext(Dispatchers.Default) { drawMyCard(ctx, name, pos, team, teamName, teamColor, frame, photo, crest) }
+    LaunchedEffect(name, pos, frameKey, team, photo, crest, cut, noBg) {
+        prefs.edit().putString("mycard.name", name).putString("mycard.pos", pos).putString("mycard.frame", frameKey).putInt("mycard.team", team)
+            .putBoolean("mycard.nobg", noBg).apply()
+        card = withContext(Dispatchers.Default) { drawMyCard(ctx, name, pos, team, teamName, teamColor, frame, photo, crest, if (noBg) cut else null) }
         version++
         flip.snapTo(0f); flip.animateTo(1f, tween(520, easing = FastOutSlowInEasing))
     }
@@ -305,6 +387,11 @@ fun MyCardScreen() {
             Box(Modifier.padding(top = 14.dp).fillMaxWidth().aspectRatio(CW / CH.toFloat()).clip(RoundedCornerShape(24.dp)).background(C.card2)
                 .graphicsLayer { rotationY = (1f - flip.value) * 90f; cameraDistance = 16f * density }, contentAlignment = Alignment.Center) {
                 card?.let { Image(it.asImageBitmap(), L("کارت تو"), Modifier.fillMaxSize()) }
+                if (busy) Box(Modifier.clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.7f)).padding(horizontal = 16.dp, vertical = 10.dp)) {
+                    T(L("در حال جدا کردن پس‌زمینه…"), 13, FontWeight.Bold, Color.White)
+                }
+                note?.let { n -> Box(Modifier.align(Alignment.TopCenter).padding(12.dp).clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.75f))
+                    .padding(horizontal = 14.dp, vertical = 8.dp)) { T(n, 12, FontWeight.Bold, Color.White) } }
             }
         }
         item {
@@ -313,6 +400,37 @@ fun MyCardScreen() {
                     pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }
                 BigButton(L("استوری کن"), Modifier.weight(1f), LocalAccent.current, LocalAccentInk.current) { card?.let { shareCard(ctx, it) } }
+            }
+            Row(Modifier.padding(top = 10.dp).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                // kept in the app (the row below) and in the phone's gallery
+                BigButton(L("ذخیره‌ی کارت"), Modifier.weight(1f), C.card) {
+                    card?.let { b ->
+                        scope.launch {
+                            val f = withContext(Dispatchers.IO) {
+                                val dir = File(ctx.filesDir, "cards").apply { mkdirs() }
+                                File(dir, "card-${System.currentTimeMillis()}.png").also { out -> out.outputStream().use { b.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+                            }
+                            saveToGallery(ctx, f, "image/png"); kept = keptCards(ctx)
+                        }
+                    }
+                }
+                Toggle(L("بدون پس‌زمینه"), noBg) { noBg = it }
+            }
+        }
+        if (kept.isNotEmpty()) item {
+            SectionTitle(L("کارت‌های ذخیره‌شده"))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(kept, key = { it.name }) { f ->
+                    val thumb = remember(f.name) { runCatching { BitmapFactory.decodeFile(f.path, BitmapFactory.Options().apply { inSampleSize = 6 }) }.getOrNull() }
+                    Box(Modifier.width(96.dp).aspectRatio(CW / CH.toFloat()).clip(RoundedCornerShape(14.dp)).background(C.card2)
+                        .clickable { BitmapFactory.decodeFile(f.path)?.let { shareCard(ctx, it) } }) {
+                        thumb?.let { Image(it.asImageBitmap(), null, Modifier.fillMaxSize()) }
+                        Box(Modifier.align(Alignment.TopStart).padding(4.dp).size(24.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.6f))
+                            .clickable { f.delete(); kept = keptCards(ctx) }, contentAlignment = Alignment.Center) {
+                            Icon(Ic.x, L("پاک کردن"), Modifier.size(12.dp), tint = Color.White)
+                        }
+                    }
+                }
             }
         }
         item {

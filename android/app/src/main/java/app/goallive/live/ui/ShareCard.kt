@@ -92,6 +92,10 @@ data class CardOptions(
     val sticker: String = "",
     /** A line-up poster with both teams. */
     val both: Boolean = false,
+    /** Line-up posters: how large the players are drawn (0.8 … 1.25). */
+    val scale: Float = 1f,
+    /** Line-up posters: the pitch laid back in depth, the players standing on it. */
+    val tilt: Boolean = false,
 )
 
 internal fun loadOptions(): CardOptions = runCatching {
