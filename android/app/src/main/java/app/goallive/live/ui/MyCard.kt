@@ -283,7 +283,7 @@ private suspend fun loadPhoto(ctx: Context, uri: Uri): Pair<Bitmap, Bitmap?>? = 
     val sq = Bitmap.createBitmap(turned, (turned.width - side) / 2, y, side, side)
     val out = if (side > 900) Bitmap.createScaledBitmap(sq, 900, 900, true) else sq
     File(ctx.filesDir, "mycard.jpg").outputStream().use { out.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-    val cut = cutout(turned)
+    val cut = cutout(ctx, turned)
     val cf = File(ctx.filesDir, "mycard_cut.png")
     if (cut != null) cf.outputStream().use { cut.compress(Bitmap.CompressFormat.PNG, 100, it) } else cf.delete()
     out to cut
@@ -293,38 +293,34 @@ private suspend fun loadPhoto(ctx: Context, uri: Uri): Pair<Bitmap, Bitmap?>? = 
  * The person in [src] cut out of the background, on the phone: the selfie model scores every pixel, the scores become a soft
  * edge, and the picture is trimmed to the person with a little room. Null when no one is found.
  */
-private suspend fun cutout(src: Bitmap): Bitmap? = runCatching {
+internal fun cutout(ctx: Context, src: Bitmap): Bitmap? = runCatching {
     val img = if (src.width > 1024 || src.height > 1024) {
         val k = 1024f / maxOf(src.width, src.height); Bitmap.createScaledBitmap(src, (src.width * k).roundToInt(), (src.height * k).roundToInt(), true)
     } else src
-    val seg = com.google.mlkit.vision.segmentation.Segmentation.getClient(
-        com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions.Builder()
-            .setDetectorMode(com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions.SINGLE_IMAGE_MODE).build())
-    val mask = kotlinx.coroutines.suspendCancellableCoroutine<com.google.mlkit.vision.segmentation.SegmentationMask?> { k ->
-        seg.process(com.google.mlkit.vision.common.InputImage.fromBitmap(img, 0))
-            .addOnSuccessListener { if (k.isActive) k.resumeWith(Result.success(it)) }
-            .addOnFailureListener { if (k.isActive) k.resumeWith(Result.success(null)) }
-    }
-    seg.close()
-    if (mask == null || mask.width != img.width || mask.height != img.height) return null
+    val m = SelfieSeg.mask(ctx, img)
     val w = img.width; val h = img.height
-    val conf = FloatArray(w * h); mask.buffer.rewind(); mask.buffer.asFloatBuffer().get(conf)
     val px = IntArray(w * h); img.getPixels(px, 0, w, 0, 0, w, h)
     var x0 = w; var y0 = h; var x1 = -1; var y1 = -1; var count = 0
-    for (i in 0 until w * h) {
-        val c = conf[i]
-        // a soft edge between "surely background" and "surely the person"
-        val a = ((c - 0.3f) / 0.45f).coerceIn(0f, 1f)
-        val al = (a * a * (3 - 2 * a) * 255).roundToInt()
-        px[i] = (px[i] and 0x00FFFFFF) or (al shl 24)
-        if (al > 128) { val x = i % w; val y = i / w; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; count++ }
+    for (y in 0 until h) {
+        // the 256×256 answer read back at this photo's size, bilinear
+        val fy = ((y + 0.5f) * 256f / h - 0.5f).coerceIn(0f, 255f); val my0 = fy.toInt(); val my1 = min(my0 + 1, 255); val ty = fy - my0
+        for (x in 0 until w) {
+            val fx = ((x + 0.5f) * 256f / w - 0.5f).coerceIn(0f, 255f); val mx0 = fx.toInt(); val mx1 = min(mx0 + 1, 255); val tx = fx - mx0
+            val c = (m[my0 * 256 + mx0] * (1 - tx) + m[my0 * 256 + mx1] * tx) * (1 - ty) + (m[my1 * 256 + mx0] * (1 - tx) + m[my1 * 256 + mx1] * tx) * ty
+            // a soft edge between "surely background" and "surely the person"
+            val a = ((c - 0.3f) / 0.45f).coerceIn(0f, 1f)
+            val al = (a * a * (3 - 2 * a) * 255).roundToInt()
+            val i = y * w + x
+            px[i] = (px[i] and 0x00FFFFFF) or (al shl 24)
+            if (al > 128) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; count++ }
+        }
     }
     if (count < w * h * 0.04f || x1 <= x0 || y1 <= y0) return null
     val full = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
-    val m = ((x1 - x0) * 0.04f).roundToInt()
-    val cx0 = (x0 - m).coerceAtLeast(0); val cy0 = (y0 - m).coerceAtLeast(0)
-    val cx1 = (x1 + m).coerceAtMost(w - 1); val cy1 = y1
-    Bitmap.createBitmap(full, cx0, cy0, cx1 - cx0 + 1, cy1 - cy0 + 1)
+    val mg = ((x1 - x0) * 0.04f).roundToInt()
+    val cx0 = (x0 - mg).coerceAtLeast(0); val cy0 = (y0 - mg).coerceAtLeast(0)
+    val cx1 = (x1 + mg).coerceAtMost(w - 1)
+    Bitmap.createBitmap(full, cx0, cy0, cx1 - cx0 + 1, y1 - cy0 + 1)
 }.getOrNull()
 
 /** The cards the user kept, newest first. */

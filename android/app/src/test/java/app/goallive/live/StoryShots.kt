@@ -221,6 +221,21 @@ class StoryShots {
             out
         }.orEmpty()
         for ((name, b) in posters) png(name, b)
+        // the player card's background removal (the app's own runner of the selfie model) on two test photos, and a card with one
+        off {
+            for (n in listOf("portrait.jpg", "business-person.png")) {
+                val src = java.net.URL("https://storage.googleapis.com/mediapipe-assets/$n").openStream().use { android.graphics.BitmapFactory.decodeStream(it) } ?: continue
+                val t0 = System.currentTimeMillis()
+                val cut = app.goallive.live.ui.cutout(ctx, src)
+                System.err.println("SHOT seg $n ${System.currentTimeMillis() - t0} ms cut=${cut?.width}x${cut?.height}")
+                if (cut == null) continue
+                val view = Bitmap.createBitmap(cut.width, cut.height, Bitmap.Config.ARGB_8888)
+                Canvas(view).apply { drawColor(0xFF1E8A44.toInt()); drawBitmap(cut, 0f, 0f, null) }
+                png("81-seg-${n.substringBefore('.')}", view)
+                if (n == "portrait.jpg") png("81-mycard-cut", app.goallive.live.ui.drawMyCard(ctx, "Obama", "ST", 8634, "Barcelona", 0xFFA50044.toInt(),
+                    app.goallive.live.ui.cardFrames(0xFFA50044.toInt()).first(), null, null, cut))
+            }
+        }
         System.err.println("SHOT posters: ${posters.size}")
         // every sticker on one sheet, on dark and on light
         off {
