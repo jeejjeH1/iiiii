@@ -183,18 +183,21 @@ internal fun drawMyCard(ctx: Context, name: String, pos: String, team: Int, team
         // the person cut out of the background, standing on the name bar, as tall as the room above it allows, beside the rating column
         val aL = if (Lang.en) l + cw * 0.3f else l + cw * 0.02f; val aW = cw * 0.68f
         val aT = top + ch * 0.035f; val aB = nameY - cw * 0.075f
-        val sc = min(aW / cut.width, (aB - aT) / cut.height)
-        val dw = cut.width * sc; val dh = cut.height * sc
+        // head and shoulders, as on a game card: at most a little taller than wide, from the top of the head down
+        val srcH = min(cut.height.toFloat(), cut.width * 1.15f)
+        val src = android.graphics.Rect(0, 0, cut.width, srcH.roundToInt())
+        val sc = min(aW * 1.08f / cut.width, (aB - aT) / srcH)
+        val dw = cut.width * sc; val dh = srcH * sc
         val dx = aL + (aW - dw) / 2; val dy = aB - dh
         val dst = RectF(dx, dy, dx + dw, dy + dh)
         // a glow of the frame's light behind, and the person's soft shadow
         p.shader = RadialGradient(dst.centerX(), dst.top + dh * 0.4f, dw * 0.75f, intArrayOf(ColorUtils.setAlphaComponent(frame.edge, 120), 0), null, Shader.TileMode.CLAMP)
         c.drawCircle(dst.centerX(), dst.top + dh * 0.4f, dw * 0.75f, p); p.shader = null
         val sh = Paint(Paint.FILTER_BITMAP_FLAG).apply { colorFilter = android.graphics.PorterDuffColorFilter(0x99000000.toInt(), PorterDuff.Mode.SRC_IN); maskFilter = BlurMaskFilter(22f, BlurMaskFilter.Blur.NORMAL) }
-        c.drawBitmap(cut, null, RectF(dst.left + 10f, dst.top + 14f, dst.right + 10f, dst.bottom + 14f), sh)
+        c.drawBitmap(cut, src, RectF(dst.left + 10f, dst.top + 14f, dst.right + 10f, dst.bottom + 14f), sh)
         val n = c.saveLayer(dst.left, dst.top, dst.right, dst.bottom, null)
-        c.drawBitmap(cut, null, dst, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
-        val mask = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN); shader = LinearGradient(0f, dst.bottom - dh * 0.12f, 0f, dst.bottom, 0xFFFFFFFF.toInt(), 0x00FFFFFF, Shader.TileMode.CLAMP) }
+        c.drawBitmap(cut, src, dst, Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        val mask = Paint().apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.DST_IN); shader = LinearGradient(0f, dst.bottom - dh * 0.18f, 0f, dst.bottom, 0xFFFFFFFF.toInt(), 0x00FFFFFF, Shader.TileMode.CLAMP) }
         c.drawRect(dst, mask); c.restoreToCount(n)
     } else if (photo != null) {
         val n = c.saveLayer(px, py, px + ps, py + ps, null)
